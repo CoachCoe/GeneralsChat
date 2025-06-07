@@ -34,7 +34,7 @@ app.add_middleware(
 
 # Configuration from environment variables
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "google/flan-t5-base")
+MODEL_NAME = os.getenv("MODEL_NAME", "facebook/blenderbot-400M-distill")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -123,9 +123,10 @@ async def chat_endpoint(message: ChatMessage):
             json={
                 "inputs": full_prompt,
                 "parameters": {
-                    "temperature": 0.3,
-                    "max_length": 1000,
-                    "return_full_text": False
+                    "temperature": 0.7,
+                    "max_length": 200,
+                    "min_length": 50,
+                    "do_sample": True
                 }
             },
             timeout=60
