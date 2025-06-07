@@ -8,6 +8,6 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: MODEL_NAME
-        value: facebook/blenderbot-400M-distill
+        value: gpt2
       - key: HUGGINGFACE_API_KEY
         sync: false 
