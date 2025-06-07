@@ -63,7 +63,7 @@ How can I help you today?`
     try {
       // Use environment-aware API URL
       const apiUrl = import.meta.env.PROD 
-        ? 'https://shawncoe.github.io/GeneralsChat/api/chat'  // Production URL
+        ? 'https://generalschat.onrender.com/chat'  // Production URL (Render)
         : 'http://localhost:8000/chat';  // Development URL
 
       const response = await fetch(apiUrl, {

@@ -15,7 +15,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Local development
-        "https://shawncoe.github.io",  # GitHub Pages
+        "https://coachcoe.github.io",  # GitHub Pages
     ],
     allow_credentials=True,
     allow_methods=["*"],
