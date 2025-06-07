@@ -75,7 +75,8 @@ Be thorough, professional, and ensure compliance with school policies. Always pr
 
 If you need specific policy details that aren't provided, guide the user to check their school's specific handbook or contact their administrator."""
 
-class ChatMessage(BaseModel):
+# Define request/response models
+class ChatRequest(BaseModel):
     message: str
 
 class ChatResponse(BaseModel):
