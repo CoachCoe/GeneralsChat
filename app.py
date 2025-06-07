@@ -7,6 +7,11 @@ from pydantic import BaseModel
 import requests
 import json
 import uvicorn
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="School Discipline Chatbot API")
 
@@ -22,9 +27,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configuration
-OLLAMA_URL = "http://localhost:11434"
-MODEL_NAME = "llama3:latest"  # Updated to match available model
+# Configuration from environment variables
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+MODEL_NAME = os.getenv("MODEL_NAME", "llama3:latest")
+PORT = int(os.getenv("PORT", "8000"))
 
 # System prompt for school discipline procedures
 SYSTEM_PROMPT = """You are a helpful assistant specialized in guiding school personnel through discipline incident procedures. 
@@ -131,7 +137,7 @@ async def list_models():
 
 if __name__ == "__main__":
     print("🏫 Starting School Discipline Chatbot Backend...")
-    print(f"📡 Backend will run on: http://localhost:8000")
+    print(f"📡 Backend will run on: http://localhost:{PORT}")
     print(f"🤖 Ollama expected at: {OLLAMA_URL}")
     print(f"📝 Using model: {MODEL_NAME}")
     print("\nMake sure you have:")
@@ -139,4 +145,4 @@ if __name__ == "__main__":
     print(f"2. The model '{MODEL_NAME}' downloaded")
     print("3. Open the HTML file in your browser")
     
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
