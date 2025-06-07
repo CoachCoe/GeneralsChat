@@ -34,7 +34,7 @@ app.add_middleware(
 
 # Configuration from environment variables
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.2")
+MODEL_NAME = os.getenv("MODEL_NAME", "google/flan-t5-base")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -124,8 +124,7 @@ async def chat_endpoint(message: ChatMessage):
                 "inputs": full_prompt,
                 "parameters": {
                     "temperature": 0.3,
-                    "top_p": 0.9,
-                    "max_new_tokens": 1000,
+                    "max_length": 1000,
                     "return_full_text": False
                 }
             },

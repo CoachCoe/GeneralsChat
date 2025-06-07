@@ -8,6 +8,6 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: MODEL_NAME
-        value: mistralai/Mistral-7B-Instruct-v0.2
+        value: google/flan-t5-base
       - key: HUGGINGFACE_API_KEY
         sync: false 
