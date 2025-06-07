@@ -88,6 +88,7 @@ async def health_check():
 async def chat_endpoint(message: ChatMessage):
     """Main chat endpoint"""
     if not HUGGINGFACE_API_KEY:
+        print("Error: HUGGINGFACE_API_KEY is not set")
         raise HTTPException(
             status_code=500,
             detail="HUGGINGFACE_API_KEY environment variable is not set"
@@ -99,6 +100,7 @@ async def chat_endpoint(message: ChatMessage):
         
         # Call Hugging Face API
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+        print(f"Calling Hugging Face API with model: {MODEL_NAME}")
         response = requests.post(
             f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
             headers=headers,
@@ -115,6 +117,8 @@ async def chat_endpoint(message: ChatMessage):
         )
         
         if response.status_code != 200:
+            print(f"Error from Hugging Face API: {response.status_code}")
+            print(f"Response text: {response.text}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Error from Hugging Face API: {response.text}"
@@ -124,16 +128,19 @@ async def chat_endpoint(message: ChatMessage):
         if isinstance(response_data, list) and len(response_data) > 0:
             bot_response = response_data[0].get("generated_text", "Sorry, I couldn't generate a response.")
         else:
+            print(f"Unexpected response format: {response_data}")
             bot_response = "Sorry, I couldn't generate a response."
         
         return ChatResponse(response=bot_response)
         
     except requests.exceptions.RequestException as e:
+        print(f"Request exception: {str(e)}")
         raise HTTPException(
             status_code=503,
             detail=f"Unable to connect to Hugging Face API: {str(e)}"
         )
     except Exception as e:
+        print(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/models")
