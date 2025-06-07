@@ -126,11 +126,22 @@ async def chat(request: ChatRequest):
         You help with discipline issues and provide guidance based on school policies.
         Please respond to the following question: {request.message} [/INST]"""
         
-        # Make the request to Hugging Face
+        # Make the request to Hugging Face inference endpoint
         response = requests.post(
-            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
+            "https://api-inference.huggingface.co/pipeline/text-generation",
             headers=headers,
-            json={"inputs": prompt, "parameters": {"max_length": 500, "temperature": 0.7}}
+            json={
+                "model": MODEL_NAME,
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": 500,
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "repetition_penalty": 1.1,
+                    "do_sample": True,
+                    "return_full_text": False
+                }
+            }
         )
         
         print(f"Hugging Face API response status: {response.status_code}")
