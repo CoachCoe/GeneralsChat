@@ -110,7 +110,7 @@ How can I help you today?`
         }}
       >
         <Box sx={{ 
-          p: 3, 
+          p: { xs: 2, sm: 3 }, 
           borderBottom: 1, 
           borderColor: 'divider',
           background: theme.palette.primary.main,
@@ -121,13 +121,17 @@ How can I help you today?`
           alignItems: 'center',
           justifyContent: 'center',
           gap: 2,
+          flexDirection: { xs: 'column', sm: 'row' },
         }}>
           <img 
             src={logo} 
             alt="SAU 24 Logo" 
             style={{ 
-              height: '60px',
+              height: '40px',
               width: 'auto',
+              [theme.breakpoints.up('sm')]: {
+                height: '60px',
+              }
             }} 
           />
           <Box>
@@ -138,6 +142,7 @@ How can I help you today?`
                 fontWeight: 700,
                 letterSpacing: '0.5px',
                 mb: 1,
+                fontSize: { xs: '1.5rem', sm: '2rem' },
               }}
             >
               Ask the General
@@ -147,6 +152,7 @@ How can I help you today?`
               sx={{ 
                 opacity: 0.9,
                 fontWeight: 500,
+                fontSize: { xs: '0.9rem', sm: '1.1rem' },
               }}
             >
               Your School Discipline Assistant
@@ -157,24 +163,24 @@ How can I help you today?`
         <List sx={{ 
           flex: 1, 
           overflow: 'auto', 
-          p: 2,
+          p: { xs: 1, sm: 2 },
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          gap: 1,
         }}>
           {messages.map((message, index) => (
             <ListItem
               key={index}
               sx={{
                 justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-                px: 2,
+                px: { xs: 1, sm: 2 },
               }}
             >
               <Paper
                 elevation={1}
                 sx={{
-                  p: 2,
-                  maxWidth: '80%',
+                  p: { xs: 1.5, sm: 2 },
+                  maxWidth: { xs: '90%', sm: '80%' },
                   backgroundColor: message.sender === 'user' 
                     ? theme.palette.primary.main 
                     : theme.palette.background.paper,
@@ -187,6 +193,7 @@ How can I help you today?`
                   sx={{ 
                     '& .MuiListItemText-primary': {
                       whiteSpace: 'pre-wrap',
+                      fontSize: { xs: '0.9rem', sm: '1rem' },
                     }
                   }}
                 />
@@ -247,7 +254,7 @@ How can I help you today?`
         </Box>
 
         <Box sx={{ 
-          p: 2, 
+          p: { xs: 1.5, sm: 2 }, 
           borderTop: 1, 
           borderColor: 'divider',
           backgroundColor: theme.palette.primary.main,
@@ -266,6 +273,7 @@ How can I help you today?`
               target="_blank" 
               rel="noopener noreferrer"
               color="inherit"
+              sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}
             >
               <FacebookIcon />
             </Link>
@@ -274,6 +282,7 @@ How can I help you today?`
               target="_blank" 
               rel="noopener noreferrer"
               color="inherit"
+              sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}
             >
               <TwitterIcon />
             </Link>
@@ -282,6 +291,7 @@ How can I help you today?`
               target="_blank" 
               rel="noopener noreferrer"
               color="inherit"
+              sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}
             >
               <InstagramIcon />
             </Link>
@@ -289,7 +299,10 @@ How can I help you today?`
           <Typography 
             variant="body2" 
             align="center" 
-            sx={{ opacity: 0.8 }}
+            sx={{ 
+              opacity: 0.8,
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+            }}
           >
             © {new Date().getFullYear()} SAU 24. All Rights Reserved.
           </Typography>
