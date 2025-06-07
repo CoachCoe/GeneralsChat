@@ -105,69 +105,79 @@ async def health_check():
         logger.error(f"Request exception in health check: {str(e)}")
         return {"status": "partial", "huggingface": "disconnected"}
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(message: ChatMessage):
-    """Main chat endpoint"""
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    """Chat endpoint that uses Hugging Face API"""
     try:
         if not HUGGINGFACE_API_KEY:
-            logger.error("HUGGINGFACE_API_KEY is not set")
-            raise HTTPException(
-                status_code=500,
-                detail="HUGGINGFACE_API_KEY environment variable is not set"
-            )
-
-        # Prepare the prompt with system context
-        full_prompt = f"{SYSTEM_PROMPT}\n\nUser: {message.message}\n\nAssistant:"
+            raise HTTPException(status_code=500, detail="HUGGINGFACE_API_KEY is not set")
+            
+        print(f"Calling Hugging Face API with model: {MODEL_NAME}")
         
-        # Call Hugging Face API
-        headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
-        logger.info(f"Calling Hugging Face API with model: {MODEL_NAME}")
+        # Prepare the request to Hugging Face
+        headers = {
+            "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
+            "Content-Type": "application/json"
+        }
         
-        # Use the pipeline endpoint with Mistral-specific parameters
+        # Format the prompt for the model
+        prompt = f"""<s>[INST] You are a helpful AI assistant for school administrators. 
+        You help with discipline issues and provide guidance based on school policies.
+        Please respond to the following question: {request.message} [/INST]"""
+        
+        # Make the request to Hugging Face
         response = requests.post(
-            "https://api-inference.huggingface.co/pipeline/text-generation",
+            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
             headers=headers,
-            json={
-                "model": MODEL_NAME,
-                "inputs": full_prompt,
-                "parameters": {
-                    "max_new_tokens": 500,
-                    "temperature": 0.7,
-                    "top_p": 0.95,
-                    "repetition_penalty": 1.1,
-                    "do_sample": True,
-                    "return_full_text": False
-                }
-            },
-            timeout=60
+            json={"inputs": prompt, "parameters": {"max_length": 500, "temperature": 0.7}}
         )
         
-        if response.status_code != 200:
-            logger.error(f"Error from Hugging Face API: {response.status_code}")
-            logger.error(f"Response text: {response.text}")
+        print(f"Hugging Face API response status: {response.status_code}")
+        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars
+        
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Model {MODEL_NAME} not found. Please check the model name and try again."
+            )
+        elif response.status_code != 200:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error from Hugging Face API: {response.text}"
             )
-        
-        response_data = response.json()
-        if isinstance(response_data, list) and len(response_data) > 0:
-            bot_response = response_data[0].get("generated_text", "Sorry, I couldn't generate a response.")
-        else:
-            logger.error(f"Unexpected response format: {response_data}")
-            bot_response = "Sorry, I couldn't generate a response."
-        
-        return ChatResponse(response=bot_response)
-        
+            
+        try:
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                generated_text = result[0].get("generated_text", "")
+                # Extract the response after the prompt
+                response_text = generated_text.split("[/INST]")[-1].strip()
+                return {"response": response_text}
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Unexpected response format from Hugging Face API"
+                )
+        except ValueError as e:
+            print(f"Error parsing JSON response: {str(e)}")
+            print(f"Raw response: {response.text}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error parsing response from Hugging Face API"
+            )
+            
     except requests.exceptions.RequestException as e:
-        logger.error(f"Request exception: {str(e)}")
+        print(f"Request error: {str(e)}")
         raise HTTPException(
-            status_code=503,
-            detail=f"Unable to connect to Hugging Face API: {str(e)}"
+            status_code=500,
+            detail=f"Error making request to Hugging Face API: {str(e)}"
         )
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Unexpected error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error: {str(e)}"
+        )
 
 @app.get("/models")
 async def list_models():
