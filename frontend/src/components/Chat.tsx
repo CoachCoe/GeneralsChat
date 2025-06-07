@@ -11,8 +11,14 @@ import {
   ListItemText,
   CircularProgress,
   useTheme,
+  Link,
+  Stack,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import FacebookIcon from '@mui/icons-material/Facebook';
+import TwitterIcon from '@mui/icons-material/Twitter';
+import InstagramIcon from '@mui/icons-material/Instagram';
+import logo from '/SAU_24_logo.png';
 
 interface Message {
   text: string;
@@ -111,27 +117,41 @@ How can I help you today?`
           color: 'white',
           borderRadius: '12px 12px 0 0',
           textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 2,
         }}>
-          <Typography 
-            variant="h4" 
-            component="h1" 
-            sx={{ 
-              fontWeight: 700,
-              letterSpacing: '0.5px',
-              mb: 1,
-            }}
-          >
-            Ask the General
-          </Typography>
-          <Typography 
-            variant="subtitle1" 
-            sx={{ 
-              opacity: 0.9,
-              fontWeight: 500,
-            }}
-          >
-            Your School Discipline Assistant
-          </Typography>
+          <img 
+            src={logo} 
+            alt="SAU 24 Logo" 
+            style={{ 
+              height: '60px',
+              width: 'auto',
+            }} 
+          />
+          <Box>
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              sx={{ 
+                fontWeight: 700,
+                letterSpacing: '0.5px',
+                mb: 1,
+              }}
+            >
+              Ask the General
+            </Typography>
+            <Typography 
+              variant="subtitle1" 
+              sx={{ 
+                opacity: 0.9,
+                fontWeight: 500,
+              }}
+            >
+              Your School Discipline Assistant
+            </Typography>
+          </Box>
         </Box>
 
         <List sx={{ 
@@ -224,6 +244,55 @@ How can I help you today?`
               <SendIcon />
             </Button>
           </Box>
+        </Box>
+
+        <Box sx={{ 
+          p: 2, 
+          borderTop: 1, 
+          borderColor: 'divider',
+          backgroundColor: theme.palette.primary.main,
+          color: 'white',
+          borderRadius: '0 0 12px 12px',
+        }}>
+          <Stack 
+            direction="row" 
+            spacing={2} 
+            justifyContent="center" 
+            alignItems="center"
+            sx={{ mb: 1 }}
+          >
+            <Link 
+              href="https://www.facebook.com/SAU24" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              color="inherit"
+            >
+              <FacebookIcon />
+            </Link>
+            <Link 
+              href="https://twitter.com/SAU24" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              color="inherit"
+            >
+              <TwitterIcon />
+            </Link>
+            <Link 
+              href="https://www.instagram.com/sau24" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              color="inherit"
+            >
+              <InstagramIcon />
+            </Link>
+          </Stack>
+          <Typography 
+            variant="body2" 
+            align="center" 
+            sx={{ opacity: 0.8 }}
+          >
+            © {new Date().getFullYear()} SAU 24. All Rights Reserved.
+          </Typography>
         </Box>
       </Paper>
     </Container>
