@@ -44,11 +44,11 @@ export function Chat() {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { text: userMessage, sender: 'user' }]);
+    setMessages(prev => [...prev, { sender: 'user', text: userMessage }]);
     setIsLoading(true);
 
     try {
@@ -66,26 +66,19 @@ export function Chat() {
       });
 
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error('Failed to get response');
       }
 
       const data = await response.json();
-      setMessages(prev => [...prev, { text: data.response, sender: 'bot' }]);
+      setMessages(prev => [...prev, { sender: 'bot', text: data.response }]);
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, { 
-        text: 'Sorry, I encountered an error. Please try again.', 
-        sender: 'bot' 
+        sender: 'bot', 
+        text: 'Sorry, I encountered an error. Please try again.' 
       }]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleKeyPress = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      handleSend();
     }
   };
 
