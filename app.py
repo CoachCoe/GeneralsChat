@@ -66,11 +66,6 @@ class ChatMessage(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
-@app.get("/")
-async def root():
-    """Root endpoint that serves the main HTML page"""
-    return FileResponse("static/index.html")
-
 @app.get("/health")
 async def health_check():
     """Check if the server and Hugging Face API are accessible"""
