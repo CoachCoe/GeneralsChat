@@ -34,7 +34,7 @@ app.add_middleware(
 
 # Configuration from environment variables
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.2")
+MODEL_NAME = os.getenv("MODEL_NAME", "mistralai/Mistral-7B-v0.1")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
