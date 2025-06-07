@@ -175,6 +175,51 @@ async def list_models():
     except requests.exceptions.RequestException:
         raise HTTPException(status_code=503, detail="Unable to connect to Hugging Face")
 
+@app.get("/test-huggingface")
+async def test_huggingface():
+    """Test endpoint to verify Hugging Face API connection"""
+    try:
+        if not HUGGINGFACE_API_KEY:
+            logger.error("HUGGINGFACE_API_KEY is not set")
+            return {"status": "error", "message": "HUGGINGFACE_API_KEY is not set"}
+            
+        # Test Hugging Face API connection with a simple model
+        headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+        logger.info("Testing Hugging Face API connection...")
+        
+        # First, try the status endpoint
+        status_response = requests.get(
+            "https://api-inference.huggingface.co/status",
+            headers=headers,
+            timeout=5
+        )
+        logger.info(f"Status endpoint response: {status_response.status_code}")
+        logger.info(f"Status response text: {status_response.text}")
+        
+        # Then try a simple model endpoint
+        model_response = requests.get(
+            "https://api-inference.huggingface.co/models/gpt2",
+            headers=headers,
+            timeout=5
+        )
+        logger.info(f"Model endpoint response: {model_response.status_code}")
+        logger.info(f"Model response text: {model_response.text}")
+        
+        return {
+            "status": "success",
+            "status_endpoint": {
+                "code": status_response.status_code,
+                "text": status_response.text
+            },
+            "model_endpoint": {
+                "code": model_response.status_code,
+                "text": model_response.text
+            }
+        }
+    except Exception as e:
+        logger.error(f"Test endpoint error: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 if __name__ == "__main__":
     logger.info("🏫 Starting School Discipline Chatbot Backend...")
     logger.info(f"📡 Backend will run on: http://localhost:{PORT}")
