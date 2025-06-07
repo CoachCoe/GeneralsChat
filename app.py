@@ -196,41 +196,34 @@ async def test_huggingface():
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         logger.info("Testing Hugging Face API connection...")
         
-        # First, try the status endpoint
-        status_response = requests.get(
-            "https://api-inference.huggingface.co/status",
+        # First, try the models endpoint to verify API key
+        models_response = requests.get(
+            "https://api-inference.huggingface.co/models",
             headers=headers,
             timeout=5
         )
-        logger.info(f"Status endpoint response: {status_response.status_code}")
-        logger.info(f"Status response text: {status_response.text}")
+        logger.info(f"Models endpoint response: {models_response.status_code}")
+        logger.info(f"Models response text: {models_response.text}")
         
-        # Then try the pipeline endpoint
-        pipeline_response = requests.post(
-            "https://api-inference.huggingface.co/pipeline/text-generation",
+        # Then try a simple model endpoint
+        model_response = requests.get(
+            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
             headers=headers,
-            json={
-                "model": MODEL_NAME,
-                "inputs": "Hello, how are you?",
-                "parameters": {
-                    "max_length": 50,
-                    "num_return_sequences": 1
-                }
-            },
-            timeout=10
+            timeout=5
         )
-        logger.info(f"Pipeline endpoint response: {pipeline_response.status_code}")
-        logger.info(f"Pipeline response text: {pipeline_response.text}")
+        logger.info(f"Model endpoint response: {model_response.status_code}")
+        logger.info(f"Model response text: {model_response.text}")
         
         return {
             "status": "success",
-            "status_endpoint": {
-                "code": status_response.status_code,
-                "text": status_response.text
+            "api_key_status": "present" if HUGGINGFACE_API_KEY else "missing",
+            "models_endpoint": {
+                "code": models_response.status_code,
+                "text": models_response.text
             },
-            "pipeline_endpoint": {
-                "code": pipeline_response.status_code,
-                "text": pipeline_response.text
+            "model_endpoint": {
+                "code": model_response.status_code,
+                "text": model_response.text
             }
         }
     except Exception as e:
