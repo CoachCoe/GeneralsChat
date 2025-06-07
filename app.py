@@ -117,10 +117,12 @@ async def chat_endpoint(message: ChatMessage):
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         logger.info(f"Calling Hugging Face API with model: {MODEL_NAME}")
         
+        # Use the pipeline endpoint instead of direct model access
         response = requests.post(
-            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
+            "https://api-inference.huggingface.co/pipeline/text-generation",
             headers=headers,
             json={
+                "model": MODEL_NAME,
                 "inputs": full_prompt,
                 "parameters": {
                     "max_length": 150,
@@ -196,14 +198,22 @@ async def test_huggingface():
         logger.info(f"Status endpoint response: {status_response.status_code}")
         logger.info(f"Status response text: {status_response.text}")
         
-        # Then try a simple model endpoint
-        model_response = requests.get(
-            "https://api-inference.huggingface.co/models/gpt2",
+        # Then try the pipeline endpoint
+        pipeline_response = requests.post(
+            "https://api-inference.huggingface.co/pipeline/text-generation",
             headers=headers,
-            timeout=5
+            json={
+                "model": MODEL_NAME,
+                "inputs": "Hello, how are you?",
+                "parameters": {
+                    "max_length": 50,
+                    "num_return_sequences": 1
+                }
+            },
+            timeout=10
         )
-        logger.info(f"Model endpoint response: {model_response.status_code}")
-        logger.info(f"Model response text: {model_response.text}")
+        logger.info(f"Pipeline endpoint response: {pipeline_response.status_code}")
+        logger.info(f"Pipeline response text: {pipeline_response.text}")
         
         return {
             "status": "success",
@@ -211,9 +221,9 @@ async def test_huggingface():
                 "code": status_response.status_code,
                 "text": status_response.text
             },
-            "model_endpoint": {
-                "code": model_response.status_code,
-                "text": model_response.text
+            "pipeline_endpoint": {
+                "code": pipeline_response.status_code,
+                "text": pipeline_response.text
             }
         }
     except Exception as e:
