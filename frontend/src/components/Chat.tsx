@@ -6,22 +6,16 @@ import {
   Button,
   Typography,
   Paper,
-  List,
-  ListItem,
-  ListItemText,
-  CircularProgress,
   useTheme,
   Link,
   Stack,
   IconButton,
   Modal,
 } from '@mui/material';
-import SendIcon from '@mui/icons-material/Send';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import MenuIcon from '@mui/icons-material/Menu';
-import logo from '/SAU_24_logo.png';
 
 interface Message {
   text: string;
@@ -32,14 +26,7 @@ export function Chat() {
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'bot',
-      text: `Hello! I'm your School Discipline Assistant. I can help you with:
-• Reporting and documenting discipline incidents
-• Guiding you through required forms and procedures
-• Ensuring proper timelines are followed
-• Identifying who needs to be notified
-• Providing step-by-step guidance
-
-How can I help you today?`
+      text: `How can I help you today?`
     }
   ]);
   const [input, setInput] = useState('');
