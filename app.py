@@ -34,7 +34,7 @@ app.add_middleware(
 
 # Configuration from environment variables
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt2")
+MODEL_NAME = os.getenv("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.2")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -117,7 +117,7 @@ async def chat_endpoint(message: ChatMessage):
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         logger.info(f"Calling Hugging Face API with model: {MODEL_NAME}")
         
-        # Use the pipeline endpoint instead of direct model access
+        # Use the pipeline endpoint with Mistral-specific parameters
         response = requests.post(
             "https://api-inference.huggingface.co/pipeline/text-generation",
             headers=headers,
@@ -125,11 +125,12 @@ async def chat_endpoint(message: ChatMessage):
                 "model": MODEL_NAME,
                 "inputs": full_prompt,
                 "parameters": {
-                    "max_length": 150,
-                    "num_return_sequences": 1,
+                    "max_new_tokens": 500,
                     "temperature": 0.7,
-                    "top_p": 0.9,
-                    "do_sample": True
+                    "top_p": 0.95,
+                    "repetition_penalty": 1.1,
+                    "do_sample": True,
+                    "return_full_text": False
                 }
             },
             timeout=60
