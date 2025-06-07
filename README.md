@@ -1,75 +1,93 @@
-# School Discipline Chatbot
+# Ask the General
 
-A web-based chatbot designed to assist school personnel with discipline incident procedures. The chatbot helps with reporting incidents, following proper procedures, and ensuring compliance with school policies.
+A modern chat interface for interacting with an AI assistant trained on school discipline procedures.
 
 ## Features
 
-- Interactive chat interface
-- Real-time responses using Ollama's LLM
-- Step-by-step guidance for discipline procedures
-- Documentation assistance
-- Timeline management
-- Notification requirements
-
-## Tech Stack
-
-### Current Version
-- Backend: FastAPI (Python)
-- Frontend: Vanilla JavaScript/HTML/CSS
-- LLM: Ollama with llama3 model
-
-### Planned Upgrades
-- Frontend: React with TypeScript
-- State Management: React Context or Redux
-- UI Framework: Material-UI or Tailwind CSS
-- Testing: Jest and React Testing Library
-
-## Setup Instructions
-
-1. Clone the repository:
-```bash
-git clone https://github.com/CoachCoe/GeneralsChat.git
-cd GeneralsChat
-```
-
-2. Install Python dependencies:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-3. Install and run Ollama:
-- Download from [Ollama's website](https://ollama.ai)
-- Run Ollama
-- Pull the required model:
-```bash
-ollama pull llama3:latest
-```
-
-4. Run the backend:
-```bash
-python app.py
-```
-
-5. Access the application:
-- Development: http://localhost:8000
-- Production: https://coachcoe.github.io/GeneralsChat
+- 🤖 AI-powered responses using Ollama
+- 💬 Real-time chat interface
+- 🎨 Modern UI with Material-UI
+- 📱 Responsive design
+- 🔄 Real-time updates
 
 ## Development
 
-### Backend Development
-The FastAPI backend provides:
-- `/chat` endpoint for chat interactions
-- `/health` endpoint for system status
-- `/models` endpoint for available LLM models
+### Prerequisites
 
-### Frontend Development
-The current frontend is built with vanilla JavaScript. Future development will use React for:
-- Better state management
-- Component reusability
-- Improved performance
-- Better developer experience
+- Python 3.11+
+- Node.js 18+
+- Ollama installed and running
+- Just command runner (`brew install just` on macOS)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/shawncoe/GeneralsChat.git
+   cd GeneralsChat
+   ```
+
+2. Install dependencies:
+   ```bash
+   just install
+   ```
+
+3. Make sure Ollama is running and the model is downloaded:
+   ```bash
+   ollama pull llama3:latest
+   ```
+
+### Running the Application
+
+The project uses Just for task management. Here are the available commands:
+
+- `just` - List all available commands
+- `just backend` - Run the backend server
+- `just frontend` - Run the frontend development server
+- `just dev` - Run both servers concurrently
+- `just kill` - Kill all running servers
+- `just install` - Install all dependencies
+
+To start development:
+```bash
+just dev
+```
+
+The application will be available at:
+- Frontend: http://localhost:5173
+- Backend: http://localhost:8000
+
+## Deployment
+
+### Frontend (GitHub Pages)
+
+The frontend is automatically deployed to GitHub Pages when changes are pushed to the main branch. The deployment workflow:
+1. Builds the React application
+2. Deploys to GitHub Pages
+3. Available at: https://shawncoe.github.io/GeneralsChat/
+
+### Backend (Render)
+
+The backend is deployed to Render using GitHub Actions. To set up:
+1. Create a Render account
+2. Create a new Web Service
+3. Add your Render API key to GitHub repository secrets as `RENDER_API_KEY`
+4. Update the service ID in `.github/workflows/backend.yml`
+
+## Project Structure
+
+```
+GeneralsChat/
+├── frontend/           # React frontend
+│   ├── src/
+│   │   ├── components/ # React components
+│   │   └── ...
+│   └── ...
+├── .github/           # GitHub Actions workflows
+├── app.py            # FastAPI backend
+├── requirements.txt  # Python dependencies
+└── justfile         # Development commands
+```
 
 ## Contributing
 
@@ -81,4 +99,4 @@ The current frontend is built with vanilla JavaScript. Future development will u
 
 ## License
 
-MIT License - see LICENSE file for details 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

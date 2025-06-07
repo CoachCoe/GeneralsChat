@@ -3,8 +3,6 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import requests
 import json
@@ -12,17 +10,17 @@ import uvicorn
 
 app = FastAPI(title="School Discipline Chatbot API")
 
-# Enable CORS for local development
+# Enable CORS for local development and GitHub Pages
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",  # Local development
+        "https://shawncoe.github.io",  # GitHub Pages
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Configuration
 OLLAMA_URL = "http://localhost:11434"

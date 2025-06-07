@@ -1,22 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Box,
+  Container,
   TextField,
   Button,
-  Paper,
   Typography,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
   CircularProgress,
-  Container,
+  useTheme,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import axios from 'axios';
 
 interface Message {
   text: string;
   sender: 'user' | 'bot';
 }
 
-export const Chat = () => {
+export function Chat() {
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'bot',
@@ -27,12 +30,13 @@ export const Chat = () => {
 • Identifying who needs to be notified
 • Providing step-by-step guidance
 
-How can I help you today?`,
-    },
+How can I help you today?`
+    }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -47,25 +51,35 @@ How can I help you today?`,
 
     const userMessage = input.trim();
     setInput('');
-    setMessages((prev) => [...prev, { text: userMessage, sender: 'user' }]);
+    setMessages(prev => [...prev, { text: userMessage, sender: 'user' }]);
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:8000/chat', {
-        message: userMessage,
-      });
-      setMessages((prev) => [
-        ...prev,
-        { text: response.data.response, sender: 'bot' },
-      ]);
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: 'Sorry, there was an error processing your request. Please try again.',
-          sender: 'bot',
+      // Use environment-aware API URL
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://shawncoe.github.io/GeneralsChat/api/chat'  // Production URL
+        : 'http://localhost:8000/chat';  // Development URL
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      ]);
+        body: JSON.stringify({ message: userMessage }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { text: data.response, sender: 'bot' }]);
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [...prev, { 
+        text: 'Sorry, I encountered an error. Please try again.', 
+        sender: 'bot' 
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -79,74 +93,139 @@ How can I help you today?`,
   };
 
   return (
-    <Container maxWidth="md" sx={{ height: '100vh', display: 'flex', flexDirection: 'column', py: 2 }}>
-      <Typography variant="h4" component="h1" gutterBottom align="center">
-        School Discipline Chatbot
-      </Typography>
-      
-      <Paper
-        elevation={3}
-        sx={{
-          flexGrow: 1,
-          mb: 2,
+    <Container maxWidth="md" sx={{ height: '100vh', py: 4 }}>
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.default} 100%)`,
+        }}
+      >
+        <Box sx={{ 
+          p: 3, 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          background: theme.palette.primary.main,
+          color: 'white',
+          borderRadius: '12px 12px 0 0',
+          textAlign: 'center',
+        }}>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 700,
+              letterSpacing: '0.5px',
+              mb: 1,
+            }}
+          >
+            Ask the General
+          </Typography>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ 
+              opacity: 0.9,
+              fontWeight: 500,
+            }}
+          >
+            Your School Discipline Assistant
+          </Typography>
+        </Box>
+
+        <List sx={{ 
+          flex: 1, 
+          overflow: 'auto', 
           p: 2,
-          overflow: 'auto',
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
-        }}
-      >
-        {messages.map((message, index) => (
-          <Box
-            key={index}
-            sx={{
-              display: 'flex',
-              justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-            }}
-          >
-            <Paper
-              elevation={1}
+        }}>
+          {messages.map((message, index) => (
+            <ListItem
+              key={index}
               sx={{
-                p: 2,
-                maxWidth: '70%',
-                backgroundColor: message.sender === 'user' ? 'primary.main' : 'grey.100',
-                color: message.sender === 'user' ? 'white' : 'text.primary',
-                whiteSpace: 'pre-wrap',
+                justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                px: 2,
               }}
             >
-              <Typography>{message.text}</Typography>
-            </Paper>
-          </Box>
-        ))}
-        {isLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <CircularProgress size={20} />
-          </Box>
-        )}
-        <div ref={messagesEndRef} />
-      </Paper>
+              <Paper
+                elevation={1}
+                sx={{
+                  p: 2,
+                  maxWidth: '80%',
+                  backgroundColor: message.sender === 'user' 
+                    ? theme.palette.primary.main 
+                    : theme.palette.background.paper,
+                  color: message.sender === 'user' ? 'white' : 'text.primary',
+                  borderRadius: 2,
+                }}
+              >
+                <ListItemText 
+                  primary={message.text} 
+                  sx={{ 
+                    '& .MuiListItemText-primary': {
+                      whiteSpace: 'pre-wrap',
+                    }
+                  }}
+                />
+              </Paper>
+            </ListItem>
+          ))}
+          {isLoading && (
+            <ListItem sx={{ justifyContent: 'flex-start', px: 2 }}>
+              <Paper
+                elevation={1}
+                sx={{
+                  p: 2,
+                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                <CircularProgress size={20} />
+                <Typography>Thinking...</Typography>
+              </Paper>
+            </ListItem>
+          )}
+          <div ref={messagesEndRef} />
+        </List>
 
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <TextField
-          fullWidth
-          multiline
-          maxRows={4}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Type your message here..."
-          disabled={isLoading}
-          sx={{ backgroundColor: 'white' }}
-        />
-        <Button
-          variant="contained"
-          endIcon={<SendIcon />}
-          onClick={handleSend}
-          disabled={isLoading || !input.trim()}
-        >
-          Send
-        </Button>
-      </Box>
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Type your message..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={isLoading}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
+              }}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSend}
+              disabled={isLoading || !input.trim()}
+              sx={{
+                minWidth: '48px',
+                height: '48px',
+                borderRadius: 2,
+              }}
+            >
+              <SendIcon />
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
     </Container>
   );
-}; 
+} 
