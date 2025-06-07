@@ -16,6 +16,7 @@ import FacebookIcon from '@mui/icons-material/Facebook';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import MenuIcon from '@mui/icons-material/Menu';
+import logo from '/SAU_24_logo.png';
 
 interface Message {
   text: string;
@@ -111,7 +112,7 @@ export function Chat() {
         <Link href="https://www.sau24.org" target="_blank" rel="noopener noreferrer">
           <Box
             component="img"
-            src="/SAU_24_logo.png"
+            src={logo}
             alt="SAU 24 Logo"
             sx={{
               height: { xs: '40px', sm: '50px' },
