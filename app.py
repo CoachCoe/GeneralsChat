@@ -34,7 +34,7 @@ app.add_middleware(
 
 # Configuration from environment variables
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "mistralai/Mistral-7B-v0.1")
+MODEL_NAME = os.getenv("MODEL_NAME", "google/flan-t5-base")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -122,23 +122,19 @@ async def chat(request: ChatRequest):
         }
         
         # Format the prompt for the model
-        prompt = f"""<s>[INST] You are a helpful AI assistant for school administrators. 
+        prompt = f"""You are a helpful AI assistant for school administrators. 
         You help with discipline issues and provide guidance based on school policies.
-        Please respond to the following question: {request.message} [/INST]"""
+        Please respond to the following question: {request.message}"""
         
         # Make the request to Hugging Face inference endpoint
         response = requests.post(
-            "https://api-inference.huggingface.co/pipeline/text-generation",
+            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
             headers=headers,
             json={
-                "model": MODEL_NAME,
                 "inputs": prompt,
                 "parameters": {
-                    "max_new_tokens": 500,
+                    "max_length": 500,
                     "temperature": 0.7,
-                    "top_p": 0.95,
-                    "repetition_penalty": 1.1,
-                    "do_sample": True,
                     "return_full_text": False
                 }
             }
@@ -162,9 +158,7 @@ async def chat(request: ChatRequest):
             result = response.json()
             if isinstance(result, list) and len(result) > 0:
                 generated_text = result[0].get("generated_text", "")
-                # Extract the response after the prompt
-                response_text = generated_text.split("[/INST]")[-1].strip()
-                return {"response": response_text}
+                return {"response": generated_text}
             else:
                 raise HTTPException(
                     status_code=500,
