@@ -116,25 +116,12 @@ How can I help you today?`
           background: theme.palette.primary.main,
           color: 'white',
           borderRadius: '12px 12px 0 0',
-          textAlign: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 2,
-          flexDirection: { xs: 'column', sm: 'row' },
+          position: 'relative',
         }}>
-          <img 
-            src={logo} 
-            alt="SAU 24 Logo" 
-            style={{ 
-              height: '40px',
-              width: 'auto',
-              [theme.breakpoints.up('sm')]: {
-                height: '60px',
-              }
-            }} 
-          />
-          <Box>
+          <Box sx={{ 
+            textAlign: 'center',
+            mb: { xs: 2, sm: 0 },
+          }}>
             <Typography 
               variant="h4" 
               component="h1" 
@@ -158,6 +145,29 @@ How can I help you today?`
               Your School Discipline Assistant
             </Typography>
           </Box>
+          <Link 
+            href="https://www.sau24.org/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            sx={{ 
+              position: 'absolute',
+              top: { xs: 8, sm: 16 },
+              right: { xs: 8, sm: 16 },
+              display: 'block',
+            }}
+          >
+            <img 
+              src={logo} 
+              alt="SAU 24 Logo" 
+              style={{ 
+                height: '40px',
+                width: 'auto',
+                [theme.breakpoints.up('sm')]: {
+                  height: '60px',
+                }
+              }} 
+            />
+          </Link>
         </Box>
 
         <List sx={{ 
