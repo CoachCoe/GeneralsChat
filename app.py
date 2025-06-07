@@ -216,14 +216,14 @@ async def test_huggingface():
         }
         
         # First test the models endpoint
-        models_url = "https://api-inference.huggingface.co/models"
+        models_url = "https://huggingface.co/api/models"
         print(f"Testing models endpoint: {models_url}")
         models_response = requests.get(models_url, headers=headers)
         print(f"Models endpoint response status: {models_response.status_code}")
         print(f"Models response text: {models_response.text[:200]}...")  # Print first 200 chars
         
         # Then test the specific model endpoint
-        model_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
+        model_url = f"https://huggingface.co/api/models/{MODEL_NAME}"
         print(f"Testing model endpoint: {model_url}")
         model_response = requests.get(model_url, headers=headers)
         print(f"Model endpoint response status: {model_response.status_code}")
