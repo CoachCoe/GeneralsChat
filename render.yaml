@@ -7,7 +7,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: OLLAMA_URL
-        value: http://localhost:11434
       - key: MODEL_NAME
-        value: llama3:latest 
+        value: mistralai/Mistral-7B-Instruct-v0.2
+      - key: HUGGINGFACE_API_KEY
+        sync: false 

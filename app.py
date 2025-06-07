@@ -28,8 +28,8 @@ app.add_middleware(
 )
 
 # Configuration from environment variables
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-MODEL_NAME = os.getenv("MODEL_NAME", "llama3:latest")
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.2")
 PORT = int(os.getenv("PORT", "8000"))
 
 # System prompt for school discipline procedures
@@ -73,76 +73,96 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Check if the server and Ollama are running"""
+    """Check if the server and Hugging Face API are accessible"""
     try:
-        # Test Ollama connection
-        response = requests.get(f"{OLLAMA_URL}/api/tags", timeout=5)
+        # Test Hugging Face API connection
+        headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+        response = requests.get(
+            "https://api-inference.huggingface.co/status",
+            headers=headers,
+            timeout=5
+        )
         if response.status_code == 200:
-            return {"status": "healthy", "ollama": "connected"}
+            return {"status": "healthy", "huggingface": "connected"}
         else:
-            return {"status": "partial", "ollama": "disconnected"}
+            return {"status": "partial", "huggingface": "disconnected"}
     except requests.exceptions.RequestException:
-        return {"status": "partial", "ollama": "disconnected"}
+        return {"status": "partial", "huggingface": "disconnected"}
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(message: ChatMessage):
     """Main chat endpoint"""
+    if not HUGGINGFACE_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="HUGGINGFACE_API_KEY environment variable is not set"
+        )
+
     try:
         # Prepare the prompt with system context
         full_prompt = f"{SYSTEM_PROMPT}\n\nUser: {message.message}\n\nAssistant:"
         
-        # Call Ollama API
-        ollama_response = requests.post(
-            f"{OLLAMA_URL}/api/generate",
+        # Call Hugging Face API
+        headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+        response = requests.post(
+            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
+            headers=headers,
             json={
-                "model": MODEL_NAME,
-                "prompt": full_prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.3,  # Lower temperature for more consistent responses
+                "inputs": full_prompt,
+                "parameters": {
+                    "temperature": 0.3,
                     "top_p": 0.9,
-                    "max_tokens": 1000
+                    "max_new_tokens": 1000,
+                    "return_full_text": False
                 }
             },
             timeout=60
         )
         
-        if ollama_response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Error communicating with Ollama")
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error from Hugging Face API: {response.text}"
+            )
         
-        response_data = ollama_response.json()
-        bot_response = response_data.get("response", "Sorry, I couldn't generate a response.")
+        response_data = response.json()
+        if isinstance(response_data, list) and len(response_data) > 0:
+            bot_response = response_data[0].get("generated_text", "Sorry, I couldn't generate a response.")
+        else:
+            bot_response = "Sorry, I couldn't generate a response."
         
         return ChatResponse(response=bot_response)
         
     except requests.exceptions.RequestException as e:
         raise HTTPException(
-            status_code=503, 
-            detail=f"Unable to connect to Ollama. Make sure Ollama is running on {OLLAMA_URL}"
+            status_code=503,
+            detail=f"Unable to connect to Hugging Face API: {str(e)}"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/models")
 async def list_models():
-    """List available models in Ollama"""
+    """List available models in Hugging Face"""
     try:
-        response = requests.get(f"{OLLAMA_URL}/api/tags")
+        response = requests.get(
+            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
+            headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+        )
         if response.status_code == 200:
             return response.json()
         else:
-            raise HTTPException(status_code=500, detail="Error fetching models from Ollama")
+            raise HTTPException(status_code=500, detail="Error fetching models from Hugging Face")
     except requests.exceptions.RequestException:
-        raise HTTPException(status_code=503, detail="Unable to connect to Ollama")
+        raise HTTPException(status_code=503, detail="Unable to connect to Hugging Face")
 
 if __name__ == "__main__":
     print("🏫 Starting School Discipline Chatbot Backend...")
     print(f"📡 Backend will run on: http://localhost:{PORT}")
-    print(f"🤖 Ollama expected at: {OLLAMA_URL}")
-    print(f"📝 Using model: {MODEL_NAME}")
+    print(f"🤖 Using Hugging Face model: {MODEL_NAME}")
     print("\nMake sure you have:")
-    print("1. Ollama installed and running")
-    print(f"2. The model '{MODEL_NAME}' downloaded")
+    print("1. HUGGINGFACE_API_KEY environment variable set")
+    print("2. The model is available on Hugging Face")
     print("3. Open the HTML file in your browser")
     
     uvicorn.run(app, host="0.0.0.0", port=PORT)
