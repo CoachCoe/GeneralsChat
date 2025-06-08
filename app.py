@@ -163,23 +163,24 @@ async def test_huggingface():
         logger.info(f"Model info response status: {model_response.status_code}")
         logger.info(f"Model info response: {model_response.text[:200]}")
         
-        # Try the pipeline endpoint
-        pipeline_url = "https://api-inference.huggingface.co/pipeline/translation"
-        logger.info(f"Testing pipeline at: {pipeline_url}")
+        # Try direct model inference
+        inference_url = f"https://api-inference.huggingface.co/models/{test_model}"
+        logger.info(f"Testing inference at: {inference_url}")
+        
+        # Format input for T5 model
+        input_text = "translate English to French: Hello, how are you?"
         
         response = requests.post(
-            pipeline_url,
+            inference_url,
             headers=headers,
             json={
-                "model": test_model,
-                "inputs": "Hello, how are you?",
+                "inputs": input_text,
                 "parameters": {
                     "max_length": 50,
                     "min_length": 10,
                     "temperature": 0.7,
                     "top_p": 0.95,
-                    "do_sample": True,
-                    "return_full_text": False
+                    "do_sample": True
                 }
             },
             timeout=30
@@ -194,10 +195,11 @@ async def test_huggingface():
                 "status_code": model_response.status_code,
                 "response": model_response.text[:200] if model_response.status_code == 200 else model_response.text
             },
-            "pipeline_test": {
-                "url": pipeline_url,
+            "inference_test": {
+                "url": inference_url,
                 "status_code": response.status_code,
-                "response": response.text[:200] if response.status_code == 200 else response.text
+                "response": response.text[:200] if response.status_code == 200 else response.text,
+                "input": input_text
             }
         }
 
