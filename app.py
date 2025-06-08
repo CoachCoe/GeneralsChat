@@ -137,24 +137,54 @@ async def chat(request: ChatRequest):
             )
         
         # Make the request to Hugging Face inference endpoint
-        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
+        inference_url = "https://api-inference.huggingface.co/models/google/flan-t5-base"
         print(f"Making inference request to: {inference_url}")
-        response = requests.post(
-            inference_url,
-            headers=headers,
-            json={
-                "inputs": prompt,
-                "parameters": {
-                    "max_length": 500,
-                    "temperature": 0.7,
-                    "do_sample": True,
-                    "top_p": 0.95
-                }
-            }
-        )
         
-        print(f"Hugging Face API response status: {response.status_code}")
-        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars
+        # Try different request formats
+        try:
+            # First attempt: Simple format
+            response = requests.post(
+                inference_url,
+                headers=headers,
+                json={"inputs": prompt}
+            )
+            print(f"First attempt response status: {response.status_code}")
+            print(f"First attempt response: {response.text[:200]}...")
+            
+            if response.status_code != 200:
+                # Second attempt: With parameters
+                response = requests.post(
+                    inference_url,
+                    headers=headers,
+                    json={
+                        "inputs": prompt,
+                        "options": {
+                            "wait_for_model": True
+                        }
+                    }
+                )
+                print(f"Second attempt response status: {response.status_code}")
+                print(f"Second attempt response: {response.text[:200]}...")
+                
+                if response.status_code != 200:
+                    # Third attempt: Different format
+                    response = requests.post(
+                        inference_url,
+                        headers=headers,
+                        json={
+                            "text": prompt,
+                            "max_length": 500
+                        }
+                    )
+                    print(f"Third attempt response status: {response.status_code}")
+                    print(f"Third attempt response: {response.text[:200]}...")
+        
+        except requests.exceptions.RequestException as e:
+            print(f"Request error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error making request to Hugging Face API: {str(e)}"
+            )
         
         if response.status_code != 200:
             raise HTTPException(
@@ -167,6 +197,8 @@ async def chat(request: ChatRequest):
             if isinstance(result, list) and len(result) > 0:
                 generated_text = result[0].get("generated_text", "")
                 return {"response": generated_text}
+            elif isinstance(result, dict) and "generated_text" in result:
+                return {"response": result["generated_text"]}
             else:
                 raise HTTPException(
                     status_code=500,
