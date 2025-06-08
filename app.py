@@ -132,7 +132,7 @@ async def chat(request: ChatRequest):
 
 @app.get("/test-huggingface")
 async def test_huggingface():
-    """Test endpoint to verify Hugging Face API connection"""
+    """Test endpoint to verify Hugging Face API connection and model access"""
     try:
         if not API_KEY:
             logger.error("API key not set")
@@ -143,12 +143,20 @@ async def test_huggingface():
             "Content-Type": "application/json"
         }
 
-        # Test the model endpoint
-        test_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
-        logger.info(f"Testing URL: {test_url}")
+        # First, check if we can access the model info
+        model_info_url = f"https://huggingface.co/api/models/{MODEL_NAME}"
+        logger.info(f"Checking model info at: {model_info_url}")
         
-        response = requests.post(
-            test_url,
+        model_response = requests.get(model_info_url, headers=headers)
+        logger.info(f"Model info response status: {model_response.status_code}")
+        logger.info(f"Model info response: {model_response.text[:200]}")
+        
+        # Then test the inference endpoint
+        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
+        logger.info(f"Testing inference at: {inference_url}")
+        
+        inference_response = requests.post(
+            inference_url,
             headers=headers,
             json={"inputs": "Hello, how are you?"}
         )
@@ -158,9 +166,16 @@ async def test_huggingface():
             "api_key_status": "set" if API_KEY else "not_set",
             "api_key_length": len(API_KEY) if API_KEY else 0,
             "model_name": MODEL_NAME,
-            "test_url": test_url,
-            "response_status": response.status_code,
-            "response_text": response.text[:200] if response.status_code == 200 else response.text
+            "model_info": {
+                "url": model_info_url,
+                "status_code": model_response.status_code,
+                "response": model_response.text[:200] if model_response.status_code == 200 else model_response.text
+            },
+            "inference": {
+                "url": inference_url,
+                "status_code": inference_response.status_code,
+                "response": inference_response.text[:200] if inference_response.status_code == 200 else inference_response.text
+            }
         }
 
     except Exception as e:
