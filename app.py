@@ -142,7 +142,7 @@ async def test_huggingface():
         logger.info(f"Testing with model: {test_model}")
         
         # First, check if we can access the model info
-        model_info_url = f"https://huggingface.co/api/models/{test_model}"
+        model_info_url = f"https://api-inference.huggingface.co/models/{test_model}"
         logger.info(f"Checking model info at: {model_info_url}")
         
         model_response = requests.get(model_info_url, headers=headers, timeout=5)
@@ -160,11 +160,10 @@ async def test_huggingface():
         request_data = {
             "inputs": input_text,
             "parameters": {
-                "max_length": 100,
+                "max_new_tokens": 100,
                 "temperature": 0.7,
                 "top_p": 0.95,
-                "do_sample": True,
-                "return_full_text": False
+                "do_sample": True
             }
         }
         logger.info(f"Request data: {request_data}")
