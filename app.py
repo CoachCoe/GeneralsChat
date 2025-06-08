@@ -18,7 +18,7 @@ load_dotenv()
 
 # Get environment variables
 API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt2")
+MODEL_NAME = os.getenv("MODEL_NAME", "openai-community/gpt2")
 logger.info(f"Using model: {MODEL_NAME}")
 PORT = int(os.getenv("PORT", "8000"))
 
