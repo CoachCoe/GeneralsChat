@@ -17,11 +17,14 @@ import TwitterIcon from '@mui/icons-material/Twitter';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import MenuIcon from '@mui/icons-material/Menu';
 import logo from '/SAU_24_logo.png';
+import { AIService } from '../services/aiService';
 
 interface Message {
   text: string;
   sender: 'user' | 'bot';
 }
+
+const aiService = new AIService();
 
 export function Chat() {
   const [messages, setMessages] = useState<Message[]>([
@@ -53,25 +56,8 @@ export function Chat() {
     setIsLoading(true);
 
     try {
-      // Use environment-aware API URL
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://generalschat.onrender.com/chat'  // Production URL (Render)
-        : 'http://localhost:8000/chat';  // Development URL
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
-      const data = await response.json();
-      setMessages(prev => [...prev, { sender: 'bot', text: data.response }]);
+      const response = await aiService.getResponse(userMessage);
+      setMessages(prev => [...prev, { sender: 'bot', text: response }]);
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, { 
