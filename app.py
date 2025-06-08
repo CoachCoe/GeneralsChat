@@ -18,7 +18,7 @@ load_dotenv()
 
 # Get environment variables
 API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "facebook/opt-350m")
+MODEL_NAME = os.getenv("MODEL_NAME", "google/flan-t5-large")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -86,30 +86,30 @@ async def chat(request: ChatRequest):
             "Content-Type": "application/json"
         }
         
-        # Format the prompt for OPT model
+        # Format the prompt for T5 model
         prompt = f"""You are a helpful AI assistant for school administrators. 
         You help with discipline issues and provide guidance based on school policies.
         Please respond to the following question: {request.message}"""
         
-        # Make the request with OPT-specific parameters
+        # Make the request with T5-specific parameters
         inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
         logger.info(f"Making inference request to: {inference_url}")
         
         payload = {
             "inputs": prompt,
             "parameters": {
-                "max_new_tokens": 250,
+                "max_length": 250,
                 "temperature": 0.7,
                 "top_p": 0.95,
-                "do_sample": True,
-                "return_full_text": False
+                "do_sample": True
             }
         }
         
         response = requests.post(
             inference_url,
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=30  # Add timeout to prevent hanging
         )
         
         logger.info(f"Hugging Face API response status: {response.status_code}")
@@ -152,24 +152,18 @@ async def test_huggingface():
             "Content-Type": "application/json"
         }
 
-        # Test with Mistral Instruct model
-        test_model = "mistralai/Mistral-Small-24B-Instruct-2501"
+        # Test with the configured model
+        test_model = MODEL_NAME
         
         # First, check if we can access the model info
         model_info_url = f"https://huggingface.co/api/models/{test_model}"
         logger.info(f"Checking model info at: {model_info_url}")
         
-        model_response = requests.get(model_info_url, headers=headers)
+        model_response = requests.get(model_info_url, headers=headers, timeout=5)
         logger.info(f"Model info response status: {model_response.status_code}")
         logger.info(f"Model info response: {model_response.text[:200]}")
         
-        # System prompt as recommended by Mistral
-        system_prompt = """You are Mistral Small 3, a Large Language Model (LLM) created by Mistral AI, a French startup headquartered in Paris.
-Your knowledge base was last updated on 2023-10-01. The current date is 2025-01-30.
-When you're not sure about some information, you say that you don't have the information and don't make up anything.
-If the user's question is not clear, ambiguous, or does not provide enough context for you to accurately answer the question, you do not try to answer it right away and you rather ask the user to clarify their request (e.g. "What are some good restaurants around me?" => "Where are you?" or "When is the next flight to Tokyo" => "Where do you travel from?")"""
-        
-        # Try the inference API endpoint with recommended parameters
+        # Try the inference API endpoint
         inference_url = f"https://api-inference.huggingface.co/models/{test_model}"
         logger.info(f"Testing inference at: {inference_url}")
         
@@ -177,17 +171,15 @@ If the user's question is not clear, ambiguous, or does not provide enough conte
             inference_url,
             headers=headers,
             json={
-                "inputs": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Hello, how are you?"}
-                ],
+                "inputs": "Hello, how are you?",
                 "parameters": {
-                    "max_new_tokens": 50,
-                    "temperature": 0.15,  # Recommended low temperature
+                    "max_length": 50,
+                    "temperature": 0.7,
                     "top_p": 0.95,
                     "do_sample": True
                 }
-            }
+            },
+            timeout=30
         )
         
         return {
