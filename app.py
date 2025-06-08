@@ -156,22 +156,32 @@ async def test_huggingface():
         # Format input for conversation
         input_text = "You are a helpful AI assistant. Please respond to: Hello, how are you?"
         
+        # Log the full request details
+        request_data = {
+            "inputs": input_text,
+            "parameters": {
+                "max_length": 150,
+                "min_length": 10,
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "do_sample": True,
+                "return_full_text": False
+            }
+        }
+        logger.info(f"Request data: {request_data}")
+        logger.info(f"Request headers: {headers}")
+        
         response = requests.post(
             inference_url,
             headers=headers,
-            json={
-                "inputs": input_text,
-                "parameters": {
-                    "max_length": 150,
-                    "min_length": 10,
-                    "temperature": 0.7,
-                    "top_p": 0.95,
-                    "do_sample": True,
-                    "return_full_text": False
-                }
-            },
+            json=request_data,
             timeout=30
         )
+        
+        # Log the full response details
+        logger.info(f"Response status: {response.status_code}")
+        logger.info(f"Response headers: {dict(response.headers)}")
+        logger.info(f"Response text: {response.text}")
         
         return {
             "status": "test_complete",
@@ -187,7 +197,8 @@ async def test_huggingface():
                 "url": inference_url,
                 "status_code": response.status_code,
                 "response": response.text[:200] if response.status_code == 200 else response.text,
-                "input": input_text
+                "input": input_text,
+                "request_data": request_data
             }
         }
 
