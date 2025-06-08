@@ -3,8 +3,17 @@ services:
     name: generalschat-backend
     env: python
     buildCommand: |
-      apt-get update && apt-get install -y python3-pip
+      #!/bin/bash
+      set -e
+      
+      # Update and install pip
+      apt-get update
+      apt-get install -y python3-pip
+      
+      # Install Ollama
       curl -fsSL https://ollama.com/install.sh | sh
+      
+      # Install Python dependencies
       pip3 install -r requirements.txt
     startCommand: |
       ollama serve &
