@@ -19,6 +19,7 @@ load_dotenv()
 
 # Get environment variables
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_URL = f"{OLLAMA_HOST}/api/generate"
 MODEL_NAME = os.getenv("MODEL_NAME", "mistral")  # Default to mistral model
 PORT = int(os.getenv("PORT", "8000"))
 
@@ -33,6 +34,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Local development
+        "http://localhost:5174",  # Local development (alternate port)
         "https://coachcoe.github.io",  # GitHub Pages
     ],
     allow_credentials=True,
@@ -42,6 +44,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
+    systemPrompt: str | None = None
 
 @app.get("/")
 async def root():
@@ -71,15 +74,15 @@ async def chat(request: ChatRequest):
     try:
         if not request.message:
             return {"error": "No message provided"}
-            
-        # Format the prompt for conversation
-        prompt = f"""You are a helpful AI assistant for school administrators. 
-You help with discipline issues and provide guidance based on school policies.
-Please respond to the following question: {request.message}"""
         
-        # Make the API call to Ollama
+        # Use the provided system prompt or default
+        system_prompt = request.systemPrompt or """You are a helpful AI assistant for school administrators. \
+You help with discipline issues and provide guidance based on school policies."""
+        
+        prompt = f"{system_prompt}\nPlease respond to the following question: {request.message}"
+        
         response = requests.post(
-            f"{OLLAMA_HOST}/api/generate",
+            OLLAMA_URL,
             json={
                 "model": MODEL_NAME,
                 "prompt": prompt,
@@ -90,16 +93,14 @@ Please respond to the following question: {request.message}"""
                     "max_tokens": 500
                 }
             },
-            timeout=30
+            timeout=60
         )
-        
         if response.status_code == 200:
             result = response.json()
             return {"response": result.get("response", "No response generated")}
         else:
-            logger.error(f"API error: {response.status_code} - {response.text}")
-            return {"error": f"API error: {response.status_code}"}
-            
+            logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+            return {"error": f"Ollama API error: {response.status_code}"}
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         return {"error": str(e)}
@@ -121,59 +122,42 @@ async def test_ollama():
         logger.info(f"Model list response: {model_response.text[:200]}")
         
         # Try model inference
-        inference_url = f"{OLLAMA_HOST}/api/generate"
-        logger.info(f"Testing inference at: {inference_url}")
-        
-        # Format input for conversation
-        input_text = "Hello, how are you?"
-        
-        # Log the full request details
-        request_data = {
-            "model": test_model,
-            "prompt": input_text,
-            "stream": False,
-            "options": {
-                "temperature": 0.7,
-                "top_p": 0.95,
-                "max_tokens": 100
-            }
-        }
-        logger.info(f"Request data: {request_data}")
-        
+        prompt = "Hello, how are you?"
         response = requests.post(
-            inference_url,
-            json=request_data,
-            timeout=30
+            OLLAMA_URL,
+            json={
+                "model": test_model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "max_tokens": 100
+                }
+            },
+            timeout=60
         )
         
-        # Log the full response details
-        logger.info(f"Response status: {response.status_code}")
-        logger.info(f"Response headers: {dict(response.headers)}")
-        logger.info(f"Response text: {response.text}")
-        
-        return {
-            "status": "test_complete",
-            "model_name": test_model,
-            "model_list": {
-                "url": model_list_url,
-                "status_code": model_response.status_code,
-                "response": model_response.text[:200] if model_response.status_code == 200 else model_response.text
-            },
-            "inference_test": {
-                "url": inference_url,
-                "status_code": response.status_code,
-                "response": response.text[:200] if response.status_code == 200 else response.text,
-                "input": input_text,
-                "request_data": request_data
+        if response.status_code == 200:
+            result = response.json()
+            return {
+                "status": "test_complete",
+                "model_name": test_model,
+                "model_list": {
+                    "url": model_list_url,
+                    "status_code": model_response.status_code,
+                    "response": model_response.text[:200] if model_response.status_code == 200 else model_response.text
+                },
+                "inference_test": {
+                    "response": result.get("response", "No response generated")
+                }
             }
-        }
-
+        else:
+            logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+            return {"error": f"Ollama API error: {response.status_code}"}
     except Exception as e:
         logger.error(f"Test error: {str(e)}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
     logger.info("🏫 Starting School Discipline Chatbot Backend...")
