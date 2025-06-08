@@ -86,19 +86,30 @@ async def chat(request: ChatRequest):
             "Content-Type": "application/json"
         }
         
-        # Format the prompt
+        # Format the prompt for OPT model
         prompt = f"""You are a helpful AI assistant for school administrators. 
         You help with discipline issues and provide guidance based on school policies.
         Please respond to the following question: {request.message}"""
         
-        # Make the request
+        # Make the request with OPT-specific parameters
         inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
         logger.info(f"Making inference request to: {inference_url}")
+        
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 250,
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "do_sample": True,
+                "return_full_text": False
+            }
+        }
         
         response = requests.post(
             inference_url,
             headers=headers,
-            json={"inputs": prompt}
+            json=payload
         )
         
         logger.info(f"Hugging Face API response status: {response.status_code}")
@@ -109,9 +120,7 @@ async def chat(request: ChatRequest):
                 response_data = response.json()
                 if isinstance(response_data, list) and len(response_data) > 0:
                     generated_text = response_data[0].get('generated_text', '')
-                    # Extract the response after the prompt
-                    response_text = generated_text[len(prompt):].strip()
-                    return {"response": response_text}
+                    return {"response": generated_text.strip()}
                 else:
                     logger.error(f"Unexpected response format: {response_data}")
                     raise HTTPException(status_code=500, detail="Unexpected response format from API")
