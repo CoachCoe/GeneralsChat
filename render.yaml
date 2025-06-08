@@ -6,15 +6,16 @@ services:
       #!/bin/bash
       set -e
       
-      # Update and install pip
+      # Install system dependencies
       apt-get update
-      apt-get install -y python3-pip
+      apt-get install -y curl
       
       # Install Ollama
       curl -fsSL https://ollama.com/install.sh | sh
       
       # Install Python dependencies
-      pip3 install -r requirements.txt
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
     startCommand: |
       ollama serve &
       sleep 10
@@ -26,4 +27,5 @@ services:
       - key: MODEL_NAME
         value: mistral
       - key: OLLAMA_HOST
-        value: http://localhost:11434 
+        value: http://localhost:11434
+    plan: starter 
