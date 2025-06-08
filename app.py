@@ -18,7 +18,7 @@ load_dotenv()
 
 # Get environment variables
 API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "facebook/opt-350m")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt2")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -101,7 +101,7 @@ Please respond to the following question: {user_message}"""
             json={
                 "inputs": prompt,
                 "parameters": {
-                    "max_new_tokens": 100,
+                    "max_length": 150,
                     "min_length": 10,
                     "temperature": 0.7,
                     "top_p": 0.95,
@@ -162,7 +162,7 @@ async def test_huggingface():
             json={
                 "inputs": input_text,
                 "parameters": {
-                    "max_new_tokens": 100,
+                    "max_length": 150,
                     "min_length": 10,
                     "temperature": 0.7,
                     "top_p": 0.95,
