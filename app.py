@@ -127,7 +127,7 @@ async def chat(request: ChatRequest):
         Please respond to the following question: {request.message}"""
         
         # Make the request to Hugging Face inference endpoint
-        inference_url = "https://api-inference.huggingface.co/models/facebook/opt-350m"
+        inference_url = "https://api-inference.huggingface.co/models/gpt2"
         print(f"Making inference request to: {inference_url}")
         
         response = requests.post(
