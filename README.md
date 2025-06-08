@@ -1,14 +1,15 @@
 # Ask the General
 
-A modern chat interface for interacting with an AI assistant trained on school discipline procedures.
+A modern chat interface for interacting with an AI assistant specialized in school discipline procedures.
 
 ## Features
 
-- 🤖 AI-powered responses using Ollama
-- 💬 Real-time chat interface
+- 🤖 AI-powered responses using Ollama's Mistral model
+- 💬 Real-time chat interface with context-aware responses
 - 🎨 Modern UI with Material-UI
-- 📱 Responsive design
-- 🔄 Real-time updates
+- 📱 Responsive design for all devices
+- 🔄 Real-time updates and smooth interactions
+- 🏫 School-specific guidance for discipline procedures
 
 ## Development
 
@@ -23,7 +24,7 @@ A modern chat interface for interacting with an AI assistant trained on school d
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/shawncoe/GeneralsChat.git
+   git clone https://github.com/CoachCoe/GeneralsChat.git
    cd GeneralsChat
    ```
 
@@ -32,9 +33,9 @@ A modern chat interface for interacting with an AI assistant trained on school d
    just install
    ```
 
-3. Make sure Ollama is running and the model is downloaded:
+3. Make sure Ollama is running and pull the Mistral model:
    ```bash
-   ollama pull llama3:latest
+   ollama pull mistral
    ```
 
 ### Running the Application
@@ -54,8 +55,31 @@ just dev
 ```
 
 The application will be available at:
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:5173 (or http://localhost:5174 if 5173 is in use)
 - Backend: http://localhost:8000
+
+### Environment Variables
+
+The backend supports the following environment variables:
+- `OLLAMA_HOST`: URL of the Ollama server (default: http://localhost:11434)
+- `MODEL_NAME`: Name of the Ollama model to use (default: mistral)
+- `PORT`: Port for the backend server (default: 8000)
+
+## Features in Detail
+
+### AI Assistant Capabilities
+- Incident documentation and reporting guidance
+- Form completion assistance
+- Timeline management for discipline procedures
+- Communication protocol guidance
+- Policy compliance verification
+
+### User Interface
+- Clean, intuitive chat interface
+- Real-time message updates
+- Mobile-responsive design
+- Resource sidebar for quick access
+- Help modal with usage instructions
 
 ## Deployment
 
@@ -64,7 +88,7 @@ The application will be available at:
 The frontend is automatically deployed to GitHub Pages when changes are pushed to the main branch. The deployment workflow:
 1. Builds the React application
 2. Deploys to GitHub Pages
-3. Available at: https://shawncoe.github.io/GeneralsChat/
+3. Available at: https://coachcoe.github.io/GeneralsChat/
 
 ### Backend (Render)
 
@@ -81,7 +105,8 @@ GeneralsChat/
 ├── frontend/           # React frontend
 │   ├── src/
 │   │   ├── components/ # React components
-│   │   └── ...
+│   │   ├── services/   # API services
+│   │   └── assets/     # Static assets
 │   └── ...
 ├── .github/           # GitHub Actions workflows
 ├── app.py            # FastAPI backend
