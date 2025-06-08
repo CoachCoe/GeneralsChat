@@ -109,26 +109,22 @@ async def health_check():
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
-        # Get API key from environment variable
-        api_key = os.getenv("HUGGINGFACE_API_KEY")
-        if not api_key:
+        if not HUGGINGFACE_API_KEY:
             logger.error("HUGGINGFACE_API_KEY not set")
             raise HTTPException(status_code=500, detail="API key not configured")
 
-        # Get model name from environment variable
-        model_name = os.getenv("MODEL_NAME", "facebook/opt-350m")
-        logger.info(f"Calling Hugging Face API with model: {model_name}")
+        logger.info(f"Calling Hugging Face API with model: {MODEL_NAME}")
 
         # Prepare the prompt
         prompt = f"Human: {request.message}\nAssistant:"
 
         # Make request to Hugging Face API
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
             "Content-Type": "application/json"
         }
         
-        inference_url = f"https://api-inference.huggingface.co/models/{model_name}"
+        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
         
         logger.info(f"Making inference request to: {inference_url}")
         
@@ -170,67 +166,36 @@ async def chat(request: ChatRequest):
         logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
-@app.get("/models")
-async def list_models():
-    """List available models in Hugging Face"""
-    try:
-        response = requests.get(
-            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
-            headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
-        )
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise HTTPException(status_code=500, detail="Error fetching models from Hugging Face")
-    except requests.exceptions.RequestException:
-        raise HTTPException(status_code=503, detail="Unable to connect to Hugging Face")
-
 @app.get("/test-huggingface")
 async def test_huggingface():
     try:
-        api_key = os.getenv("HUGGINGFACE_API_KEY")
-        if not api_key:
+        if not HUGGINGFACE_API_KEY:
             logger.error("HUGGINGFACE_API_KEY not set")
             return {"status": "error", "message": "API key not configured"}
 
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
             "Content-Type": "application/json"
         }
 
-        # Test different endpoint formats
-        test_urls = [
-            "https://api-inference.huggingface.co/models/gpt2",
-            "https://api-inference.huggingface.co/models/gpt2/generate",
-            "https://api-inference.huggingface.co/pipeline/text-generation"
-        ]
-
-        results = []
-        for url in test_urls:
-            try:
-                logger.info(f"Testing URL: {url}")
-                response = requests.post(
-                    url,
-                    headers=headers,
-                    json={"inputs": "Hello, how are you?"}
-                )
-                results.append({
-                    "url": url,
-                    "status_code": response.status_code,
-                    "response": response.text[:200] if response.status_code == 200 else response.text,
-                    "headers": dict(response.headers)
-                })
-            except Exception as e:
-                results.append({
-                    "url": url,
-                    "error": str(e)
-                })
-
+        # Test the model endpoint
+        test_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
+        logger.info(f"Testing URL: {test_url}")
+        
+        response = requests.post(
+            test_url,
+            headers=headers,
+            json={"inputs": "Hello, how are you?"}
+        )
+        
         return {
             "status": "test_complete",
-            "api_key_status": "set" if api_key else "not_set",
-            "api_key_length": len(api_key) if api_key else 0,
-            "results": results
+            "api_key_status": "set" if HUGGINGFACE_API_KEY else "not_set",
+            "api_key_length": len(HUGGINGFACE_API_KEY) if HUGGINGFACE_API_KEY else 0,
+            "model_name": MODEL_NAME,
+            "test_url": test_url,
+            "response_status": response.status_code,
+            "response_text": response.text[:200] if response.status_code == 200 else response.text
         }
 
     except Exception as e:
