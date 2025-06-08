@@ -18,7 +18,7 @@ load_dotenv()
 
 # Get environment variables
 API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "t5-small")
+MODEL_NAME = os.getenv("MODEL_NAME", "google-t5/t5-small")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
