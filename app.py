@@ -19,6 +19,7 @@ load_dotenv()
 # Get environment variables
 API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt2")
+logger.info(f"Using model: {MODEL_NAME}")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -140,6 +141,7 @@ async def test_huggingface():
 
         # Test with the configured model
         test_model = MODEL_NAME
+        logger.info(f"Testing with model: {test_model}")
         
         # First, check if we can access the model info
         model_info_url = f"https://huggingface.co/api/models/{test_model}"
@@ -177,6 +179,7 @@ async def test_huggingface():
             "status": "test_complete",
             "api_key_status": "set" if API_KEY else "not_set",
             "api_key_length": len(API_KEY) if API_KEY else 0,
+            "model_name": test_model,
             "model_info": {
                 "url": model_info_url,
                 "status_code": model_response.status_code,
