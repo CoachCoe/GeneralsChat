@@ -10,6 +10,10 @@ backend:
 frontend:
     cd frontend && npm run dev
 
+# Build the frontend
+build:
+    cd frontend && npm run build
+
 # Run both backend and frontend concurrently
 dev:
     just backend & just frontend

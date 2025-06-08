@@ -16,7 +16,7 @@ import FacebookIcon from '@mui/icons-material/Facebook';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import MenuIcon from '@mui/icons-material/Menu';
-import logo from '/SAU_24_logo.png';
+import logo from '../assets/SAU24Logo.jpeg';
 
 interface Message {
   text: string;

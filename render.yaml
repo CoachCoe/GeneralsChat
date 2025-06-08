@@ -2,12 +2,14 @@ services:
   - type: web
     name: generalschat-backend
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    buildCommand: |
+      curl -fsSL https://ollama.com/install.sh | sh
+      pip install -r requirements.txt
+    startCommand: ollama serve &; sleep 10; ollama pull mistral || echo "Failed to pull model"; uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: MODEL_NAME
-        value: mistralai/Mistral-7B-Instruct-v0.2
-      - key: HUGGINGFACE_API_KEY
-        sync: false 
+        value: mistral
+      - key: OLLAMA_HOST
+        value: http://localhost:11434 

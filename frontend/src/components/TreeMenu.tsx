@@ -1,4 +1,4 @@
-import { TreeView, TreeItem } from '@mui/lab';
+import { TreeView } from '@mui/lab';
 import { Box, Typography } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';

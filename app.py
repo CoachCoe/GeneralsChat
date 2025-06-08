@@ -18,15 +18,13 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Get environment variables
-API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-# Use a model known to work with free inference
-MODEL_NAME = "microsoft/DialoGPT-medium"  # os.getenv("MODEL_NAME", "microsoft/DialoGPT-medium")
-logger.info(f"Using model: {MODEL_NAME}")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+MODEL_NAME = os.getenv("MODEL_NAME", "mistral")  # Default to mistral model
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
 logger.info(f"Starting with model: {MODEL_NAME}")
-logger.info(f"API key is {'set' if API_KEY else 'not set'}")
+logger.info(f"Ollama host: {OLLAMA_HOST}")
 
 app = FastAPI(title="School Discipline Chatbot API")
 
@@ -51,61 +49,45 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Check if the server and Hugging Face API are accessible"""
+    """Check if the server and Ollama are accessible"""
     try:
-        if not API_KEY:
-            logger.error("API key not set")
-            return {"status": "unhealthy", "huggingface": "api_key_missing"}
-            
-        # Test Hugging Face API connection
-        headers = {"Authorization": f"Bearer {API_KEY}"}
+        # Test Ollama connection
         response = requests.get(
-            "https://api-inference.huggingface.co/status",
-            headers=headers,
+            f"{OLLAMA_HOST}/api/tags",
             timeout=5
         )
         if response.status_code == 200:
-            return {"status": "healthy", "huggingface": "connected"}
+            return {"status": "healthy", "ollama": "connected"}
         else:
-            logger.error(f"Hugging Face API returned status code: {response.status_code}")
-            return {"status": "partial", "huggingface": "disconnected"}
+            logger.error(f"Ollama API returned status code: {response.status_code}")
+            return {"status": "partial", "ollama": "disconnected"}
     except requests.exceptions.RequestException as e:
         logger.error(f"Request exception in health check: {str(e)}")
-        return {"status": "partial", "huggingface": "disconnected"}
+        return {"status": "partial", "ollama": "disconnected"}
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    """Chat endpoint that uses Hugging Face API for text generation"""
+    """Chat endpoint that uses Ollama for text generation"""
     try:
         if not request.message:
             return {"error": "No message provided"}
             
-        if not API_KEY:
-            logger.error("API key not set")
-            return {"error": "API key not configured"}
-            
-        headers = {
-            "Authorization": f"Bearer {API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
         # Format the prompt for conversation
         prompt = f"""You are a helpful AI assistant for school administrators. 
 You help with discipline issues and provide guidance based on school policies.
 Please respond to the following question: {request.message}"""
         
-        # Make the API call
+        # Make the API call to Ollama
         response = requests.post(
-            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
-            headers=headers,
+            f"{OLLAMA_HOST}/api/generate",
             json={
-                "inputs": prompt,
-                "parameters": {
-                    "max_length": 100,
+                "model": MODEL_NAME,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
                     "temperature": 0.7,
                     "top_p": 0.95,
-                    "do_sample": True,
-                    "return_full_text": False
+                    "max_tokens": 500
                 }
             },
             timeout=30
@@ -113,9 +95,7 @@ Please respond to the following question: {request.message}"""
         
         if response.status_code == 200:
             result = response.json()
-            if isinstance(result, list) and len(result) > 0:
-                return {"response": result[0].get("generated_text", "No response generated")}
-            return {"response": "No response generated"}
+            return {"response": result.get("response", "No response generated")}
         else:
             logger.error(f"API error: {response.status_code} - {response.text}")
             return {"error": f"API error: {response.status_code}"}
@@ -124,33 +104,24 @@ Please respond to the following question: {request.message}"""
         logger.error(f"Error in chat endpoint: {str(e)}")
         return {"error": str(e)}
 
-@app.get("/test-huggingface")
-async def test_huggingface():
-    """Test endpoint to verify Hugging Face API connection and model access"""
+@app.get("/test-ollama")
+async def test_ollama():
+    """Test endpoint to verify Ollama connection and model access"""
     try:
-        if not API_KEY:
-            logger.error("API key not set")
-            return {"status": "error", "message": "API key not configured"}
-
-        headers = {
-            "Authorization": f"Bearer {API_KEY}",
-            "Content-Type": "application/json"
-        }
-
         # Test with the configured model
         test_model = MODEL_NAME
         logger.info(f"Testing with model: {test_model}")
         
-        # First, check if we can access the model info
-        model_info_url = f"https://api-inference.huggingface.co/models/{test_model}"
-        logger.info(f"Checking model info at: {model_info_url}")
+        # First, check if we can access the model list
+        model_list_url = f"{OLLAMA_HOST}/api/tags"
+        logger.info(f"Checking model list at: {model_list_url}")
         
-        model_response = requests.get(model_info_url, headers=headers, timeout=5)
-        logger.info(f"Model info response status: {model_response.status_code}")
-        logger.info(f"Model info response: {model_response.text[:200]}")
+        model_response = requests.get(model_list_url, timeout=5)
+        logger.info(f"Model list response status: {model_response.status_code}")
+        logger.info(f"Model list response: {model_response.text[:200]}")
         
-        # Try direct model inference
-        inference_url = f"https://api-inference.huggingface.co/models/{test_model}"
+        # Try model inference
+        inference_url = f"{OLLAMA_HOST}/api/generate"
         logger.info(f"Testing inference at: {inference_url}")
         
         # Format input for conversation
@@ -158,20 +129,19 @@ async def test_huggingface():
         
         # Log the full request details
         request_data = {
-            "inputs": input_text,
-            "parameters": {
-                "max_new_tokens": 100,
+            "model": test_model,
+            "prompt": input_text,
+            "stream": False,
+            "options": {
                 "temperature": 0.7,
                 "top_p": 0.95,
-                "do_sample": True
+                "max_tokens": 100
             }
         }
         logger.info(f"Request data: {request_data}")
-        logger.info(f"Request headers: {headers}")
         
         response = requests.post(
             inference_url,
-            headers=headers,
             json=request_data,
             timeout=30
         )
@@ -183,11 +153,9 @@ async def test_huggingface():
         
         return {
             "status": "test_complete",
-            "api_key_status": "set" if API_KEY else "not_set",
-            "api_key_length": len(API_KEY) if API_KEY else 0,
             "model_name": test_model,
-            "model_info": {
-                "url": model_info_url,
+            "model_list": {
+                "url": model_list_url,
                 "status_code": model_response.status_code,
                 "response": model_response.text[:200] if model_response.status_code == 200 else model_response.text
             },
@@ -210,10 +178,10 @@ async def test_huggingface():
 if __name__ == "__main__":
     logger.info("🏫 Starting School Discipline Chatbot Backend...")
     logger.info(f"📡 Backend will run on: http://localhost:{PORT}")
-    logger.info(f"🤖 Using Hugging Face model: {MODEL_NAME}")
+    logger.info(f"🤖 Using Ollama model: {MODEL_NAME}")
     logger.info("\nMake sure you have:")
-    logger.info("1. HUGGINGFACE_API_KEY environment variable set")
-    logger.info("2. The model is available on Hugging Face")
+    logger.info("1. Ollama installed and running")
+    logger.info("2. The model pulled (ollama pull mistral)")
     logger.info("3. Open the HTML file in your browser")
     
     uvicorn.run(app, host="0.0.0.0", port=PORT)
