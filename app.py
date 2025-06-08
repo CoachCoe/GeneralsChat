@@ -163,14 +163,15 @@ async def test_huggingface():
         logger.info(f"Model info response status: {model_response.status_code}")
         logger.info(f"Model info response: {model_response.text[:200]}")
         
-        # Try the inference API endpoint with text2text format
-        inference_url = f"https://api-inference.huggingface.co/models/{test_model}"
-        logger.info(f"Testing inference at: {inference_url}")
+        # Try the pipeline endpoint
+        pipeline_url = "https://api-inference.huggingface.co/pipeline/text2text-generation"
+        logger.info(f"Testing pipeline at: {pipeline_url}")
         
         response = requests.post(
-            inference_url,
+            pipeline_url,
             headers=headers,
             json={
+                "model": test_model,
                 "inputs": "Hello, how are you?",
                 "parameters": {
                     "max_length": 50,
@@ -193,8 +194,8 @@ async def test_huggingface():
                 "status_code": model_response.status_code,
                 "response": model_response.text[:200] if model_response.status_code == 200 else model_response.text
             },
-            "inference_test": {
-                "url": inference_url,
+            "pipeline_test": {
+                "url": pipeline_url,
                 "status_code": response.status_code,
                 "response": response.text[:200] if response.status_code == 200 else response.text
             }
