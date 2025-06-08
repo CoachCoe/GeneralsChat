@@ -18,7 +18,7 @@ load_dotenv()
 
 # Get environment variables
 API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "google-t5/t5-small")
+MODEL_NAME = os.getenv("MODEL_NAME", "facebook/opt-350m")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -72,72 +72,58 @@ async def health_check():
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    """Chat endpoint that uses Hugging Face API"""
+    """Chat endpoint that uses Hugging Face API for text generation"""
     try:
+        data = await request.json()
+        user_message = data.get("message", "")
+        
+        if not user_message:
+            return {"error": "No message provided"}
+            
         if not API_KEY:
             logger.error("API key not set")
-            raise HTTPException(status_code=500, detail="API key not configured")
-
-        logger.info(f"Calling Hugging Face API with model: {MODEL_NAME}")
-
-        # Prepare the request
+            return {"error": "API key not configured"}
+            
         headers = {
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json"
         }
         
-        # Format the prompt for T5 model
+        # Format the prompt for conversation
         prompt = f"""You are a helpful AI assistant for school administrators. 
-        You help with discipline issues and provide guidance based on school policies.
-        Please respond to the following question: {request.message}"""
+You help with discipline issues and provide guidance based on school policies.
+Please respond to the following question: {user_message}"""
         
-        # Make the request with T5-specific parameters
-        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
-        logger.info(f"Making inference request to: {inference_url}")
-        
-        payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_length": 250,
-                "temperature": 0.7,
-                "top_p": 0.95,
-                "do_sample": True
-            }
-        }
-        
+        # Make the API call
         response = requests.post(
-            inference_url,
+            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
             headers=headers,
-            json=payload,
-            timeout=30  # Add timeout to prevent hanging
+            json={
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": 100,
+                    "min_length": 10,
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "do_sample": True,
+                    "return_full_text": False
+                }
+            },
+            timeout=30
         )
         
-        logger.info(f"Hugging Face API response status: {response.status_code}")
-        logger.info(f"Response text: {response.text[:200]}...")
-        
         if response.status_code == 200:
-            try:
-                response_data = response.json()
-                if isinstance(response_data, list) and len(response_data) > 0:
-                    generated_text = response_data[0].get('generated_text', '')
-                    return {"response": generated_text.strip()}
-                else:
-                    logger.error(f"Unexpected response format: {response_data}")
-                    raise HTTPException(status_code=500, detail="Unexpected response format from API")
-            except Exception as e:
-                logger.error(f"Error processing response: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error processing response: {str(e)}")
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                return {"response": result[0].get("generated_text", "No response generated")}
+            return {"response": "No response generated"}
         else:
-            error_msg = f"Error from Hugging Face API: {response.text}"
-            logger.error(error_msg)
-            raise HTTPException(status_code=500, detail=error_msg)
+            logger.error(f"API error: {response.status_code} - {response.text}")
+            return {"error": f"API error: {response.status_code}"}
             
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Request error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+        logger.error(f"Error in chat endpoint: {str(e)}")
+        return {"error": str(e)}
 
 @app.get("/test-huggingface")
 async def test_huggingface():
@@ -167,8 +153,8 @@ async def test_huggingface():
         inference_url = f"https://api-inference.huggingface.co/models/{test_model}"
         logger.info(f"Testing inference at: {inference_url}")
         
-        # Format input for T5 model
-        input_text = "translate English to French: Hello, how are you?"
+        # Format input for conversation
+        input_text = "You are a helpful AI assistant. Please respond to: Hello, how are you?"
         
         response = requests.post(
             inference_url,
@@ -176,11 +162,12 @@ async def test_huggingface():
             json={
                 "inputs": input_text,
                 "parameters": {
-                    "max_length": 50,
+                    "max_new_tokens": 100,
                     "min_length": 10,
                     "temperature": 0.7,
                     "top_p": 0.95,
-                    "do_sample": True
+                    "do_sample": True,
+                    "return_full_text": False
                 }
             },
             timeout=30
