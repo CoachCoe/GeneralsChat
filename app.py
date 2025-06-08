@@ -18,8 +18,8 @@ load_dotenv()
 
 # Get environment variables
 API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-# Temporarily hardcode the model ID to test
-MODEL_NAME = "openai-community/gpt2"  # os.getenv("MODEL_NAME", "openai-community/gpt2")
+# Use a model known to work with free inference
+MODEL_NAME = "EleutherAI/pythia-70m"  # os.getenv("MODEL_NAME", "EleutherAI/pythia-70m")
 logger.info(f"Using model: {MODEL_NAME}")
 PORT = int(os.getenv("PORT", "8000"))
 
