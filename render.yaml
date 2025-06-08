@@ -1,18 +1,11 @@
 services:
   - type: web
     name: generalschat-backend
-    env: python
-    buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: |
-      ollama serve &
-      sleep 10
-      ollama pull mistral || echo "Failed to pull model"
-      uvicorn app:app --host 0.0.0.0 --port $PORT
+    env: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
       - key: MODEL_NAME
         value: mistral
       - key: OLLAMA_HOST
-        value: http://localhost:11434
-    plan: starter 
+        value: http://localhost:11434 
