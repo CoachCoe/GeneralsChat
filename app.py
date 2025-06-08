@@ -34,7 +34,7 @@ app.add_middleware(
 
 # Configuration from environment variables
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "google/flan-t5-base")
+MODEL_NAME = os.getenv("MODEL_NAME", "facebook/opt-350m")
 PORT = int(os.getenv("PORT", "8000"))
 
 # Log configuration on startup
@@ -121,8 +121,10 @@ async def chat(request: ChatRequest):
             "Content-Type": "application/json"
         }
         
-        # Format the prompt for the T5 model
-        prompt = f"answer this question about school discipline: {request.message}"
+        # Format the prompt for the model
+        prompt = f"""You are a helpful AI assistant for school administrators. 
+        You help with discipline issues and provide guidance based on school policies.
+        Please respond to the following question: {request.message}"""
         
         # First verify the model exists
         model_url = f"https://huggingface.co/api/models/{MODEL_NAME}"
@@ -137,57 +139,25 @@ async def chat(request: ChatRequest):
             )
         
         # Make the request to Hugging Face inference endpoint
-        inference_url = "https://api-inference.huggingface.co/models/google/flan-t5-base/generate"
+        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
         print(f"Making inference request to: {inference_url}")
         
-        # Try different request formats
-        try:
-            # First attempt: Simple format
-            response = requests.post(
-                inference_url,
-                headers=headers,
-                json={"text": prompt}
-            )
-            print(f"First attempt response status: {response.status_code}")
-            print(f"First attempt response: {response.text[:200]}...")
-            
-            if response.status_code != 200:
-                # Second attempt: With parameters
-                response = requests.post(
-                    inference_url,
-                    headers=headers,
-                    json={
-                        "text": prompt,
-                        "max_length": 500,
-                        "num_return_sequences": 1,
-                        "temperature": 0.7
-                    }
-                )
-                print(f"Second attempt response status: {response.status_code}")
-                print(f"Second attempt response: {response.text[:200]}...")
-                
-                if response.status_code != 200:
-                    # Third attempt: Different format
-                    response = requests.post(
-                        inference_url,
-                        headers=headers,
-                        json={
-                            "inputs": prompt,
-                            "parameters": {
-                                "max_length": 500,
-                                "temperature": 0.7
-                            }
-                        }
-                    )
-                    print(f"Third attempt response status: {response.status_code}")
-                    print(f"Third attempt response: {response.text[:200]}...")
+        response = requests.post(
+            inference_url,
+            headers=headers,
+            json={
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": 500,
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "do_sample": True
+                }
+            }
+        )
         
-        except requests.exceptions.RequestException as e:
-            print(f"Request error: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error making request to Hugging Face API: {str(e)}"
-            )
+        print(f"Hugging Face API response status: {response.status_code}")
+        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars
         
         if response.status_code != 200:
             raise HTTPException(
@@ -199,9 +169,9 @@ async def chat(request: ChatRequest):
             result = response.json()
             if isinstance(result, list) and len(result) > 0:
                 generated_text = result[0].get("generated_text", "")
-                return {"response": generated_text}
-            elif isinstance(result, dict) and "generated_text" in result:
-                return {"response": result["generated_text"]}
+                # Extract the response after the prompt
+                response_text = generated_text[len(prompt):].strip()
+                return {"response": response_text}
             else:
                 raise HTTPException(
                     status_code=500,
