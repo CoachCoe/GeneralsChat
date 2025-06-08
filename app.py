@@ -137,7 +137,7 @@ async def chat(request: ChatRequest):
             )
         
         # Make the request to Hugging Face inference endpoint
-        inference_url = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+        inference_url = "https://api-inference.huggingface.co/models/google/flan-t5-base/generate"
         print(f"Making inference request to: {inference_url}")
         
         # Try different request formats
@@ -146,7 +146,7 @@ async def chat(request: ChatRequest):
             response = requests.post(
                 inference_url,
                 headers=headers,
-                json={"inputs": prompt}
+                json={"text": prompt}
             )
             print(f"First attempt response status: {response.status_code}")
             print(f"First attempt response: {response.text[:200]}...")
@@ -157,10 +157,10 @@ async def chat(request: ChatRequest):
                     inference_url,
                     headers=headers,
                     json={
-                        "inputs": prompt,
-                        "options": {
-                            "wait_for_model": True
-                        }
+                        "text": prompt,
+                        "max_length": 500,
+                        "num_return_sequences": 1,
+                        "temperature": 0.7
                     }
                 )
                 print(f"Second attempt response status: {response.status_code}")
@@ -172,8 +172,11 @@ async def chat(request: ChatRequest):
                         inference_url,
                         headers=headers,
                         json={
-                            "text": prompt,
-                            "max_length": 500
+                            "inputs": prompt,
+                            "parameters": {
+                                "max_length": 500,
+                                "temperature": 0.7
+                            }
                         }
                     )
                     print(f"Third attempt response status: {response.status_code}")
