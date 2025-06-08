@@ -153,7 +153,7 @@ async def test_huggingface():
         }
 
         # Test with Mistral model
-        test_model = "mistralai/Devstral-Small-2505"
+        test_model = "mistralai/Mistral-Small-24B-Base-2501"
         
         # First, check if we can access the model info
         model_info_url = f"https://huggingface.co/api/models/{test_model}"
