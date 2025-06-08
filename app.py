@@ -121,10 +121,8 @@ async def chat(request: ChatRequest):
             "Content-Type": "application/json"
         }
         
-        # Format the prompt for the model
-        prompt = f"""You are a helpful AI assistant for school administrators. 
-        You help with discipline issues and provide guidance based on school policies.
-        Please respond to the following question: {request.message}"""
+        # Format the prompt for the T5 model
+        prompt = f"answer this question about school discipline: {request.message}"
         
         # First verify the model exists
         model_url = f"https://huggingface.co/api/models/{MODEL_NAME}"
@@ -139,18 +137,18 @@ async def chat(request: ChatRequest):
             )
         
         # Make the request to Hugging Face inference endpoint
-        inference_url = "https://api-inference.huggingface.co/pipeline/text2text-generation"
+        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
         print(f"Making inference request to: {inference_url}")
         response = requests.post(
             inference_url,
             headers=headers,
             json={
-                "model": MODEL_NAME,
                 "inputs": prompt,
                 "parameters": {
                     "max_length": 500,
                     "temperature": 0.7,
-                    "return_full_text": False
+                    "do_sample": True,
+                    "top_p": 0.95
                 }
             }
         )
