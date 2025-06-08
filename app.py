@@ -164,7 +164,7 @@ async def test_huggingface():
         logger.info(f"Model info response: {model_response.text[:200]}")
         
         # Try the pipeline endpoint
-        pipeline_url = "https://api-inference.huggingface.co/pipeline/text2text-generation"
+        pipeline_url = "https://api-inference.huggingface.co/pipeline/translation"
         logger.info(f"Testing pipeline at: {pipeline_url}")
         
         response = requests.post(
