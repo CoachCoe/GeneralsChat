@@ -160,55 +160,30 @@ async def test_huggingface():
         logger.info(f"Model info response status: {model_response.status_code}")
         logger.info(f"Model info response: {model_response.text[:200]}")
         
-        # Try different URL formats for inference
-        test_urls = [
-            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
-            f"https://api-inference.huggingface.co/pipeline/text-generation/{MODEL_NAME}",
-            f"https://api-inference.huggingface.co/pipeline/text-generation?model={MODEL_NAME}",
-            "https://api-inference.huggingface.co/pipeline/text-generation"
-        ]
+        # Try the exact API documentation format
+        inference_url = f"https://huggingface.co/{MODEL_NAME}"
+        logger.info(f"Testing inference at: {inference_url}")
         
-        results = []
-        for url in test_urls:
-            try:
-                logger.info(f"Testing inference at: {url}")
-                payload = {
-                    "inputs": "Hello, how are you?",
-                    "model": MODEL_NAME,
-                    "parameters": {
-                        "max_new_tokens": 50,
-                        "temperature": 0.7,
-                        "top_p": 0.95,
-                        "do_sample": True
-                    }
-                }
-                response = requests.post(
-                    url,
-                    headers=headers,
-                    json=payload
-                )
-                results.append({
-                    "url": url,
-                    "status_code": response.status_code,
-                    "response": response.text[:200] if response.status_code == 200 else response.text
-                })
-            except Exception as e:
-                results.append({
-                    "url": url,
-                    "error": str(e)
-                })
+        response = requests.post(
+            inference_url,
+            headers=headers,
+            json={"inputs": "Hello, how are you?"}
+        )
         
         return {
             "status": "test_complete",
             "api_key_status": "set" if API_KEY else "not_set",
             "api_key_length": len(API_KEY) if API_KEY else 0,
-            "model_name": MODEL_NAME,
             "model_info": {
                 "url": model_info_url,
                 "status_code": model_response.status_code,
                 "response": model_response.text[:200] if model_response.status_code == 200 else model_response.text
             },
-            "inference_tests": results
+            "inference_test": {
+                "url": inference_url,
+                "status_code": response.status_code,
+                "response": response.text[:200] if response.status_code == 200 else response.text
+            }
         }
 
     except Exception as e:
