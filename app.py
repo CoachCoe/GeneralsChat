@@ -152,8 +152,8 @@ async def test_huggingface():
             "Content-Type": "application/json"
         }
 
-        # Test with Mistral model
-        test_model = "mistralai/Mistral-Small-24B-Base-2501"
+        # Test with Mistral Instruct model
+        test_model = "mistralai/Mistral-Small-24B-Instruct-2501"
         
         # First, check if we can access the model info
         model_info_url = f"https://huggingface.co/api/models/{test_model}"
@@ -163,7 +163,13 @@ async def test_huggingface():
         logger.info(f"Model info response status: {model_response.status_code}")
         logger.info(f"Model info response: {model_response.text[:200]}")
         
-        # Try the inference API endpoint
+        # System prompt as recommended by Mistral
+        system_prompt = """You are Mistral Small 3, a Large Language Model (LLM) created by Mistral AI, a French startup headquartered in Paris.
+Your knowledge base was last updated on 2023-10-01. The current date is 2025-01-30.
+When you're not sure about some information, you say that you don't have the information and don't make up anything.
+If the user's question is not clear, ambiguous, or does not provide enough context for you to accurately answer the question, you do not try to answer it right away and you rather ask the user to clarify their request (e.g. "What are some good restaurants around me?" => "Where are you?" or "When is the next flight to Tokyo" => "Where do you travel from?")"""
+        
+        # Try the inference API endpoint with recommended parameters
         inference_url = f"https://api-inference.huggingface.co/models/{test_model}"
         logger.info(f"Testing inference at: {inference_url}")
         
@@ -171,10 +177,13 @@ async def test_huggingface():
             inference_url,
             headers=headers,
             json={
-                "inputs": "Hello, how are you?",
+                "inputs": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "Hello, how are you?"}
+                ],
                 "parameters": {
                     "max_new_tokens": 50,
-                    "temperature": 0.7,
+                    "temperature": 0.15,  # Recommended low temperature
                     "top_p": 0.95,
                     "do_sample": True
                 }
