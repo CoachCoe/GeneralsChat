@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import requests
 import os
 import logging
+import uvicorn
 from dotenv import load_dotenv
 
 # Configure logging
@@ -100,12 +101,12 @@ Please respond to the following question: {request.message}"""
             json={
                 "inputs": prompt,
                 "parameters": {
-                    "max_length": 150,
-                    "min_length": 10,
+                    "max_new_tokens": 100,
                     "temperature": 0.7,
                     "top_p": 0.95,
                     "do_sample": True,
-                    "return_full_text": False
+                    "return_full_text": False,
+                    "repetition_penalty": 1.2
                 }
             },
             timeout=30
@@ -154,7 +155,7 @@ async def test_huggingface():
         logger.info(f"Testing inference at: {inference_url}")
         
         # Format input for conversation
-        input_text = "You are a helpful AI assistant. Please respond to: Hello, how are you?"
+        input_text = "Hello, how are you?"
         
         # Log the full request details
         request_data = {
