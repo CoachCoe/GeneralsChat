@@ -163,7 +163,7 @@ async def test_huggingface():
         logger.info(f"Model info response status: {model_response.status_code}")
         logger.info(f"Model info response: {model_response.text[:200]}")
         
-        # Try the inference API endpoint
+        # Try the inference API endpoint with text2text format
         inference_url = f"https://api-inference.huggingface.co/models/{test_model}"
         logger.info(f"Testing inference at: {inference_url}")
         
@@ -174,9 +174,11 @@ async def test_huggingface():
                 "inputs": "Hello, how are you?",
                 "parameters": {
                     "max_length": 50,
+                    "min_length": 10,
                     "temperature": 0.7,
                     "top_p": 0.95,
-                    "do_sample": True
+                    "do_sample": True,
+                    "return_full_text": False
                 }
             },
             timeout=30
