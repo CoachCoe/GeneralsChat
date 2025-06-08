@@ -139,12 +139,13 @@ async def chat(request: ChatRequest):
             )
         
         # Make the request to Hugging Face inference endpoint
-        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
+        inference_url = "https://api-inference.huggingface.co/pipeline/text2text-generation"
         print(f"Making inference request to: {inference_url}")
         response = requests.post(
             inference_url,
             headers=headers,
             json={
+                "model": MODEL_NAME,
                 "inputs": prompt,
                 "parameters": {
                     "max_length": 500,
