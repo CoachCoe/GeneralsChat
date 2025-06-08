@@ -160,15 +160,32 @@ async def test_huggingface():
         logger.info(f"Model info response status: {model_response.status_code}")
         logger.info(f"Model info response: {model_response.text[:200]}")
         
-        # Then test the inference endpoint
-        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
-        logger.info(f"Testing inference at: {inference_url}")
+        # Try different URL formats for inference
+        test_urls = [
+            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
+            f"https://api-inference.huggingface.co/pipeline/text-generation/{MODEL_NAME}",
+            f"https://api-inference.huggingface.co/pipeline/text-generation?model={MODEL_NAME}"
+        ]
         
-        inference_response = requests.post(
-            inference_url,
-            headers=headers,
-            json={"inputs": "Hello, how are you?"}
-        )
+        results = []
+        for url in test_urls:
+            try:
+                logger.info(f"Testing inference at: {url}")
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    json={"inputs": "Hello, how are you?"}
+                )
+                results.append({
+                    "url": url,
+                    "status_code": response.status_code,
+                    "response": response.text[:200] if response.status_code == 200 else response.text
+                })
+            except Exception as e:
+                results.append({
+                    "url": url,
+                    "error": str(e)
+                })
         
         return {
             "status": "test_complete",
@@ -180,11 +197,7 @@ async def test_huggingface():
                 "status_code": model_response.status_code,
                 "response": model_response.text[:200] if model_response.status_code == 200 else model_response.text
             },
-            "inference": {
-                "url": inference_url,
-                "status_code": inference_response.status_code,
-                "response": inference_response.text[:200] if inference_response.status_code == 200 else inference_response.text
-            }
+            "inference_tests": results
         }
 
     except Exception as e:
