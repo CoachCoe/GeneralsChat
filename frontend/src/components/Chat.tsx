@@ -11,13 +11,21 @@ import {
   Stack,
   IconButton,
   Modal,
-} from '@mui/material';
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Collapse,
+} from '@mui/material';;
+import MenuIcon from '@mui/icons-material/Menu';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import FolderIcon from '@mui/icons-material/Folder';
+import logo from '../assets/logo.jpeg';
+import { AIService } from '../services/aiService';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import InstagramIcon from '@mui/icons-material/Instagram';
-import MenuIcon from '@mui/icons-material/Menu';
-import logo from '/SAU_24_logo.png';
-import { AIService } from '../services/aiService';
 
 interface Message {
   text: string;
@@ -36,6 +44,7 @@ export function Chat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isResourcesOpen, setIsResourcesOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
 
@@ -77,6 +86,10 @@ export function Chat() {
     setIsModalOpen(false);
   };
 
+  const handleResourcesClick = () => {
+    setIsResourcesOpen(!isResourcesOpen);
+  };
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -95,18 +108,16 @@ export function Chat() {
         justifyContent: 'space-between'
       }}>
         {/* Logo on the left */}
-        <Link href="https://www.sau24.org" target="_blank" rel="noopener noreferrer">
-          <Box
-            component="img"
-            src={logo}
-            alt="SAU 24 Logo"
-            sx={{
-              height: { xs: '40px', sm: '50px' },
-              width: 'auto',
-              cursor: 'pointer'
-            }}
-          />
-        </Link>
+        <Box
+          component="img"
+          src={logo}
+          alt="Logo"
+          sx={{
+            height: { xs: '40px', sm: '50px' },
+            width: 'auto',
+            cursor: 'pointer'
+          }}
+        />
 
         {/* Title in the center */}
         <Box sx={{ 
@@ -138,6 +149,103 @@ export function Chat() {
         >
           <MenuIcon />
         </IconButton>
+      </Box>
+
+      {/* Main content with sidebar */}
+      <Box sx={{ display: 'flex', flex: 1 }}>
+        {/* Sidebar */}
+        <Box sx={{ 
+          width: 240, 
+          bgcolor: 'background.paper',
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          display: { xs: 'none', sm: 'block' }
+        }}>
+          <List>
+            <ListItem 
+              onClick={handleResourcesClick}
+              sx={{ cursor: 'pointer' }}
+            >
+              <ListItemIcon>
+                <FolderIcon />
+              </ListItemIcon>
+              <ListItemText primary="Resources" />
+              {isResourcesOpen ? <ExpandLess /> : <ExpandMore />}
+            </ListItem>
+            <Collapse in={isResourcesOpen} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                <ListItem 
+                  sx={{ pl: 4, cursor: 'pointer' }}
+                >
+                  <ListItemText primary="Coming soon..." />
+                </ListItem>
+              </List>
+            </Collapse>
+          </List>
+        </Box>
+
+        {/* Chat content */}
+        <Container maxWidth="md" sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          py: 2
+        }}>
+          {/* Messages container */}
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              flex: 1, 
+              mb: 2, 
+              p: 2, 
+              overflow: 'auto',
+              maxHeight: 'calc(100vh - 200px)'
+            }}
+          >
+            {messages.map((message, index) => (
+              <Box
+                key={index}
+                sx={{
+                  display: 'flex',
+                  justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                  mb: 2
+                }}
+              >
+                <Paper
+                  elevation={1}
+                  sx={{
+                    p: 2,
+                    maxWidth: '70%',
+                    bgcolor: message.sender === 'user' ? '#e3f2fd' : '#f5f5f5'
+                  }}
+                >
+                  <Typography variant="body1">{message.text}</Typography>
+                </Paper>
+              </Box>
+            ))}
+            <div ref={messagesEndRef} />
+          </Paper>
+
+          {/* Input area */}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Type your message..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              disabled={isLoading}
+            />
+            <Button
+              variant="contained"
+              onClick={handleSend}
+              disabled={isLoading || !input.trim()}
+            >
+              Send
+            </Button>
+          </Box>
+        </Container>
       </Box>
 
       {/* How I Work Modal */}
@@ -184,105 +292,7 @@ export function Chat() {
         </Box>
       </Modal>
 
-      {/* Main content */}
-      <Container maxWidth="md" sx={{ 
-        flex: 1, 
-        display: 'flex', 
-        flexDirection: 'column',
-        py: 2
-      }}>
-        {/* Messages container */}
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            flex: 1, 
-            mb: 2, 
-            p: 2, 
-            overflow: 'auto',
-            bgcolor: 'white',
-            borderRadius: 2
-          }}
-        >
-          {messages.length === 0 ? (
-            <Box sx={{ 
-              textAlign: 'center', 
-              color: 'text.secondary',
-              py: 4
-            }}>
-              <Typography variant="h6">
-                How can I help you today?
-              </Typography>
-            </Box>
-          ) : (
-            messages.map((msg, index) => (
-              <Box
-                key={index}
-                sx={{
-                  display: 'flex',
-                  justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                  mb: 2
-                }}
-              >
-                <Paper
-                  elevation={1}
-                  sx={{
-                    p: 2,
-                    maxWidth: '80%',
-                    bgcolor: msg.sender === 'user' ? '#e3f2fd' : '#f5f5f5',
-                    borderRadius: 2
-                  }}
-                >
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {msg.text}
-                  </Typography>
-                </Paper>
-              </Box>
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </Paper>
-
-        {/* Input area */}
-        <Box sx={{ 
-          display: 'flex', 
-          gap: 1,
-          bgcolor: 'white',
-          p: 2,
-          borderRadius: 2,
-          boxShadow: 1
-        }}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Type your message..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            disabled={isLoading}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2
-              }
-            }}
-          />
-          <Button
-            variant="contained"
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-            sx={{
-              minWidth: '100px',
-              borderRadius: 2,
-              bgcolor: '#1a237e',
-              '&:hover': {
-                bgcolor: '#0d47a1'
-              }
-            }}
-          >
-            {isLoading ? 'Sending...' : 'Send'}
-          </Button>
-        </Box>
-      </Container>
-
+      {/* Footer */}
       <Box sx={{ 
         p: { xs: 1.5, sm: 2 }, 
         borderTop: 1, 
