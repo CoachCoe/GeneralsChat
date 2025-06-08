@@ -160,12 +160,12 @@ async def test_huggingface():
         request_data = {
             "inputs": input_text,
             "parameters": {
-                "max_length": 150,
-                "min_length": 10,
+                "max_new_tokens": 100,
                 "temperature": 0.7,
                 "top_p": 0.95,
                 "do_sample": True,
-                "return_full_text": False
+                "return_full_text": False,
+                "repetition_penalty": 1.2
             }
         }
         logger.info(f"Request data: {request_data}")
