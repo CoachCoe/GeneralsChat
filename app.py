@@ -76,10 +76,7 @@ async def health_check():
 async def chat(request: ChatRequest):
     """Chat endpoint that uses Hugging Face API for text generation"""
     try:
-        data = await request.json()
-        user_message = data.get("message", "")
-        
-        if not user_message:
+        if not request.message:
             return {"error": "No message provided"}
             
         if not API_KEY:
@@ -94,7 +91,7 @@ async def chat(request: ChatRequest):
         # Format the prompt for conversation
         prompt = f"""You are a helpful AI assistant for school administrators. 
 You help with discipline issues and provide guidance based on school policies.
-Please respond to the following question: {user_message}"""
+Please respond to the following question: {request.message}"""
         
         # Make the API call
         response = requests.post(
