@@ -195,64 +195,57 @@ async def list_models():
 
 @app.get("/test-huggingface")
 async def test_huggingface():
-    """Test endpoint to verify Hugging Face API connection"""
-    print("Testing Hugging Face API connection...")
-    
-    if not HUGGINGFACE_API_KEY:
-        print("Error: HUGGINGFACE_API_KEY is not set")
-        return {
-            "success": False,
-            "error": "HUGGINGFACE_API_KEY is not set",
-            "api_key_status": "missing"
-        }
-    
     try:
-        # Test the API key by making a request to the models endpoint
+        api_key = os.getenv("HUGGINGFACE_API_KEY")
+        if not api_key:
+            logger.error("HUGGINGFACE_API_KEY not set")
+            return {"status": "error", "message": "API key not configured"}
+
         headers = {
-            "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        
-        # First test the models endpoint
-        models_url = "https://huggingface.co/api/models"
-        print(f"Testing models endpoint: {models_url}")
-        models_response = requests.get(models_url, headers=headers)
-        print(f"Models endpoint response status: {models_response.status_code}")
-        print(f"Models response text: {models_response.text[:200]}...")  # Print first 200 chars
-        
-        # Then test the specific model endpoint
-        model_url = f"https://huggingface.co/api/models/{MODEL_NAME}"
-        print(f"Testing model endpoint: {model_url}")
-        model_response = requests.get(model_url, headers=headers)
-        print(f"Model endpoint response status: {model_response.status_code}")
-        print(f"Model response text: {model_response.text[:200]}...")  # Print first 200 chars
-        
+
+        # Test different endpoint formats
+        test_urls = [
+            "https://api-inference.huggingface.co/models/gpt2",
+            "https://api-inference.huggingface.co/models/gpt2/generate",
+            "https://api-inference.huggingface.co/pipeline/text-generation"
+        ]
+
+        results = []
+        for url in test_urls:
+            try:
+                logger.info(f"Testing URL: {url}")
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    json={"inputs": "Hello, how are you?"}
+                )
+                results.append({
+                    "url": url,
+                    "status_code": response.status_code,
+                    "response": response.text[:200] if response.status_code == 200 else response.text,
+                    "headers": dict(response.headers)
+                })
+            except Exception as e:
+                results.append({
+                    "url": url,
+                    "error": str(e)
+                })
+
         return {
-            "success": True,
-            "api_key_status": "present",
-            "models_endpoint": {
-                "status_code": models_response.status_code,
-                "response": models_response.text[:200] + "..." if len(models_response.text) > 200 else models_response.text
-            },
-            "model_endpoint": {
-                "status_code": model_response.status_code,
-                "response": model_response.text[:200] + "..." if len(model_response.text) > 200 else model_response.text
-            }
+            "status": "test_complete",
+            "api_key_status": "set" if api_key else "not_set",
+            "api_key_length": len(api_key) if api_key else 0,
+            "results": results
         }
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error making request to Hugging Face API: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "api_key_status": "present"
-        }
+
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
+        logger.error(f"Test error: {str(e)}")
         return {
-            "success": False,
-            "error": str(e),
-            "api_key_status": "present"
+            "status": "error",
+            "message": str(e)
         }
 
 if __name__ == "__main__":
