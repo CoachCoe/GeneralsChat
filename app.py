@@ -152,8 +152,11 @@ async def test_huggingface():
             "Content-Type": "application/json"
         }
 
+        # Test with Mistral model
+        test_model = "mistralai/Devstral-Small-2505"
+        
         # First, check if we can access the model info
-        model_info_url = f"https://huggingface.co/api/models/{MODEL_NAME}"
+        model_info_url = f"https://huggingface.co/api/models/{test_model}"
         logger.info(f"Checking model info at: {model_info_url}")
         
         model_response = requests.get(model_info_url, headers=headers)
@@ -161,7 +164,7 @@ async def test_huggingface():
         logger.info(f"Model info response: {model_response.text[:200]}")
         
         # Try the exact API documentation format
-        inference_url = f"https://huggingface.co/{MODEL_NAME}"
+        inference_url = f"https://huggingface.co/{test_model}"
         logger.info(f"Testing inference at: {inference_url}")
         
         response = requests.post(
