@@ -164,17 +164,28 @@ async def test_huggingface():
         test_urls = [
             f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
             f"https://api-inference.huggingface.co/pipeline/text-generation/{MODEL_NAME}",
-            f"https://api-inference.huggingface.co/pipeline/text-generation?model={MODEL_NAME}"
+            f"https://api-inference.huggingface.co/pipeline/text-generation?model={MODEL_NAME}",
+            "https://api-inference.huggingface.co/pipeline/text-generation"
         ]
         
         results = []
         for url in test_urls:
             try:
                 logger.info(f"Testing inference at: {url}")
+                payload = {
+                    "inputs": "Hello, how are you?",
+                    "model": MODEL_NAME,
+                    "parameters": {
+                        "max_new_tokens": 50,
+                        "temperature": 0.7,
+                        "top_p": 0.95,
+                        "do_sample": True
+                    }
+                }
                 response = requests.post(
                     url,
                     headers=headers,
-                    json={"inputs": "Hello, how are you?"}
+                    json=payload
                 )
                 results.append({
                     "url": url,
