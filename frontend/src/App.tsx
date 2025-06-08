@@ -1,5 +1,6 @@
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, Box } from '@mui/material';
 import { Chat } from './components/Chat';
+import { TreeMenu } from './components/TreeMenu';
 
 const theme = createTheme({
   palette: {
@@ -54,7 +55,12 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Chat />
+      <Box sx={{ display: 'flex', height: '100vh' }}>
+        <TreeMenu />
+        <Box sx={{ flexGrow: 1, p: 3 }}>
+          <Chat />
+        </Box>
+      </Box>
     </ThemeProvider>
   );
 }
