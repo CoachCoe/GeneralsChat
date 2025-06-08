@@ -35,7 +35,7 @@ If you need specific policy details that aren't provided, guide the user to chec
 export class AIService {
   async getResponse(message: string): Promise<string> {
     try {
-      const response = await fetch('/chat', {
+      const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, systemPrompt: SYSTEM_PROMPT })
