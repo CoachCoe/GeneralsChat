@@ -163,14 +163,22 @@ async def test_huggingface():
         logger.info(f"Model info response status: {model_response.status_code}")
         logger.info(f"Model info response: {model_response.text[:200]}")
         
-        # Try the exact API documentation format
-        inference_url = f"https://huggingface.co/{test_model}"
+        # Try the inference API endpoint
+        inference_url = f"https://api-inference.huggingface.co/models/{test_model}"
         logger.info(f"Testing inference at: {inference_url}")
         
         response = requests.post(
             inference_url,
             headers=headers,
-            json={"inputs": "Hello, how are you?"}
+            json={
+                "inputs": "Hello, how are you?",
+                "parameters": {
+                    "max_new_tokens": 50,
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "do_sample": True
+                }
+            }
         )
         
         return {
