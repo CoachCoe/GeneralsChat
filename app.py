@@ -126,9 +126,23 @@ async def chat(request: ChatRequest):
         You help with discipline issues and provide guidance based on school policies.
         Please respond to the following question: {request.message}"""
         
+        # First verify the model exists
+        model_url = f"https://huggingface.co/api/models/{MODEL_NAME}"
+        model_check = requests.get(model_url, headers=headers)
+        print(f"Model check response status: {model_check.status_code}")
+        print(f"Model check response: {model_check.text[:200]}...")
+        
+        if model_check.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Model {MODEL_NAME} not found. Please check the model name and try again."
+            )
+        
         # Make the request to Hugging Face inference endpoint
+        inference_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
+        print(f"Making inference request to: {inference_url}")
         response = requests.post(
-            f"https://api-inference.huggingface.co/models/{MODEL_NAME}",
+            inference_url,
             headers=headers,
             json={
                 "inputs": prompt,
@@ -143,12 +157,7 @@ async def chat(request: ChatRequest):
         print(f"Hugging Face API response status: {response.status_code}")
         print(f"Response text: {response.text[:200]}...")  # Print first 200 chars
         
-        if response.status_code == 404:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Model {MODEL_NAME} not found. Please check the model name and try again."
-            )
-        elif response.status_code != 200:
+        if response.status_code != 200:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error from Hugging Face API: {response.text}"
