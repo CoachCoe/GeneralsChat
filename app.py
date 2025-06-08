@@ -20,7 +20,7 @@ load_dotenv()
 # Get environment variables
 API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 # Use a model known to work with free inference
-MODEL_NAME = "EleutherAI/pythia-70m"  # os.getenv("MODEL_NAME", "EleutherAI/pythia-70m")
+MODEL_NAME = "microsoft/DialoGPT-medium"  # os.getenv("MODEL_NAME", "microsoft/DialoGPT-medium")
 logger.info(f"Using model: {MODEL_NAME}")
 PORT = int(os.getenv("PORT", "8000"))
 
@@ -101,12 +101,11 @@ Please respond to the following question: {request.message}"""
             json={
                 "inputs": prompt,
                 "parameters": {
-                    "max_new_tokens": 100,
+                    "max_length": 100,
                     "temperature": 0.7,
                     "top_p": 0.95,
                     "do_sample": True,
-                    "return_full_text": False,
-                    "repetition_penalty": 1.2
+                    "return_full_text": False
                 }
             },
             timeout=30
@@ -161,12 +160,11 @@ async def test_huggingface():
         request_data = {
             "inputs": input_text,
             "parameters": {
-                "max_new_tokens": 100,
+                "max_length": 100,
                 "temperature": 0.7,
                 "top_p": 0.95,
                 "do_sample": True,
-                "return_full_text": False,
-                "repetition_penalty": 1.2
+                "return_full_text": False
             }
         }
         logger.info(f"Request data: {request_data}")
