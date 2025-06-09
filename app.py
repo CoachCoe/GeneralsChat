@@ -79,7 +79,8 @@ async def chat(request: ChatRequest):
         system_prompt = request.systemPrompt or """You are a helpful AI assistant for school administrators. \
 You help with discipline issues and provide guidance based on school policies."""
         
-        prompt = f"{system_prompt}\nPlease respond to the following question: {request.message}"
+        # Format the prompt to include context
+        prompt = f"{system_prompt}\n\n{request.message}"
         
         response = requests.post(
             OLLAMA_URL,
@@ -90,7 +91,10 @@ You help with discipline issues and provide guidance based on school policies.""
                 "options": {
                     "temperature": 0.7,
                     "top_p": 0.95,
-                    "max_tokens": 500
+                    "max_tokens": 1000,
+                    "context_window": 8192,  # Increased to Mistral's maximum
+                    "num_ctx": 8192,  # Explicitly set context length
+                    "repeat_penalty": 1.1  # Add penalty for repeating content
                 }
             },
             timeout=60
