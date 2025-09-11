@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=file:./data/compliance.db
+      - OLLAMA_URL=http://ollama:11434
+      - UPLOADS_DIR=/app/uploads
+    depends_on:
+      - ollama
+  
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    command: >
+      sh -c "ollama serve &
+             sleep 10 &&
+             ollama pull llama2:7b-chat &&
+             wait"
+
+volumes:
+  ollama_data:
