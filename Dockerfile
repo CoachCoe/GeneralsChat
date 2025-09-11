@@ -1,23 +1,24 @@
-FROM python:3.11-slim
+FROM node:18-alpine
 
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y curl && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
-
-# Set up Python environment
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
 COPY . .
 
-# Expose port
-EXPOSE 8000
+# Create necessary directories
+RUN mkdir -p uploads data
 
-# Start command
-CMD ollama serve & sleep 10 && ollama pull mistral && uvicorn app:app --host 0.0.0.0 --port 8000 
+# Generate Prisma client
+RUN npx prisma generate
+
+# Expose port
+EXPOSE 3000
+
+# Start the application
+CMD ["npm", "run", "dev"]
