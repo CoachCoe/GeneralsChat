@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Brain, Send, Plus, Paperclip, MessageSquare, Clock, Menu } from 'lucide-react';
+import { Brain, Send, Plus, Paperclip, Home, Menu } from 'lucide-react';
 import Link from 'next/link';
 
 interface Message {
@@ -12,12 +12,41 @@ interface Message {
   timestamp: Date;
 }
 
+interface Chat {
+  id: string;
+  title: string;
+  lastMessage: string;
+  timestamp: Date;
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Mock previous chats data
+  const previousChats: Chat[] = [
+    {
+      id: '1',
+      title: 'Student Fight Incident',
+      lastMessage: 'I need help classifying this incident...',
+      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
+    },
+    {
+      id: '2',
+      title: 'Bullying Report',
+      lastMessage: 'What are the compliance requirements...',
+      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000) // 1 day ago
+    },
+    {
+      id: '3',
+      title: 'Disciplinary Action',
+      lastMessage: 'Help me understand the process...',
+      timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) // 3 days ago
+    }
+  ];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,218 +70,207 @@ export default function ChatPage() {
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate General's response
+    // Simulate AI response
     setTimeout(() => {
-      const generalResponse: Message = {
+      const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'general',
-        content: "I understand. Let me help you with that. Can you provide more details about the incident you're reporting?",
+        content: "I understand you need help with this incident. Let me guide you through the compliance process step by step. Can you provide more details about what happened?",
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, generalResponse]);
+      setMessages(prev => [...prev, aiMessage]);
       setIsLoading(false);
     }, 1500);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const startNewChat = () => {
-    setMessages([]);
+  const formatDate = (date: Date) => {
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return formatTime(date);
+    } else if (diffInHours < 168) { // 7 days
+      return date.toLocaleDateString([], { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
   };
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <div className="flex h-screen">
-        {/* Sidebar */}
-        <div className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-gray-900/80 backdrop-blur-xl border-r border-white/10 overflow-hidden`}>
-          <div className="p-4 border-b border-white/10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Previous Chats</h2>
-              <Button
-                onClick={startNewChat}
-                className="btn-primary px-3 py-2 text-sm"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Chat
-              </Button>
-            </div>
+    <div className="min-h-screen bg-gray-900 flex">
+      {/* Sidebar */}
+      <div className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-gray-800 border-r border-gray-700 flex flex-col overflow-hidden`}>
+        <div className="p-4 border-b border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">General Chat</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(false)}
+              className="text-gray-400 hover:text-white"
+            >
+              ×
+            </Button>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            <div className="p-3 rounded-lg cursor-pointer transition-all bg-gray-800/30 hover:bg-gray-800/50 border border-transparent">
-              <h3 className="font-medium text-white text-sm mb-2">Bullying Incident Report</h3>
-              <p className="text-xs text-gray-400 mb-2">The General has classified this as a Level 2 incident...</p>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span className="flex items-center">
-                  <MessageSquare className="h-3 w-3 mr-1" />
-                  8
-                </span>
-                <span className="flex items-center">
-                  <Clock className="h-3 w-3 mr-1" />
-                  2h ago
-                </span>
+          <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            New Chat
+          </Button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-2 space-y-1">
+            {previousChats.map((chat) => (
+              <div
+                key={chat.id}
+                className="p-3 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors group"
+              >
+                <div className="flex items-start justify-between mb-1">
+                  <h3 className="text-sm font-medium text-white truncate flex-1">
+                    {chat.title}
+                  </h3>
+                  <span className="text-xs text-gray-400 ml-2">
+                    {formatDate(chat.timestamp)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 truncate">
+                  {chat.lastMessage}
+                </p>
               </div>
-            </div>
-            
-            <div className="p-3 rounded-lg cursor-pointer transition-all bg-gray-800/30 hover:bg-gray-800/50 border border-transparent">
-              <h3 className="font-medium text-white text-sm mb-2">Title IX Investigation</h3>
-              <p className="text-xs text-gray-400 mb-2">Based on the information provided, this requires...</p>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span className="flex items-center">
-                  <MessageSquare className="h-3 w-3 mr-1" />
-                  12
-                </span>
-                <span className="flex items-center">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Yesterday
-                </span>
-              </div>
-            </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Navbar */}
+        <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            {!sidebarOpen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(true)}
+                className="text-gray-400 hover:text-white"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+            )}
+            <Link href="/" className="flex items-center text-gray-400 hover:text-white transition-colors">
+              <Home className="h-4 w-4 mr-2" />
+              Dashboard
+            </Link>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+            <span className="text-sm text-gray-400">General Online</span>
           </div>
         </div>
 
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <div className="p-4 border-b border-white/10 bg-gray-900/50 backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="btn-secondary p-2"
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-                <div>
-                  <h1 className="text-lg font-semibold text-white">General Chat</h1>
-                  <p className="text-sm text-gray-400">Your AI compliance assistant</p>
-                </div>
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-green-500/20 to-blue-500/20 w-fit mb-6">
+                <Brain className="h-12 w-12 text-green-400" />
               </div>
-              <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
-                Back to Dashboard
-              </Link>
-            </div>
-          </div>
-
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto">
-            {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-green-500/20 to-blue-500/20 w-fit mb-6">
-                  <Brain className="h-8 w-8 text-green-400" />
-                </div>
-                <h2 className="text-xl font-semibold text-white mb-3">Welcome to General Chat</h2>
-                <p className="text-gray-400 max-w-md mb-8">
-                  I'm the General, your AI compliance assistant. I'm here to help you navigate incident reporting and ensure proper compliance procedures.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl">
-                  <div 
-                    className="p-4 rounded-lg bg-gray-800/30 hover:bg-gray-800/50 border border-gray-700 cursor-pointer transition-all"
-                    onClick={() => setInputValue("I need to report a bullying incident")}
-                  >
-                    <h3 className="font-medium text-white mb-1">Report an Incident</h3>
-                    <p className="text-sm text-gray-400">Get help with incident classification</p>
-                  </div>
-                  <div 
-                    className="p-4 rounded-lg bg-gray-800/30 hover:bg-gray-800/50 border border-gray-700 cursor-pointer transition-all"
-                    onClick={() => setInputValue("What are the compliance requirements for Title IX?")}
-                  >
-                    <h3 className="font-medium text-white mb-1">Compliance Questions</h3>
-                    <p className="text-sm text-gray-400">Ask about policies and procedures</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="max-w-4xl mx-auto p-4 space-y-6">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-3xl ${message.type === 'user' ? 'ml-12' : 'mr-12'}`}>
-                      <div className="flex items-start gap-3">
-                        {message.type === 'general' && (
-                          <div className="p-2 rounded-lg bg-green-500/20 flex-shrink-0 mt-1">
-                            <Brain className="h-5 w-5 text-green-400" />
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <div
-                            className={`px-4 py-3 rounded-2xl ${
-                              message.type === 'user'
-                                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white'
-                                : 'bg-gray-800/50 text-gray-100 border border-gray-700'
-                            }`}
-                          >
-                            <p className="text-sm leading-relaxed">{message.content}</p>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1 px-1">
-                            {formatTime(message.timestamp)}
-                          </p>
-                        </div>
-                        {message.type === 'user' && (
-                          <div className="p-2 rounded-lg bg-gray-800/50 flex-shrink-0 mt-1">
-                            <div className="w-5 h-5 rounded-full bg-gradient-to-r from-green-400 to-blue-500"></div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-green-500/20 flex-shrink-0 mt-1">
-                        <Brain className="h-5 w-5 text-green-400" />
-                      </div>
-                      <div className="bg-gray-800/50 text-gray-100 border border-gray-700 px-4 py-3 rounded-2xl">
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-pulse">The General is thinking...</div>
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </div>
-
-          {/* Input Area */}
-          <div className="p-4 border-t border-white/10 bg-gray-900/50 backdrop-blur-xl">
-            <div className="max-w-4xl mx-auto">
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                    placeholder="Message the General..."
-                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 pr-12"
-                    disabled={isLoading}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!inputValue.trim() || isLoading}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 btn-primary px-3 py-2"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                The General can help with incident classification, compliance guidance, and policy questions
+              <h2 className="text-2xl font-bold text-white mb-4">Chat with the General</h2>
+              <p className="text-gray-400 max-w-md">
+                I'm here to help you navigate complex disciplinary incident compliance requirements. 
+                Describe your incident and I'll guide you through the process.
               </p>
             </div>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-3xl px-4 py-3 rounded-2xl ${
+                    message.type === 'user'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-700 text-gray-100'
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    {message.type === 'general' && (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-blue-500 flex items-center justify-center flex-shrink-0">
+                        <Brain className="h-4 w-4 text-white" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm leading-relaxed">{message.content}</p>
+                      <p className="text-xs opacity-70 mt-2">
+                        {formatTime(message.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+          
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-2xl">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Area */}
+        <div className="border-t border-gray-700 p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-end space-x-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-white p-2"
+              >
+                <Paperclip className="h-5 w-5" />
+              </Button>
+              <div className="flex-1 relative">
+                <textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Describe your incident and I'll help you with compliance..."
+                  className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 pr-12 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                  rows={1}
+                  style={{ minHeight: '48px', maxHeight: '120px' }}
+                />
+              </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim() || isLoading}
+                className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="h-5 w-5" />
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Press Enter to send, Shift+Enter for new line
+            </p>
           </div>
         </div>
       </div>
