@@ -107,17 +107,17 @@ export default function IncidentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen gradient-bg">
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Incidents</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-3xl font-bold text-white">Incidents</h1>
+            <p className="text-gray-300 mt-2">
               Manage and track disciplinary incidents
             </p>
           </div>
           <Link href="/incidents/new">
-            <Button>
+            <Button className="btn-primary">
               <PlusCircle className="mr-2 h-4 w-4" />
               New Incident
             </Button>
@@ -130,7 +130,11 @@ export default function IncidentsPage() {
               key={status}
               variant={filter === status ? 'default' : 'outline'}
               onClick={() => setFilter(status)}
-              className="capitalize"
+              className={`capitalize ${
+                filter === status 
+                  ? 'btn-primary' 
+                  : 'btn-secondary'
+              }`}
             >
               {status.replace('_', ' ')}
             </Button>
@@ -139,18 +143,18 @@ export default function IncidentsPage() {
 
         <div className="grid gap-6">
           {incidents.length === 0 ? (
-            <Card>
+            <Card className="card-modern">
               <CardContent className="text-center py-12">
-                <AlertTriangle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No incidents found</h3>
-                <p className="text-gray-600 mb-4">
+                <AlertTriangle className="h-12 w-12 text-green-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">No incidents found</h3>
+                <p className="text-gray-400 mb-4">
                   {filter === 'all' 
                     ? 'No incidents have been reported yet.'
                     : `No incidents with status "${filter}" found.`
                   }
                 </p>
                 <Link href="/incidents/new">
-                  <Button>
+                  <Button className="btn-primary">
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Report First Incident
                   </Button>
@@ -159,12 +163,12 @@ export default function IncidentsPage() {
             </Card>
           ) : (
             incidents.map((incident) => (
-              <Card key={incident.id} className="hover:shadow-md transition-shadow">
+              <Card key={incident.id} className="card-modern hover-lift">
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <CardTitle className="text-lg">{incident.title}</CardTitle>
-                      <CardDescription className="mt-1">
+                      <CardTitle className="text-lg text-white">{incident.title}</CardTitle>
+                      <CardDescription className="mt-1 text-gray-400">
                         Reported by {incident.reporter.name} • {formatDate(incident.createdAt)}
                       </CardDescription>
                     </div>
@@ -183,13 +187,13 @@ export default function IncidentsPage() {
                 
                 <CardContent>
                   {incident.description && (
-                    <p className="text-gray-700 mb-4 line-clamp-2">
+                    <p className="text-gray-300 mb-4 line-clamp-2">
                       {incident.description}
                     </p>
                   )}
                   
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
                       <span className="flex items-center gap-1">
                         <AlertTriangle className="h-4 w-4" />
                         {incident.incidentType || 'Unclassified'}
@@ -206,7 +210,7 @@ export default function IncidentsPage() {
                     
                     <div className="flex gap-2">
                       <Link href={`/incidents/${incident.id}`}>
-                        <Button variant="outline" size="sm">
+                        <Button className="btn-secondary" size="sm">
                           <Eye className="mr-2 h-4 w-4" />
                           View
                         </Button>
@@ -215,13 +219,13 @@ export default function IncidentsPage() {
                   </div>
                   
                   {incident.actions.length > 0 && (
-                    <div className="mt-4 pt-4 border-t">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Pending Actions</h4>
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <h4 className="text-sm font-medium text-white mb-2">Pending Actions</h4>
                       <div className="space-y-2">
                         {incident.actions.slice(0, 2).map((action) => (
                           <div key={action.id} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-700">{action.description || action.actionType}</span>
-                            <Badge variant="outline" className="text-xs">
+                            <span className="text-gray-300">{action.description || action.actionType}</span>
+                            <Badge variant="outline" className="text-xs border-white/20 text-gray-300">
                               {action.status}
                             </Badge>
                           </div>
