@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Settings, Menu, X } from 'lucide-react';
+import { Settings, Menu, X, Bell } from 'lucide-react';
 
 export default function Navbar() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -57,8 +57,38 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Admin Menu */}
-        <div style={{ position: 'relative' }}>
+        {/* Right side buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* To-Do List Button */}
+          <Link href="/todos">
+            <button
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#9ca3af',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.color = 'white';
+                e.target.style.backgroundColor = '#374151';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.color = '#9ca3af';
+                e.target.style.backgroundColor = 'transparent';
+              }}
+            >
+              <Bell size={20} />
+            </button>
+          </Link>
+
+          {/* Admin Menu */}
+          <div style={{ position: 'relative' }}>
           <button
             onClick={() => setIsAdminOpen(!isAdminOpen)}
             style={{
@@ -142,6 +172,7 @@ export default function Navbar() {
               </Link>
             </div>
           )}
+          </div>
         </div>
 
         {/* Mobile Menu Button */}
