@@ -168,7 +168,7 @@ export default function TodoDetailPage() {
 
         {/* Task Detail */}
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8">
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-8">
             <div className="flex items-start gap-6">
               {/* Checkbox */}
               <button

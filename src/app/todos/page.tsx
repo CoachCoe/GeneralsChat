@@ -165,56 +165,54 @@ export default function TodosPage() {
 
         {/* Filters */}
         <div className="max-w-4xl mx-auto mb-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
-            <div className="flex flex-wrap gap-4 items-center justify-between">
-              {/* Completion Filter */}
-              <div className="flex items-center gap-2">
-                <Filter size={20} className="text-gray-300" />
-                <span className="text-gray-300 font-medium">Show:</span>
-                <div className="flex gap-2">
-                  {[
-                    { key: 'all', label: 'All' },
-                    { key: 'todo', label: 'To-Do' },
-                    { key: 'completed', label: 'Completed' }
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setFilter(key as FilterType)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        filter === key
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white/20 text-gray-300 hover:bg-white/30 hover:text-white'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+          <div className="flex flex-wrap gap-4 items-center justify-between">
+            {/* Completion Filter */}
+            <div className="flex items-center gap-2">
+              <Filter size={20} className="text-gray-300" />
+              <span className="text-gray-300 font-medium">Show:</span>
+              <div className="flex gap-2">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'todo', label: 'To-Do' },
+                  { key: 'completed', label: 'Completed' }
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilter(key as FilterType)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      filter === key
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/20 text-gray-300 hover:bg-white/30 hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {/* Due Date Filter */}
-              <div className="flex items-center gap-2">
-                <Calendar size={20} className="text-gray-300" />
-                <span className="text-gray-300 font-medium">Due:</span>
-                <div className="flex gap-2">
-                  {[
-                    { key: 'all', label: 'All' },
-                    { key: 'today', label: 'Today' },
-                    { key: 'week', label: 'This Week' }
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setDueFilter(key as DueFilter)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        dueFilter === key
-                          ? 'bg-green-500 text-white'
-                          : 'bg-white/20 text-gray-300 hover:bg-white/30 hover:text-white'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+            {/* Due Date Filter */}
+            <div className="flex items-center gap-2">
+              <Calendar size={20} className="text-gray-300" />
+              <span className="text-gray-300 font-medium">Due:</span>
+              <div className="flex gap-2">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'today', label: 'Today' },
+                  { key: 'week', label: 'This Week' }
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setDueFilter(key as DueFilter)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      dueFilter === key
+                        ? 'bg-green-500 text-white'
+                        : 'bg-white/20 text-gray-300 hover:bg-white/30 hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -238,7 +236,7 @@ export default function TodosPage() {
               {filteredTodos.map((todo) => (
                 <div
                   key={todo.id}
-                  className={`bg-white/10 backdrop-blur-sm rounded-lg p-6 transition-all hover:bg-white/15 cursor-pointer ${
+                  className={`bg-white/5 backdrop-blur-sm rounded-lg p-6 transition-all hover:bg-white/10 cursor-pointer ${
                     todo.completed ? 'opacity-75' : ''
                   }`}
                   onClick={() => window.location.href = `/todos/${todo.id}`}
