@@ -1,81 +1,39 @@
-import { Chroma } from '@langchain/community/vectorstores/chroma';
-import { OllamaEmbeddings } from '@langchain/ollama/embeddings';
 import { prisma } from '@/lib/db';
 import { PolicyChunk } from '@/types';
 
 export class RAGSystem {
-  private vectorStore: Chroma | null = null;
-  private embeddings: OllamaEmbeddings;
-
   constructor() {
-    this.embeddings = new OllamaEmbeddings({
-      model: 'nomic-embed-text', // Good for embeddings
-      baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-    });
+    // Simplified RAG system without external dependencies
+    // Will be enhanced when Ollama is properly set up
   }
 
   async initialize() {
-    try {
-      this.vectorStore = new Chroma(this.embeddings, {
-        collectionName: 'policy_documents',
-        url: 'http://localhost:8000', // ChromaDB default port
-      });
-    } catch (error) {
-      console.error('Failed to initialize vector store:', error);
-      // Fallback to in-memory storage for development
-      this.vectorStore = null;
-    }
+    // Simplified initialization - no external dependencies
+    console.log('RAG system initialized (simplified mode)');
   }
 
   async addPolicyDocument(policyId: string, content: string) {
     // Split content into chunks
     const chunks = this.splitIntoChunks(content);
     
-    // Store chunks in database
+    // Store chunks in database (simplified - no embeddings for now)
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-      const embedding = await this.embeddings.embedQuery(chunk);
       
       await prisma.policyChunk.create({
         data: {
           policyId,
           content: chunk,
           chunkIndex: i,
-          embedding: JSON.stringify(embedding),
+          embedding: null, // No embeddings in simplified mode
         },
       });
-    }
-
-    // Add to vector store if available
-    if (this.vectorStore) {
-      await this.vectorStore.addDocuments(
-        chunks.map((chunk, index) => ({
-          pageContent: chunk,
-          metadata: { policyId, chunkIndex: index },
-        }))
-      );
     }
   }
 
   async searchRelevantPolicies(query: string, limit: number = 5): Promise<PolicyChunk[]> {
-    if (!this.vectorStore) {
-      // Fallback to database search
-      return this.fallbackSearch(query, limit);
-    }
-
-    try {
-      const results = await this.vectorStore.similaritySearch(query, limit);
-      return results.map((doc, index) => ({
-        id: `chunk_${index}`,
-        policyId: doc.metadata.policyId,
-        content: doc.pageContent,
-        chunkIndex: doc.metadata.chunkIndex,
-        createdAt: new Date(),
-      }));
-    } catch (error) {
-      console.error('Vector search failed, falling back to database:', error);
-      return this.fallbackSearch(query, limit);
-    }
+    // Simplified search - always use database search
+    return this.fallbackSearch(query, limit);
   }
 
   private async fallbackSearch(query: string, limit: number): Promise<PolicyChunk[]> {

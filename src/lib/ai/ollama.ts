@@ -1,16 +1,11 @@
-import { Ollama } from '@langchain/ollama';
 import { DataSensitivity } from '@/types';
 
 export class AIRouter {
-  private ollama: Ollama;
   private model: string;
 
   constructor() {
     this.model = process.env.OLLAMA_MODEL || 'llama2:7b-chat';
-    this.ollama = new Ollama({
-      baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-      model: this.model,
-    });
+    // Simplified AI router - will be enhanced when Ollama is properly set up
   }
 
   async processQuery(
@@ -18,17 +13,25 @@ export class AIRouter {
     context: any, 
     sensitivity: DataSensitivity
   ): Promise<string> {
-    // All processing happens locally for privacy
+    // Simplified AI processing - will be enhanced when Ollama is properly set up
     const systemPrompt = this.getSystemPrompt(sensitivity);
-    const fullPrompt = `${systemPrompt}\n\nContext: ${JSON.stringify(context)}\n\nQuery: ${query}`;
     
-    try {
-      const response = await this.ollama.invoke(fullPrompt);
-      return response as string;
-    } catch (error) {
-      console.error('AI processing error:', error);
-      throw new Error('Failed to process query with local AI');
+    // For now, return a simple response based on the query
+    const lowerQuery = query.toLowerCase();
+    
+    if (lowerQuery.includes('title ix') || lowerQuery.includes('sexual harassment')) {
+      return "This appears to be a Title IX matter requiring immediate attention. Please ensure you follow your district's Title IX procedures and contact the Title IX coordinator immediately.";
     }
+    
+    if (lowerQuery.includes('bully') || lowerQuery.includes('harassment')) {
+      return "This appears to be a bullying or harassment incident. Please document the incident thoroughly and follow your district's anti-bullying policies.";
+    }
+    
+    if (lowerQuery.includes('fight') || lowerQuery.includes('physical')) {
+      return "This appears to be a physical altercation. Please ensure all parties are safe, document the incident, and follow your district's discipline procedures.";
+    }
+    
+    return `Based on your query about "${query}", I recommend reviewing your district's relevant policies and procedures. Please consult with your administration team for specific guidance.`;
   }
 
   private getSystemPrompt(sensitivity: DataSensitivity): string {

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Brain, Send, ArrowLeft, MessageCircle, FileText, Clock, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import Navbar from '@/components/Navbar';
 
 interface Message {
   id: string;
@@ -107,6 +108,7 @@ export default function NewIncidentPage() {
 
   return (
     <div className="min-h-screen gradient-bg">
+      <Navbar />
       <div className="container mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

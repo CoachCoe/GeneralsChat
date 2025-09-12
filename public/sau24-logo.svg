@@ -1,0 +1,27 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer white circle background -->
+  <circle cx="32" cy="32" r="32" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+  
+  <!-- Central black circle -->
+  <circle cx="32" cy="32" r="18" fill="black"/>
+  
+  <!-- SAU 24 text in center -->
+  <text x="32" y="28" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="8" font-weight="bold">SAU</text>
+  <text x="32" y="38" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="8" font-weight="bold">24</text>
+  
+  <!-- Top-left puzzle piece (Darker Purple/Blue) -->
+  <path d="M 16 16 Q 16 8 24 8 Q 32 8 32 16 Q 40 16 40 24 Q 32 24 32 32 Q 24 32 16 24 Q 16 20 16 16 Z" fill="#4c1d95" stroke="white" stroke-width="0.5"/>
+  <text x="24" y="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="4" font-weight="bold">Respectful</text>
+  <text x="24" y="24" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="4" font-weight="bold">Collaborator</text>
+  
+  <!-- Top-right puzzle piece (Lighter Purple) -->
+  <path d="M 32 16 Q 40 16 40 24 Q 48 24 48 32 Q 40 32 40 40 Q 32 40 32 32 Q 24 32 24 24 Q 32 24 32 16 Z" fill="#7c3aed" stroke="white" stroke-width="0.5"/>
+  <text x="40" y="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="4" font-weight="bold">Effective</text>
+  <text x="40" y="24" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="4" font-weight="bold">Communicator</text>
+  
+  <!-- Bottom puzzle piece (Darker Blue) -->
+  <path d="M 16 24 Q 24 24 24 32 Q 16 32 16 40 Q 8 40 8 32 Q 8 24 16 24 Z" fill="#1e40af" stroke="white" stroke-width="0.5"/>
+  <text x="12" y="28" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="3" font-weight="bold">Knowledgeable</text>
+  <text x="12" y="32" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="3" font-weight="bold">Problem Solver</text>
+  <text x="12" y="36" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="3" font-weight="bold">and Creator</text>
+</svg>
