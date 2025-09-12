@@ -127,23 +127,6 @@ export default function TodosPage() {
     });
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return '#ef4444';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#10b981';
-      default: return '#6b7280';
-    }
-  };
-
-  const getPriorityText = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'High';
-      case 'medium': return 'Medium';
-      case 'low': return 'Low';
-      default: return 'Unknown';
-    }
-  };
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -186,8 +169,8 @@ export default function TodosPage() {
             <div className="flex flex-wrap gap-4 items-center justify-between">
               {/* Completion Filter */}
               <div className="flex items-center gap-2">
-                <Filter size={20} className="text-gray-300" />
-                <span className="text-gray-300 font-medium">Show:</span>
+                <Filter size={20} className="text-white" />
+                <span className="text-white font-medium">Show:</span>
                 <div className="flex gap-2">
                   {[
                     { key: 'all', label: 'All' },
@@ -200,7 +183,7 @@ export default function TodosPage() {
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         filter === key
                           ? 'bg-blue-500 text-white'
-                          : 'bg-white/20 text-gray-300 hover:bg-white/30'
+                          : 'bg-white/20 text-white hover:bg-white/30'
                       }`}
                     >
                       {label}
@@ -211,8 +194,8 @@ export default function TodosPage() {
 
               {/* Due Date Filter */}
               <div className="flex items-center gap-2">
-                <Calendar size={20} className="text-gray-300" />
-                <span className="text-gray-300 font-medium">Due:</span>
+                <Calendar size={20} className="text-white" />
+                <span className="text-white font-medium">Due:</span>
                 <div className="flex gap-2">
                   {[
                     { key: 'all', label: 'All' },
@@ -225,7 +208,7 @@ export default function TodosPage() {
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         dueFilter === key
                           ? 'bg-green-500 text-white'
-                          : 'bg-white/20 text-gray-300 hover:bg-white/30'
+                          : 'bg-white/20 text-white hover:bg-white/30'
                       }`}
                     >
                       {label}
@@ -243,7 +226,7 @@ export default function TodosPage() {
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📝</div>
               <h3 className="text-2xl font-semibold text-white mb-2">No tasks found</h3>
-              <p className="text-gray-400">
+              <p className="text-white">
                 {filter === 'todo' && dueFilter === 'all' 
                   ? "You're all caught up! No pending tasks."
                   : "No tasks match your current filters."
@@ -282,24 +265,16 @@ export default function TodosPage() {
                             {todo.title}
                           </h3>
                           <p className={`text-sm mb-3 ${
-                            todo.completed ? 'text-gray-500' : 'text-gray-300'
+                            todo.completed ? 'text-gray-500' : 'text-white'
                           }`}>
                             {todo.description}
                           </p>
-                        </div>
-
-                        {/* Priority Badge */}
-                        <div
-                          className="px-3 py-1 rounded-full text-xs font-medium text-white ml-4"
-                          style={{ backgroundColor: getPriorityColor(todo.priority) }}
-                        >
-                          {getPriorityText(todo.priority)}
                         </div>
                       </div>
 
                       {/* Due Date */}
                       <div className="flex items-center gap-2 text-sm">
-                        <Clock size={16} className="text-gray-400" />
+                        <Clock size={16} className="text-white" />
                         <span className={`${
                           isOverdue(todo.dueDate) && !todo.completed
                             ? 'text-red-400 font-semibold'
@@ -307,7 +282,7 @@ export default function TodosPage() {
                             ? 'text-yellow-400 font-semibold'
                             : todo.completed
                             ? 'text-gray-500'
-                            : 'text-gray-400'
+                            : 'text-white'
                         }`}>
                           {isOverdue(todo.dueDate) && !todo.completed
                             ? `Overdue - ${formatDate(todo.dueDate)}`
