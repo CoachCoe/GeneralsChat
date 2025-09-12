@@ -108,43 +108,85 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex">
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-gray-800 border-r border-gray-700 flex flex-col overflow-hidden`}>
-        <div className="p-4 border-b border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">General Chat</h2>
-            <Button
-              variant="ghost"
-              size="sm"
+    <div style={{ minHeight: '100vh', backgroundColor: '#111827', display: 'flex' }}>
+      {/* Sidebar - Fixed Width Left */}
+      <div 
+        style={{ 
+          width: sidebarOpen ? '320px' : '0px',
+          transition: 'width 0.3s ease-in-out',
+          backgroundColor: '#1f2937',
+          borderRight: '1px solid #374151',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Sidebar Header */}
+        <div style={{ padding: '1rem', borderBottom: '1px solid #374151' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'white' }}>General Chat</h2>
+            <button
               onClick={() => setSidebarOpen(false)}
-              className="text-gray-400 hover:text-white"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#9ca3af',
+                cursor: 'pointer',
+                padding: '0.25rem'
+              }}
             >
               ×
-            </Button>
+            </button>
           </div>
-          <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
-            <Plus className="h-4 w-4 mr-2" />
-            New Chat
-          </Button>
         </div>
         
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-2 space-y-1">
+        {/* New Chat Button */}
+        <div style={{ padding: '1rem' }}>
+          <button
+            style={{
+              width: '100%',
+              backgroundColor: '#059669',
+              color: 'white',
+              height: '3rem',
+              fontSize: '1.125rem',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <Plus size={24} />
+          </button>
+        </div>
+        
+        {/* Previous Chats */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {previousChats.map((chat) => (
               <div
                 key={chat.id}
-                className="p-3 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors group"
+                style={{
+                  padding: '0.75rem',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                  backgroundColor: 'transparent'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#374151'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
               >
-                <div className="flex items-start justify-between mb-1">
-                  <h3 className="text-sm font-medium text-white truncate flex-1">
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: 'white', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {chat.title}
                   </h3>
-                  <span className="text-xs text-gray-400 ml-2">
+                  <span style={{ fontSize: '0.75rem', color: '#9ca3af', marginLeft: '0.5rem' }}>
                     {formatDate(chat.timestamp)}
                   </span>
                 </div>
-                <p className="text-xs text-gray-400 truncate">
+                <p style={{ fontSize: '0.75rem', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {chat.lastMessage}
                 </p>
               </div>
@@ -153,122 +195,153 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Navbar */}
-        <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      {/* Main Chat Area - Flexible Right */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Top Navbar */}
+        <div style={{ backgroundColor: '#1f2937', borderBottom: '1px solid #374151', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {!sidebarOpen && (
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={() => setSidebarOpen(true)}
-                className="text-gray-400 hover:text-white"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  padding: '0.25rem'
+                }}
               >
-                <Menu className="h-4 w-4" />
-              </Button>
+                <Menu size={16} />
+              </button>
             )}
-            <Link href="/" className="flex items-center text-gray-400 hover:text-white transition-colors">
-              <Home className="h-4 w-4 mr-2" />
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', color: '#9ca3af', textDecoration: 'none' }}>
+              <Home size={16} style={{ marginRight: '0.5rem' }} />
               Dashboard
             </Link>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-            <span className="text-sm text-gray-400">General Online</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '8px', height: '8px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
+            <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>General Online</span>
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Messages Area */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-green-500/20 to-blue-500/20 w-fit mb-6">
-                <Brain className="h-12 w-12 text-green-400" />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '2rem' }}>
+              <div style={{ padding: '1rem', borderRadius: '1rem', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)', marginBottom: '1.5rem' }}>
+                <Brain size={48} color="#10b981" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-4">Chat with the General</h2>
-              <p className="text-gray-400 max-w-md">
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem' }}>Chat with the General</h2>
+              <p style={{ color: '#9ca3af', maxWidth: '28rem' }}>
                 I'm here to help you navigate complex disciplinary incident compliance requirements. 
                 Describe your incident and I'll guide you through the process.
               </p>
             </div>
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+            <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {messages.map((message) => (
                 <div
-                  className={`max-w-3xl px-4 py-3 rounded-2xl ${
-                    message.type === 'user'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-700 text-gray-100'
-                  }`}
+                  key={message.id}
+                  style={{ display: 'flex', justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start' }}
                 >
-                  <div className="flex items-start space-x-3">
-                    {message.type === 'general' && (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-blue-500 flex items-center justify-center flex-shrink-0">
-                        <Brain className="h-4 w-4 text-white" />
+                  <div
+                    style={{
+                      maxWidth: '48rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '1rem',
+                      backgroundColor: message.type === 'user' ? '#059669' : '#374151',
+                      color: message.type === 'user' ? 'white' : '#f3f4f6'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      {message.type === 'general' && (
+                        <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Brain size={16} color="white" />
+                        </div>
+                      )}
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{message.content}</p>
+                        <p style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.5rem' }}>
+                          {formatTime(message.timestamp)}
+                        </p>
                       </div>
-                    )}
-                    <div className="flex-1">
-                      <p className="text-sm leading-relaxed">{message.content}</p>
-                      <p className="text-xs opacity-70 mt-2">
-                        {formatTime(message.timestamp)}
-                      </p>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-          
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-700 text-gray-100 px-4 py-3 rounded-2xl">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              ))}
+              
+              {isLoading && (
+                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                  <div style={{ backgroundColor: '#374151', color: '#f3f4f6', padding: '0.75rem 1rem', borderRadius: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ width: '8px', height: '8px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite' }}></div>
+                      <div style={{ width: '8px', height: '8px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite 0.1s' }}></div>
+                      <div style={{ width: '8px', height: '8px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }}></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              <div ref={messagesEndRef} />
             </div>
           )}
-          
-          <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
-        <div className="border-t border-gray-700 p-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-end space-x-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-400 hover:text-white p-2"
+        {/* Input Area - Bottom of main chat */}
+        <div style={{ borderTop: '1px solid #374151', padding: '1rem' }}>
+          <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem' }}>
+              <button
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  padding: '0.5rem'
+                }}
               >
-                <Paperclip className="h-5 w-5" />
-              </Button>
-              <div className="flex-1 relative">
+                <Paperclip size={20} />
+              </button>
+              <div style={{ flex: 1, position: 'relative' }}>
                 <textarea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Describe your incident and I'll help you with compliance..."
-                  className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 pr-12 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#1f2937',
+                    border: '1px solid #4b5563',
+                    borderRadius: '0.75rem',
+                    padding: '0.75rem 1rem',
+                    paddingRight: '3rem',
+                    color: 'white',
+                    resize: 'none',
+                    minHeight: '48px',
+                    maxHeight: '120px',
+                    outline: 'none'
+                  }}
                   rows={1}
-                  style={{ minHeight: '48px', maxHeight: '120px' }}
                 />
               </div>
-              <Button
+              <button
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isLoading}
-                className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: '#059669',
+                  color: 'white',
+                  padding: '0.75rem',
+                  borderRadius: '0.75rem',
+                  border: 'none',
+                  cursor: inputValue.trim() && !isLoading ? 'pointer' : 'not-allowed',
+                  opacity: inputValue.trim() && !isLoading ? 1 : 0.5
+                }}
               >
-                <Send className="h-5 w-5" />
-              </Button>
+                <Send size={20} />
+              </button>
             </div>
-            <p className="text-xs text-gray-500 mt-2 text-center">
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem', textAlign: 'center' }}>
               Press Enter to send, Shift+Enter for new line
             </p>
           </div>
