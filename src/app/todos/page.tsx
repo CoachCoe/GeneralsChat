@@ -179,11 +179,29 @@ export default function TodosPage() {
                   <button
                     key={key}
                     onClick={() => setFilter(key as FilterType)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      filter === key
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white/20 text-gray-300 hover:bg-white/30 hover:text-white'
-                    }`}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      transition: 'all 0.2s',
+                      backgroundColor: filter === key ? '#3b82f6' : 'transparent',
+                      color: filter === key ? 'white' : '#d1d5db',
+                      border: '1px solid #4b5563',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (filter !== key) {
+                        e.target.style.backgroundColor = '#374151';
+                        e.target.style.color = 'white';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (filter !== key) {
+                        e.target.style.backgroundColor = 'transparent';
+                        e.target.style.color = '#d1d5db';
+                      }
+                    }}
                   >
                     {label}
                   </button>
@@ -204,11 +222,29 @@ export default function TodosPage() {
                   <button
                     key={key}
                     onClick={() => setDueFilter(key as DueFilter)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      dueFilter === key
-                        ? 'bg-green-500 text-white'
-                        : 'bg-white/20 text-gray-300 hover:bg-white/30 hover:text-white'
-                    }`}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      transition: 'all 0.2s',
+                      backgroundColor: dueFilter === key ? '#10b981' : 'transparent',
+                      color: dueFilter === key ? 'white' : '#d1d5db',
+                      border: '1px solid #4b5563',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (dueFilter !== key) {
+                        e.target.style.backgroundColor = '#374151';
+                        e.target.style.color = 'white';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (dueFilter !== key) {
+                        e.target.style.backgroundColor = 'transparent';
+                        e.target.style.color = '#d1d5db';
+                      }
+                    }}
                   >
                     {label}
                   </button>
@@ -236,10 +272,22 @@ export default function TodosPage() {
               {filteredTodos.map((todo) => (
                 <div
                   key={todo.id}
-                  className={`bg-white/5 backdrop-blur-sm rounded-lg p-6 transition-all hover:bg-white/10 cursor-pointer ${
-                    todo.completed ? 'opacity-75' : ''
-                  }`}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid #4b5563',
+                    borderRadius: '0.5rem',
+                    padding: '1.5rem',
+                    transition: 'all 0.2s',
+                    cursor: 'pointer',
+                    opacity: todo.completed ? 0.75 : 1
+                  }}
                   onClick={() => window.location.href = `/todos/${todo.id}`}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#1f2937';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = 'transparent';
+                  }}
                 >
                   <div className="flex items-start gap-4">
                     {/* Checkbox */}
@@ -248,7 +296,14 @@ export default function TodosPage() {
                         e.stopPropagation();
                         toggleTodo(todo.id);
                       }}
-                      className="mt-1 transition-colors"
+                      style={{
+                        marginTop: '0.25rem',
+                        transition: 'colors 0.2s',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
                     >
                       {todo.completed ? (
                         <CheckCircle size={24} className="text-green-400" />
@@ -304,7 +359,27 @@ export default function TodosPage() {
 
         {/* Add New Task Button */}
         <div className="max-w-4xl mx-auto mt-8 text-center">
-          <button className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors">
+          <button 
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '0.5rem',
+              transition: 'all 0.2s',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = '#2563eb';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = '#3b82f6';
+            }}
+          >
             <Plus size={20} />
             Add New Task
           </button>

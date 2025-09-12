@@ -139,7 +139,26 @@ export default function TodoDetailPage() {
             <p className="text-gray-300 mb-8">The requested task could not be found.</p>
             <button
               onClick={() => router.push('/todos')}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                fontWeight: '600',
+                borderRadius: '0.5rem',
+                transition: 'all 0.2s',
+                border: 'none',
+                cursor: 'pointer',
+                textDecoration: 'none'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#2563eb';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#3b82f6';
+              }}
             >
               <ArrowLeft size={20} />
               Back to To-Do List
@@ -168,7 +187,7 @@ export default function TodoDetailPage() {
 
         {/* Task Detail */}
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-8">
+          <div className="bg-transparent border border-gray-600 rounded-lg p-8">
             <div className="flex items-start gap-6">
               {/* Checkbox */}
               <button
@@ -232,7 +251,22 @@ export default function TodoDetailPage() {
                   
                   <button
                     onClick={() => router.push('/todos')}
-                    className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      fontWeight: '600',
+                      borderRadius: '0.5rem',
+                      transition: 'all 0.2s',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#2563eb';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#3b82f6';
+                    }}
                   >
                     Back to List
                   </button>
