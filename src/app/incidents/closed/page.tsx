@@ -34,23 +34,17 @@ interface Incident {
   };
 }
 
-export default function IncidentsPage() {
+export default function ClosedIncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     fetchIncidents();
-  }, [filter]);
+  }, []);
 
   const fetchIncidents = async () => {
     try {
-      const params = new URLSearchParams();
-      if (filter !== 'all') {
-        params.append('status', filter);
-      }
-      
-      const response = await fetch(`/api/incidents?${params}`);
+      const response = await fetch('/api/incidents?status=closed');
       const data = await response.json();
       
       if (data.error) {
@@ -98,10 +92,10 @@ export default function IncidentsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading incidents...</p>
+          <p className="mt-4 text-gray-300">Loading closed incidents...</p>
         </div>
       </div>
     );
@@ -113,9 +107,9 @@ export default function IncidentsPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white">Incidents</h1>
+            <h1 className="text-3xl font-bold text-white">Closed Cases</h1>
             <p className="text-gray-300 mt-2">
-              Manage and track disciplinary incidents
+              View completed and resolved incidents
             </p>
           </div>
           <Link href="/incidents/new">
@@ -126,39 +120,19 @@ export default function IncidentsPage() {
           </Link>
         </div>
 
-        <div className="flex gap-4 mb-6">
-          {['all', 'open', 'in_progress', 'under_review', 'completed', 'closed'].map((status) => (
-            <Button
-              key={status}
-              variant={filter === status ? 'default' : 'outline'}
-              onClick={() => setFilter(status)}
-              className={`capitalize ${
-                filter === status 
-                  ? 'btn-primary' 
-                  : 'btn-secondary'
-              }`}
-            >
-              {status.replace('_', ' ')}
-            </Button>
-          ))}
-        </div>
-
         <div className="grid gap-6">
           {incidents.length === 0 ? (
             <Card className="card-modern">
               <CardContent className="text-center py-12">
-                <AlertTriangle className="h-12 w-12 text-green-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-white mb-2">No incidents found</h3>
+                <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">No closed incidents</h3>
                 <p className="text-gray-400 mb-4">
-                  {filter === 'all' 
-                    ? 'No incidents have been reported yet.'
-                    : `No incidents with status "${filter}" found.`
-                  }
+                  No incidents have been closed yet.
                 </p>
                 <Link href="/incidents/new">
                   <Button className="btn-primary">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Report First Incident
+                    Report New Incident
                   </Button>
                 </Link>
               </CardContent>
@@ -222,7 +196,7 @@ export default function IncidentsPage() {
                   
                   {incident.actions.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-white/10">
-                      <h4 className="text-sm font-medium text-white mb-2">Pending Actions</h4>
+                      <h4 className="text-sm font-medium text-white mb-2">Completed Actions</h4>
                       <div className="space-y-2">
                         {incident.actions.slice(0, 2).map((action) => (
                           <div key={action.id} className="flex items-center justify-between text-sm">

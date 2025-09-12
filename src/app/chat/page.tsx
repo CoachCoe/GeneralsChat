@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Brain, Send, Plus, Paperclip, Home, Menu } from 'lucide-react';
+import { Brain, Send, Plus, Paperclip, Menu } from 'lucide-react';
 import Link from 'next/link';
+import { llmService } from '@/lib/ai/llm-service';
+import Navbar from '@/components/Navbar';
 
 interface Message {
   id: string;
@@ -67,20 +69,33 @@ export default function ChatPage() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      // Call real LLM service
+      const aiResponse = await llmService.generateSchoolComplianceResponse(currentInput);
+      
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'general',
-        content: "I understand you need help with this incident. Let me guide you through the compliance process step by step. Can you provide more details about what happened?",
+        content: aiResponse,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error calling LLM:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'general',
+        content: "I'm sorry, I'm experiencing technical difficulties. Please try again in a moment.",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -108,23 +123,23 @@ export default function ChatPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#111827', display: 'flex' }}>
+    <div className="min-h-screen gradient-bg">
+      <Navbar />
+      <div style={{ display: 'flex', height: 'calc(100vh - 4rem)' }}>
       {/* Sidebar - Fixed Width Left */}
       <div 
         style={{ 
           width: sidebarOpen ? '320px' : '0px',
           transition: 'width 0.3s ease-in-out',
-          backgroundColor: '#1f2937',
-          borderRight: '1px solid #374151',
+          backgroundColor: 'transparent',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
         }}
       >
         {/* Sidebar Header */}
-        <div style={{ padding: '1rem', borderBottom: '1px solid #374151' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'white' }}>General Chat</h2>
+        <div style={{ padding: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '1rem' }}>
             <button
               onClick={() => setSidebarOpen(false)}
               style={{
@@ -197,33 +212,23 @@ export default function ChatPage() {
 
       {/* Main Chat Area - Flexible Right */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Top Navbar */}
-        <div style={{ backgroundColor: '#1f2937', borderBottom: '1px solid #374151', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {!sidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#9ca3af',
-                  cursor: 'pointer',
-                  padding: '0.25rem'
-                }}
-              >
-                <Menu size={16} />
-              </button>
-            )}
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', color: '#9ca3af', textDecoration: 'none' }}>
-              <Home size={16} style={{ marginRight: '0.5rem' }} />
-              Dashboard
-            </Link>
+        {/* Top Navbar - Removed for cleaner look */}
+        {!sidebarOpen && (
+          <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#9ca3af',
+                cursor: 'pointer',
+                padding: '0.25rem'
+              }}
+            >
+              <Menu size={16} />
+            </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{ width: '8px', height: '8px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
-            <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>General Online</span>
-          </div>
-        </div>
+        )}
 
         {/* Messages Area */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -288,8 +293,13 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Input Area - Bottom of main chat */}
-        <div style={{ borderTop: '1px solid #374151', padding: '1rem' }}>
+        {/* Input Area - Fixed at bottom */}
+        <div style={{ 
+          position: 'sticky', 
+          bottom: 0, 
+          backgroundColor: 'transparent',
+          padding: '1rem'
+        }}>
           <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem' }}>
               <button
@@ -311,8 +321,8 @@ export default function ChatPage() {
                   placeholder="Describe your incident and I'll help you with compliance..."
                   style={{
                     width: '100%',
-                    backgroundColor: '#1f2937',
-                    border: '1px solid #4b5563',
+                    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+                    border: '1px solid rgba(75, 85, 99, 0.5)',
                     borderRadius: '0.75rem',
                     padding: '0.75rem 1rem',
                     paddingRight: '3rem',
@@ -346,6 +356,7 @@ export default function ChatPage() {
             </p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

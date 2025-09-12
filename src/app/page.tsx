@@ -1,15 +1,17 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, FileText, Users, AlertTriangle, Clock, CheckCircle, Shield, Brain, Zap } from 'lucide-react';
+import { FileText, CheckCircle, Shield, Brain, Clock } from 'lucide-react';
+import Navbar from '@/components/Navbar';
 
 export default function Dashboard() {
   return (
     <div className="min-h-screen gradient-bg">
+      <Navbar />
       <div className="container mx-auto px-6 py-16">
         <div className="text-center mb-16 animate-fade-in-up">
           <h1 className="text-6xl font-bold text-white mb-8 leading-tight">
-            General Chat
+            Generals Chat
           </h1>
           <p className="text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed font-light">
             Chat with the General to navigate complex disciplinary incident compliance requirements with 
@@ -52,10 +54,10 @@ export default function Dashboard() {
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-          <Link href="/incidents">
+          <Link href="/incidents/active">
             <Card className="card-modern hover-lift group cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-sm font-medium text-gray-300 uppercase tracking-wider">View Incidents</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-300 uppercase tracking-wider">Active Incidents</CardTitle>
                 <div className="p-2 rounded-lg bg-blue-500/20 group-hover:bg-blue-500/30 transition-colors">
                   <FileText className="h-5 w-5 text-blue-400" />
                 </div>
@@ -64,43 +66,43 @@ export default function Dashboard() {
                 <div className="text-2xl font-bold text-white mb-2">12 Active</div>
                 <p className="text-sm text-gray-400 flex items-center">
                   <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
-                  Manage existing cases
+                  Manage ongoing cases
                 </p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link href="/policies">
+          <Link href="/incidents/pending">
             <Card className="card-modern hover-lift group cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-sm font-medium text-gray-300 uppercase tracking-wider">Manage Policies</CardTitle>
-                <div className="p-2 rounded-lg bg-purple-500/20 group-hover:bg-purple-500/30 transition-colors">
-                  <Shield className="h-5 w-5 text-purple-400" />
+                <CardTitle className="text-sm font-medium text-gray-300 uppercase tracking-wider">Pending Actions</CardTitle>
+                <div className="p-2 rounded-lg bg-yellow-500/20 group-hover:bg-yellow-500/30 transition-colors">
+                  <Clock className="h-5 w-5 text-yellow-400" />
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-white mb-2">8 Pending</div>
                 <p className="text-sm text-gray-400 flex items-center">
-                  <span className="w-2 h-2 bg-purple-400 rounded-full mr-2"></span>
-                  Update compliance rules
+                  <span className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span>
+                  Review required actions
                 </p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link href="/incidents/new">
+          <Link href="/incidents/closed">
             <Card className="card-modern hover-lift group cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-sm font-medium text-gray-300 uppercase tracking-wider">Quick Report</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-300 uppercase tracking-wider">Closed Cases</CardTitle>
                 <div className="p-2 rounded-lg bg-green-500/20 group-hover:bg-green-500/30 transition-colors">
-                  <PlusCircle className="h-5 w-5 text-green-400" />
+                  <CheckCircle className="h-5 w-5 text-green-400" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white mb-2">New Case</div>
+                <div className="text-2xl font-bold text-white mb-2">24 Closed</div>
                 <p className="text-sm text-gray-400 flex items-center">
                   <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                  Start incident report
+                  View completed cases
                 </p>
               </CardContent>
             </Card>

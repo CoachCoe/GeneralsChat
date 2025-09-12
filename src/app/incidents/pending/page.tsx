@@ -34,23 +34,17 @@ interface Incident {
   };
 }
 
-export default function IncidentsPage() {
+export default function PendingIncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     fetchIncidents();
-  }, [filter]);
+  }, []);
 
   const fetchIncidents = async () => {
     try {
-      const params = new URLSearchParams();
-      if (filter !== 'all') {
-        params.append('status', filter);
-      }
-      
-      const response = await fetch(`/api/incidents?${params}`);
+      const response = await fetch('/api/incidents?status=pending');
       const data = await response.json();
       
       if (data.error) {
@@ -98,10 +92,10 @@ export default function IncidentsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading incidents...</p>
+          <p className="mt-4 text-gray-300">Loading pending incidents...</p>
         </div>
       </div>
     );
@@ -113,9 +107,9 @@ export default function IncidentsPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white">Incidents</h1>
+            <h1 className="text-3xl font-bold text-white">Pending Actions</h1>
             <p className="text-gray-300 mt-2">
-              Manage and track disciplinary incidents
+              Review and complete required actions
             </p>
           </div>
           <Link href="/incidents/new">
@@ -126,39 +120,19 @@ export default function IncidentsPage() {
           </Link>
         </div>
 
-        <div className="flex gap-4 mb-6">
-          {['all', 'open', 'in_progress', 'under_review', 'completed', 'closed'].map((status) => (
-            <Button
-              key={status}
-              variant={filter === status ? 'default' : 'outline'}
-              onClick={() => setFilter(status)}
-              className={`capitalize ${
-                filter === status 
-                  ? 'btn-primary' 
-                  : 'btn-secondary'
-              }`}
-            >
-              {status.replace('_', ' ')}
-            </Button>
-          ))}
-        </div>
-
         <div className="grid gap-6">
           {incidents.length === 0 ? (
             <Card className="card-modern">
               <CardContent className="text-center py-12">
-                <AlertTriangle className="h-12 w-12 text-green-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-white mb-2">No incidents found</h3>
+                <AlertTriangle className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">No pending incidents</h3>
                 <p className="text-gray-400 mb-4">
-                  {filter === 'all' 
-                    ? 'No incidents have been reported yet.'
-                    : `No incidents with status "${filter}" found.`
-                  }
+                  All incidents are up to date with no pending actions.
                 </p>
                 <Link href="/incidents/new">
                   <Button className="btn-primary">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Report First Incident
+                    Report New Incident
                   </Button>
                 </Link>
               </CardContent>
