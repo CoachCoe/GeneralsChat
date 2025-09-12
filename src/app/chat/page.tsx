@@ -96,17 +96,17 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen gradient-bg">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <Card className="h-[600px] flex flex-col">
+          <Card className="card-modern h-[600px] flex flex-col">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Bot className="h-5 w-5 text-green-400" />
                 AI Compliance Assistant
               </CardTitle>
               {incidentId && (
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-400">
                   Incident ID: {incidentId}
                 </p>
               )}
@@ -115,10 +115,10 @@ export default function ChatPage() {
             <CardContent className="flex-1 flex flex-col">
               <div className="flex-1 overflow-y-auto space-y-4 mb-4">
                 {messages.length === 0 && (
-                  <div className="text-center text-gray-500 py-8">
-                    <Bot className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Start a conversation to report an incident or ask for guidance.</p>
-                    <p className="text-sm mt-2">
+                  <div className="text-center text-gray-400 py-8">
+                    <Bot className="h-12 w-12 mx-auto mb-4 text-green-400" />
+                    <p className="text-white">Start a conversation to report an incident or ask for guidance.</p>
+                    <p className="text-sm mt-2 text-gray-400">
                       I can help you with policy compliance, incident classification, and required procedures.
                     </p>
                   </div>
@@ -132,8 +132,8 @@ export default function ChatPage() {
                     <div
                       className={`max-w-[80%] rounded-lg px-4 py-2 ${
                         message.sender === 'user'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-200 text-gray-900'
+                          ? 'gradient-primary text-white'
+                          : 'bg-white/10 text-white backdrop-blur-sm border border-white/20'
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -186,17 +186,18 @@ export default function ChatPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Describe the incident or ask a question..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-white placeholder-gray-400 backdrop-blur-sm"
                   disabled={isLoading}
                 />
                 <Button
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   size="icon"
+                  className="btn-primary"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="icon">
+                <Button className="btn-secondary" size="icon">
                   <Paperclip className="h-4 w-4" />
                 </Button>
               </div>

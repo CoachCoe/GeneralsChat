@@ -17,15 +17,15 @@ export default function Navigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="bg-white shadow-sm border-b">
+    <nav className="glass border-b border-white/10">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">SC</span>
               </div>
-              <span className="font-bold text-xl text-gray-900">
+              <span className="font-bold text-xl text-white">
                 School Compliance AI
               </span>
             </Link>
@@ -38,8 +38,10 @@ export default function Navigation() {
                     <Button
                       variant={isActive ? 'default' : 'ghost'}
                       className={cn(
-                        'flex items-center space-x-2',
-                        isActive && 'bg-blue-600 text-white'
+                        'flex items-center space-x-2 transition-all duration-300',
+                        isActive 
+                          ? 'btn-primary' 
+                          : 'text-gray-300 hover:text-white hover:bg-white/10'
                       )}
                     >
                       <item.icon className="h-4 w-4" />
@@ -52,7 +54,7 @@ export default function Navigation() {
           </div>
           
           <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm">
+            <Button className="btn-secondary">
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </Button>
