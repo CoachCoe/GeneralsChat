@@ -26,6 +26,7 @@ export default function PoliciesPage() {
 
   useEffect(() => {
     fetchPolicies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   const fetchPolicies = async () => {

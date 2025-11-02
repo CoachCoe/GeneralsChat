@@ -245,7 +245,7 @@ export default function NewIncidentPage() {
                   <div className="p-2 rounded-lg bg-blue-500/20">
                     <FileText className="h-5 w-5 text-blue-400" />
                   </div>
-                  General's Analysis
+                  General&apos;s Analysis
                 </CardTitle>
               </CardHeader>
               <CardContent>

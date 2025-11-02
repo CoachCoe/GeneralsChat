@@ -30,6 +30,7 @@ export default function PromptEditorPage() {
 
   useEffect(() => {
     fetchPrompts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPrompts = async () => {

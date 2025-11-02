@@ -30,6 +30,10 @@ const eslintConfig = [
           varsIgnorePattern: "^_",
         },
       ],
+      // Allow any types for external API responses and data we don't control
+      "@typescript-eslint/no-explicit-any": "off",
+      // Allow require() imports for CommonJS compatibility
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 ];

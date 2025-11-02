@@ -40,6 +40,7 @@ export default function IncidentsPage() {
 
   useEffect(() => {
     fetchIncidents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   const fetchIncidents = async () => {

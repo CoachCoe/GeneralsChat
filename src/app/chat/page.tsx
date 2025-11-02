@@ -393,8 +393,8 @@ export default function ChatPage() {
                   maxWidth: '420px',
                   lineHeight: '1.5'
                 }}>
-                  I'm here to help you navigate complex disciplinary incident compliance requirements.
-                  Describe your incident and I'll guide you through the process.
+                  I&apos;m here to help you navigate complex disciplinary incident compliance requirements.
+                  Describe your incident and I&apos;ll guide you through the process.
                 </p>
               </div>
             ) : (
