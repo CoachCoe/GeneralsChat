@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, AlertTriangle, Clock, CheckCircle, Eye } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, Eye } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
 interface Incident {
@@ -110,19 +110,11 @@ export default function IncidentsPage() {
     <div className="min-h-screen" style={{ background: 'var(--background)' }}>
       <Navbar />
       <div className="container mx-auto px-6 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-apple-largetitle" style={{ color: 'var(--foreground)' }}>Incidents</h1>
-            <p className="text-apple-title3 mt-2" style={{ color: 'var(--muted-foreground)' }}>
-              Manage and track disciplinary incidents
-            </p>
-          </div>
-          <Link href="/incidents/new">
-            <Button className="btn-primary">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              New Incident
-            </Button>
-          </Link>
+        <div className="mb-8">
+          <h1 className="text-apple-largetitle" style={{ color: 'var(--foreground)' }}>Incidents</h1>
+          <p className="text-apple-title3 mt-2" style={{ color: 'var(--muted-foreground)' }}>
+            Manage and track disciplinary incidents
+          </p>
         </div>
 
         <div className="flex gap-4 mb-6">
@@ -150,14 +142,13 @@ export default function IncidentsPage() {
                 <h3 className="text-apple-title2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>No incidents found</h3>
                 <p className="text-apple-body mb-4" style={{ color: 'var(--muted-foreground)' }}>
                   {filter === 'all'
-                    ? 'No incidents have been reported yet.'
+                    ? 'No incidents have been reported yet. Start a chat to create an incident.'
                     : `No incidents with status "${filter}" found.`
                   }
                 </p>
-                <Link href="/incidents/new">
+                <Link href="/chat">
                   <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Report First Incident
+                    Start Chat
                   </Button>
                 </Link>
               </div>

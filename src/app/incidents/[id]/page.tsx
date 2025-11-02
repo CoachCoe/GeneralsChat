@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,6 @@ interface Incident {
 
 export default function IncidentDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const incidentId = params.id as string;
 
   const [incident, setIncident] = useState<Incident | null>(null);
@@ -56,6 +55,7 @@ export default function IncidentDetailPage() {
 
   useEffect(() => {
     fetchIncident();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentId]);
 
   const fetchIncident = async () => {
@@ -134,7 +134,7 @@ export default function IncidentDetailPage() {
 
       if (!response.ok) throw new Error('Failed to upload file');
 
-      const newAttachment = await response.json();
+      await response.json(); // Wait for upload to complete
 
       // Refresh incident to get updated attachments
       await fetchIncident();
@@ -203,7 +203,7 @@ export default function IncidentDetailPage() {
           <div className="text-center">
             <h1 className="text-apple-title1 mb-4" style={{ color: 'var(--foreground)' }}>Incident Not Found</h1>
             <p className="text-apple-body mb-6" style={{ color: 'var(--muted-foreground)' }}>
-              The incident you're looking for doesn't exist or has been removed.
+              The incident you&apos;re looking for doesn&apos;t exist or has been removed.
             </p>
             <Link href="/incidents">
               <Button>
@@ -414,7 +414,7 @@ export default function IncidentDetailPage() {
 
             {incident.attachments.length === 0 ? (
               <p className="text-apple-body" style={{ color: 'var(--muted-foreground)' }}>
-                No attachments yet. Click "Upload File" to add documents.
+                No attachments yet. Click &quot;Upload File&quot; to add documents.
               </p>
             ) : (
               <div className="space-y-2">
