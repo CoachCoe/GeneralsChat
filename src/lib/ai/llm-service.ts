@@ -1,69 +1,170 @@
+import { claudeService, ClaudeMessage } from './claude-service';
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
+export interface LLMResponse {
+  content: string;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+}
+
 export class LLMService {
-  async generateResponse(messages: ChatMessage[]): Promise<string> {
-    // For now, using a smart mock that provides realistic school compliance responses
-    // In production, this would connect to a real LLM service
-    const userMessage = messages.find(msg => msg.role === 'user')?.content || '';
-    
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-    
-    return this.generateSmartResponse(userMessage);
+  /**
+   * Generate a response using Claude with conversation history
+   */
+  async generateResponse(
+    messages: ChatMessage[],
+    policyContext?: string
+  ): Promise<LLMResponse> {
+    try {
+      // Convert messages to Claude format (filter out system messages)
+      const claudeMessages: ClaudeMessage[] = messages
+        .filter(msg => msg.role !== 'system')
+        .map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        }));
+
+      // Extract system prompt if present
+      const systemMessage = messages.find(msg => msg.role === 'system');
+      const systemPrompt = systemMessage?.content || this.getDefaultSystemPrompt();
+
+      // Add policy context to system prompt if provided
+      const fullSystemPrompt = policyContext
+        ? `${systemPrompt}\n\nRelevant Policy Context:\n${policyContext}`
+        : systemPrompt;
+
+      // Generate response using Claude
+      const response = await claudeService.generateResponse(
+        claudeMessages,
+        fullSystemPrompt
+      );
+
+      return {
+        content: response.content,
+        usage: {
+          inputTokens: response.usage.inputTokens,
+          outputTokens: response.usage.outputTokens,
+        },
+      };
+    } catch (error) {
+      console.error('LLM Service error:', error);
+
+      // Fallback to helpful error message
+      return {
+        content:
+          "I'm having trouble connecting to the AI service right now. Please try again in a moment. If the issue persists, contact your system administrator.",
+      };
+    }
   }
 
-  private generateSmartResponse(userMessage: string): string {
-    const lowerMessage = userMessage.toLowerCase();
-    
-    // Title IX related responses
-    if (lowerMessage.includes('title ix') || lowerMessage.includes('sexual harassment') || lowerMessage.includes('discrimination')) {
-      return "I understand you're dealing with a Title IX matter. This requires immediate attention and specific documentation. You'll need to:\n\n1. Ensure the complainant feels safe and supported\n2. Document everything immediately\n3. Notify the Title IX coordinator within 24 hours\n4. Preserve all evidence\n\nWould you like me to help you with the specific reporting requirements?";
+  /**
+   * Generate a school compliance-specific response
+   */
+  async generateSchoolComplianceResponse(
+    userMessage: string,
+    policyContext?: string,
+    conversationHistory: ChatMessage[] = []
+  ): Promise<LLMResponse> {
+    try {
+      // Convert conversation history to Claude format
+      const claudeHistory: ClaudeMessage[] = conversationHistory
+        .filter(msg => msg.role !== 'system')
+        .map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        }));
+
+      // Use Claude's compliance response method
+      const response = await claudeService.generateComplianceResponse(
+        userMessage,
+        policyContext || '',
+        claudeHistory
+      );
+
+      return {
+        content: response.content,
+        usage: {
+          inputTokens: response.usage.inputTokens,
+          outputTokens: response.usage.outputTokens,
+        },
+      };
+    } catch (error) {
+      console.error('School compliance response error:', error);
+
+      return {
+        content:
+          "I'm experiencing technical difficulties. For urgent compliance matters, please contact your district's compliance officer or legal counsel directly.",
+      };
     }
-    
-    // Bullying incidents
-    if (lowerMessage.includes('bully') || lowerMessage.includes('harassment') || lowerMessage.includes('intimidation')) {
-      return "Bullying incidents require careful documentation and follow-up. Based on your description, I recommend:\n\n1. Immediate safety assessment for all involved students\n2. Documentation of the incident with witness statements\n3. Parent/guardian notification within 24 hours\n4. Follow-up support plan for affected students\n\nWhat specific details can you share about the incident?";
-    }
-    
-    // Fighting/physical altercations
-    if (lowerMessage.includes('fight') || lowerMessage.includes('physical') || lowerMessage.includes('assault') || lowerMessage.includes('violence')) {
-      return "Physical altercations are serious incidents requiring immediate action. You need to:\n\n1. Ensure medical attention if needed\n2. Separate and secure all parties\n3. Document injuries and witness statements\n4. Notify parents/guardians immediately\n5. Consider law enforcement involvement if appropriate\n\nWhat was the nature and severity of the incident?";
-    }
-    
-    // General compliance questions
-    if (lowerMessage.includes('compliance') || lowerMessage.includes('policy') || lowerMessage.includes('procedure')) {
-      return "I'm here to help with compliance requirements. School disciplinary procedures must follow:\n\n- Due process requirements\n- FERPA privacy protections\n- State and federal regulations\n- District policies\n\nWhat specific compliance question do you have?";
-    }
-    
-    // General greeting or help request
-    if (lowerMessage.includes('help') || lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
-      return "Hello! I'm the General, your AI assistant for school disciplinary incident compliance. I can help you with:\n\n- Incident classification and documentation\n- Title IX and FERPA compliance\n- Due process procedures\n- Stakeholder notification requirements\n- Policy interpretation\n\nWhat incident or compliance question can I help you with today?";
-    }
-    
-    // Default response for other queries
-    return "I understand you need assistance with this incident. To provide the most accurate guidance, could you provide more details about:\n\n- The nature of the incident\n- Who was involved\n- When and where it occurred\n- Any immediate safety concerns\n\nThis will help me guide you through the appropriate compliance procedures.";
   }
 
-  async generateSchoolComplianceResponse(userMessage: string): Promise<string> {
-    const systemPrompt = `You are the General, an AI assistant for school administrators helping with disciplinary incident compliance. You are knowledgeable about:
-- Title IX requirements
-- FERPA privacy laws
-- Student code of conduct
+  /**
+   * Default system prompt for general conversations
+   */
+  private getDefaultSystemPrompt(): string {
+    return `You are "The General", an expert AI assistant for school administrators managing disciplinary incidents and compliance requirements.
+
+Your expertise includes:
+- Title IX requirements and sexual harassment policies
+- FERPA privacy laws and student data protection
+- Bullying prevention and intervention
+- Student codes of conduct
 - Due process procedures
-- Documentation requirements
+- Documentation best practices
 - Stakeholder notification protocols
+- State and federal education regulations
 
-Respond in a helpful, professional manner. Ask clarifying questions when needed. Keep responses concise but informative.`;
+Guidelines:
+- Provide clear, actionable guidance
+- Cite specific policies when possible
+- Highlight legal requirements and deadlines
+- Ask clarifying questions when needed
+- Maintain professional, supportive tone
+- Prioritize student safety and legal compliance
+- Acknowledge when you need more information
 
-    const messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage }
-    ];
+When you don't have enough information, ask specific follow-up questions to provide accurate guidance.`;
+  }
 
-    return this.generateResponse(messages);
+  /**
+   * Stream a response for real-time chat (optional enhancement)
+   */
+  async *streamResponse(
+    messages: ChatMessage[],
+    policyContext?: string
+  ): AsyncGenerator<string, void, unknown> {
+    try {
+      const claudeMessages: ClaudeMessage[] = messages
+        .filter(msg => msg.role !== 'system')
+        .map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        }));
+
+      const systemMessage = messages.find(msg => msg.role === 'system');
+      const systemPrompt = systemMessage?.content || this.getDefaultSystemPrompt();
+
+      const fullSystemPrompt = policyContext
+        ? `${systemPrompt}\n\nRelevant Policy Context:\n${policyContext}`
+        : systemPrompt;
+
+      // Stream from Claude
+      for await (const chunk of claudeService.streamResponse(
+        claudeMessages,
+        fullSystemPrompt
+      )) {
+        yield chunk;
+      }
+    } catch (error) {
+      console.error('Streaming error:', error);
+      yield "I'm having trouble connecting right now. Please try again.";
+    }
   }
 }
 

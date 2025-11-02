@@ -79,9 +79,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Add to RAG system for search
+    // Add to RAG system for search with metadata
     if (content) {
-      await ragSystem.addPolicyDocument(policy.id, content);
+      await ragSystem.addPolicyDocument(policy.id, content, {
+        title,
+        policyType,
+        effectiveDate: effectiveDate || new Date().toISOString(),
+      });
     }
 
     return NextResponse.json({ policy });

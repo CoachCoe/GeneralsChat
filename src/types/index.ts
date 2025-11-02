@@ -10,7 +10,7 @@ export enum DataSensitivity {
 export interface IncidentClassification {
   type: "bullying" | "title_ix" | "harassment" | "violence" | "other";
   severity: "low" | "medium" | "high" | "critical";
-  requiredActions: ComplianceAction[];
+  requiredActions: Action[];
   timeline: ComplianceTimeline;
   stakeholders: string[];
 }

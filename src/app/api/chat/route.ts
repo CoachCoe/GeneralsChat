@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const sensitivity = determineDataSensitivity(message, incident);
 
     // Generate AI response using RAG
-    const { response, citations } = await ragSystem.generateResponseWithCitations(
+    const { response: policyContext, citations, chunks } = await ragSystem.generateResponseWithCitations(
       message,
       {
         incidentId: incident.id,
@@ -73,13 +73,28 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    // Use LLM service with RAG context to generate intelligent response
+    const { content: response, usage } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
+      message,
+      policyContext,
+      incident.conversations.map(conv => ({
+        role: conv.sender as 'user' | 'assistant',
+        content: conv.message,
+      }))
+    );
+
     // Classify incident if this is the first substantive message
     let classification = null;
     if (incident.conversations.length === 0 && message.length > 50) {
-      classification = await incidentClassifier.classifyIncident(message, {
-        incidentId: incident.id,
-        reporterId: userId,
-      });
+      // Pass policy context to classifier for better accuracy
+      classification = await incidentClassifier.classifyIncident(
+        message,
+        {
+          incidentId: incident.id,
+          reporterId: userId,
+        },
+        policyContext
+      );
 
       // Update incident with classification
       await prisma.incident.update({
@@ -119,7 +134,8 @@ export async function POST(request: NextRequest) {
         metadata: JSON.stringify({
           citations,
           classification,
-          confidence: 0.8, // This would be calculated by the AI
+          usage: usage || undefined,
+          confidence: 0.9, // Claude typically provides high-quality responses
         }),
       },
     });

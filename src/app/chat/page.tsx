@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Brain, Send, Plus, Paperclip, Menu } from 'lucide-react';
 import Link from 'next/link';
-import { llmService } from '@/lib/ai/llm-service';
+// LLM service is now called via API route for security
 import Navbar from '@/components/Navbar';
 
 interface Message {
@@ -74,18 +74,33 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      // Call real LLM service
-      const aiResponse = await llmService.generateSchoolComplianceResponse(currentInput);
-      
+      // Call API route (server-side) to keep API keys secure
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: currentInput,
+          userId: 'demo-user', // In production, get from auth session
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'general',
-        content: aiResponse,
+        content: data.response,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error('Error calling LLM:', error);
+      console.error('Error calling API:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'general',
@@ -190,8 +205,8 @@ export default function ChatPage() {
                   transition: 'background-color 0.2s',
                   backgroundColor: 'transparent'
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#374151'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#374151'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
                   <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: 'white', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

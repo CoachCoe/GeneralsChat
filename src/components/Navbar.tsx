@@ -75,12 +75,12 @@ export default function Navbar() {
                 transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
-                e.target.style.color = 'white';
-                e.target.style.backgroundColor = '#374151';
+                (e.target as HTMLElement).style.color = 'white';
+                (e.target as HTMLElement).style.backgroundColor = '#374151';
               }}
               onMouseLeave={(e) => {
-                e.target.style.color = '#9ca3af';
-                e.target.style.backgroundColor = 'transparent';
+                (e.target as HTMLElement).style.color = '#9ca3af';
+                (e.target as HTMLElement).style.backgroundColor = 'transparent';
               }}
             >
               <Bell size={20} />
@@ -104,12 +104,12 @@ export default function Navbar() {
               transition: 'all 0.2s'
             }}
             onMouseEnter={(e) => {
-              e.target.style.color = 'white';
-              e.target.style.backgroundColor = '#374151';
+              (e.target as HTMLElement).style.color = 'white';
+              (e.target as HTMLElement).style.backgroundColor = '#374151';
             }}
             onMouseLeave={(e) => {
-              e.target.style.color = '#9ca3af';
-              e.target.style.backgroundColor = 'transparent';
+              (e.target as HTMLElement).style.color = '#9ca3af';
+              (e.target as HTMLElement).style.backgroundColor = 'transparent';
             }}
           >
             <Settings size={20} />
@@ -140,12 +140,12 @@ export default function Navbar() {
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  e.target.style.color = 'white';
-                  e.target.style.backgroundColor = '#374151';
+                  (e.target as HTMLElement).style.color = 'white';
+                  (e.target as HTMLElement).style.backgroundColor = '#374151';
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.color = '#9ca3af';
-                  e.target.style.backgroundColor = 'transparent';
+                  (e.target as HTMLElement).style.color = '#9ca3af';
+                  (e.target as HTMLElement).style.backgroundColor = 'transparent';
                 }}
               >
                 Policies
@@ -160,12 +160,12 @@ export default function Navbar() {
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  e.target.style.color = 'white';
-                  e.target.style.backgroundColor = '#374151';
+                  (e.target as HTMLElement).style.color = 'white';
+                  (e.target as HTMLElement).style.backgroundColor = '#374151';
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.color = '#9ca3af';
-                  e.target.style.backgroundColor = 'transparent';
+                  (e.target as HTMLElement).style.color = '#9ca3af';
+                  (e.target as HTMLElement).style.backgroundColor = 'transparent';
                 }}
               >
                 Prompt
@@ -186,8 +186,8 @@ export default function Navbar() {
             display: 'none',
             padding: '0.5rem'
           }}
-          onMouseEnter={(e) => e.target.style.color = 'white'}
-          onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
+          onMouseEnter={(e) => (e.target as HTMLElement).style.color = 'white'}
+          onMouseLeave={(e) => (e.target as HTMLElement).style.color = '#9ca3af'}
         >
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -214,12 +214,12 @@ export default function Navbar() {
                 transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
-                e.target.style.color = 'white';
-                e.target.style.backgroundColor = '#374151';
+                (e.target as HTMLElement).style.color = 'white';
+                (e.target as HTMLElement).style.backgroundColor = '#374151';
               }}
               onMouseLeave={(e) => {
-                e.target.style.color = '#9ca3af';
-                e.target.style.backgroundColor = 'transparent';
+                (e.target as HTMLElement).style.color = '#9ca3af';
+                (e.target as HTMLElement).style.backgroundColor = 'transparent';
               }}
             >
               <Settings size={16} />
@@ -239,12 +239,12 @@ export default function Navbar() {
                 transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
-                e.target.style.color = 'white';
-                e.target.style.backgroundColor = '#374151';
+                (e.target as HTMLElement).style.color = 'white';
+                (e.target as HTMLElement).style.backgroundColor = '#374151';
               }}
               onMouseLeave={(e) => {
-                e.target.style.color = '#9ca3af';
-                e.target.style.backgroundColor = 'transparent';
+                (e.target as HTMLElement).style.color = '#9ca3af';
+                (e.target as HTMLElement).style.backgroundColor = 'transparent';
               }}
             >
               <Settings size={16} />

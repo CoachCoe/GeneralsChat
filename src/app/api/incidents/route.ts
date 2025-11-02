@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
               email: true,
             },
           },
-          actions: {
+          complianceActions: {
             where: { status: 'pending' },
             orderBy: { dueDate: 'asc' },
           },

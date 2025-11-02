@@ -154,10 +154,10 @@ export default function TodoDetailPage() {
                 textDecoration: 'none'
               }}
               onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#2563eb';
+                (e.target as HTMLElement).style.backgroundColor = '#2563eb';
               }}
               onMouseLeave={(e) => {
-                e.target.style.backgroundColor = '#3b82f6';
+                (e.target as HTMLElement).style.backgroundColor = '#3b82f6';
               }}
             >
               <ArrowLeft size={20} />
@@ -262,10 +262,10 @@ export default function TodoDetailPage() {
                       cursor: 'pointer'
                     }}
                     onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#2563eb';
+                      (e.target as HTMLElement).style.backgroundColor = '#2563eb';
                     }}
                     onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = '#3b82f6';
+                      (e.target as HTMLElement).style.backgroundColor = '#3b82f6';
                     }}
                   >
                     Back to List
