@@ -293,6 +293,7 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
       logError(error as Error, {
         operation: 'classifyIncident',
         rawResponse: response.content.substring(0, 200),
+        duration,
       });
 
       // Return a safe default
@@ -478,7 +479,7 @@ Examples:
       return title;
     } catch (error) {
       const duration = Date.now() - startTime;
-      logError(error as Error, { operation: 'generateIncidentTitle' });
+      logError(error as Error, { operation: 'generateIncidentTitle', duration });
       return 'New Incident Report';
     }
   }
