@@ -28,11 +28,15 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
-      // Create new incident
+      // Generate a meaningful title from the first message
+      const { claudeService } = await import('@/lib/ai/claude-service');
+      const title = await claudeService.generateIncidentTitle(message);
+
+      // Create new incident with AI-generated title
       incident = await prisma.incident.create({
         data: {
           reporterId: userId,
-          title: 'New Incident Report',
+          title,
           description: message,
           status: 'open',
         },

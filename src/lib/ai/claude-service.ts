@@ -403,6 +403,56 @@ Generate the summary following the required format above.`;
   }
 
   /**
+   * Generate a concise title for an incident based on the first message
+   * Similar to how Claude automatically names conversations
+   */
+  async generateIncidentTitle(firstMessage: string): Promise<string> {
+    const systemPrompt = `You are an expert at creating concise, descriptive titles for school incident reports.
+
+Based on the incident description provided, generate a short title that:
+- Is 3-6 words maximum
+- Captures the key type of incident (e.g., "Student Fight", "Bus Misconduct", "Bullying Report")
+- Is professional and suitable for school records
+- Does not include student names or identifying details
+
+Respond with ONLY the title text, nothing else. No quotes, no punctuation at the end, no explanations.
+
+Examples:
+- "Student Altercation During Lunch"
+- "Bus Conduct Incident"
+- "Playground Bullying Report"
+- "Classroom Disruption Event"
+- "Title IX Harassment Complaint"`;
+
+    try {
+      const response = await this.generateResponse(
+        [{ role: 'user', content: firstMessage }],
+        systemPrompt,
+        { temperature: 0.5, maxTokens: 50 }
+      );
+
+      // Clean up the response
+      let title = response.content.trim();
+
+      // Remove quotes if present
+      title = title.replace(/^["']|["']$/g, '');
+
+      // Remove ending punctuation
+      title = title.replace(/[.!?]$/, '');
+
+      // Fallback if title is too long or empty
+      if (!title || title.length > 60) {
+        return 'New Incident Report';
+      }
+
+      return title;
+    } catch (error) {
+      console.error('Failed to generate incident title:', error);
+      return 'New Incident Report';
+    }
+  }
+
+  /**
    * Stream a response (for real-time chat)
    */
   async *streamResponse(
