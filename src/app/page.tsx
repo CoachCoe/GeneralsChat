@@ -105,7 +105,6 @@ export default function Dashboard() {
                   <FileText style={{ width: '20px', height: '20px', color: 'var(--info)' }} />
                 </div>
               </div>
-              <div className="text-apple-title2 font-bold mb-2" style={{ color: 'var(--foreground)' }}>12 Active</div>
               <p className="text-apple-footnote flex items-center" style={{ color: 'var(--muted-foreground)' }}>
                 <span style={{
                   width: '8px',
@@ -138,7 +137,6 @@ export default function Dashboard() {
                   <Clock style={{ width: '20px', height: '20px', color: 'var(--warning)' }} />
                 </div>
               </div>
-              <div className="text-apple-title2 font-bold mb-2" style={{ color: 'var(--foreground)' }}>8 Pending</div>
               <p className="text-apple-footnote flex items-center" style={{ color: 'var(--muted-foreground)' }}>
                 <span style={{
                   width: '8px',
@@ -171,7 +169,6 @@ export default function Dashboard() {
                   <CheckCircle style={{ width: '20px', height: '20px', color: 'var(--success)' }} />
                 </div>
               </div>
-              <div className="text-apple-title2 font-bold mb-2" style={{ color: 'var(--foreground)' }}>24 Closed</div>
               <p className="text-apple-footnote flex items-center" style={{ color: 'var(--muted-foreground)' }}>
                 <span style={{
                   width: '8px',
