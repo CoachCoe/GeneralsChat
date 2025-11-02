@@ -10,3 +10,240 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("reporter") // admin, investigator, reporter
+
+  // Authentication fields (for NextAuth)
+  emailVerified DateTime?
+  image         String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reportedIncidents  Incident[]         @relation("IncidentReporter")
+  assignedActions    ComplianceAction[] @relation("AssignedActions")
+  conversations      Conversation[]
+  attachments        Attachment[]
+  auditLogs          AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// ============================================
+// INCIDENT MANAGEMENT
+// ============================================
+
+model Incident {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+
+  // Classification
+  incidentType String?  // bullying, title_ix, harassment, violence, other
+  severity     String?  // low, medium, high, critical
+  status       String   @default("open") // open, in_progress, under_review, completed, closed
+
+  // Reporter information
+  reporterId String
+  reporter   User   @relation("IncidentReporter", fields: [reporterId], references: [id])
+
+  // Metadata and timeline (stored as JSON)
+  timeline String? // JSON: ComplianceTimeline
+  metadata String? // JSON: Additional metadata, classification details, stakeholders
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  closedAt  DateTime?
+
+  // Relations
+  conversations      Conversation[]
+  complianceActions  ComplianceAction[]
+  attachments        Attachment[]
+  auditLogs          AuditLog[]
+
+  @@index([reporterId])
+  @@index([status])
+  @@index([incidentType])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+// ============================================
+// CHAT & CONVERSATIONS
+// ============================================
+
+model Conversation {
+  id         String   @id @default(cuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  message  String
+  sender   String  // user, assistant
+
+  // User reference (optional, for tracking who sent user messages)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  // Metadata (JSON: citations, attachments, confidence, classification)
+  metadata String?
+
+  // Timestamps
+  timestamp DateTime @default(now())
+
+  @@index([incidentId])
+  @@index([timestamp])
+}
+
+// ============================================
+// COMPLIANCE ACTIONS
+// ============================================
+
+model ComplianceAction {
+  id          String   @id @default(cuid())
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  actionType  String   // Type of action required
+  description String?
+  status      String   @default("pending") // pending, in_progress, completed, overdue
+
+  // Assignment and timing
+  assignedTo   String?
+  assignedUser User?    @relation("AssignedActions", fields: [assignedTo], references: [id])
+  dueDate      DateTime?
+  completedAt  DateTime?
+
+  // Evidence files (JSON array of file paths)
+  evidenceFiles String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([incidentId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([dueDate])
+}
+
+// ============================================
+// POLICY MANAGEMENT & RAG
+// ============================================
+
+model Policy {
+  id            String   @id @default(cuid())
+  title         String
+  content       String?  // Full policy text
+  filePath      String?  // Path to uploaded file
+
+  version       Int      @default(1)
+  effectiveDate DateTime
+  policyType    String   // federal, state, district, school
+  isActive      Boolean  @default(true)
+
+  // Metadata (JSON: keywords, categories, etc.)
+  metadata String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  chunks PolicyChunk[]
+
+  @@index([policyType])
+  @@index([isActive])
+  @@index([effectiveDate])
+}
+
+model PolicyChunk {
+  id         String   @id @default(cuid())
+  policyId   String
+  policy     Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  content    String   // Chunk text content
+  chunkIndex Int      // Order within the policy
+
+  // Vector embedding (stored as JSON array of floats)
+  embedding String?
+
+  // Metadata (JSON: keywords, section info, etc.)
+  metadata String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([policyId])
+  @@index([chunkIndex])
+}
+
+// ============================================
+// FILE ATTACHMENTS
+// ============================================
+
+model Attachment {
+  id         String   @id @default(cuid())
+
+  // File information
+  filename   String
+  filePath   String
+  fileType   String
+  fileSize   Int
+
+  // Relations
+  incidentId String?
+  incident   Incident? @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  uploadedBy String
+  uploader   User     @relation(fields: [uploadedBy], references: [id])
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([incidentId])
+  @@index([uploadedBy])
+}
+
+// ============================================
+// AUDIT LOG (for FERPA compliance)
+// ============================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+
+  // What happened
+  action    String   // created, updated, deleted, viewed, exported
+  entity    String   // incident, policy, user, etc.
+  entityId  String?  // ID of the affected entity
+
+  // Who did it
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  // Details (JSON: before/after values, IP address, etc.)
+  details   String?
+
+  // When
+  timestamp DateTime @default(now())
+
+  // Optional incident reference for incident-related actions
+  incidentId String?
+  incident   Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entity])
+  @@index([timestamp])
+  @@index([incidentId])
+}

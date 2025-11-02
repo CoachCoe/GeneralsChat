@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Brain, Send, Plus, Paperclip, Menu } from 'lucide-react';
 import Link from 'next/link';
-import { llmService } from '@/lib/ai/llm-service';
+// LLM service is now called via API route for security
 import Navbar from '@/components/Navbar';
 
 interface Message {
@@ -26,6 +26,8 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [incidentId, setIncidentId] = useState<string | null>(null);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Mock previous chats data
@@ -74,18 +76,38 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      // Call real LLM service
-      const aiResponse = await llmService.generateSchoolComplianceResponse(currentInput);
-      
+      // Call API route (server-side) to keep API keys secure
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: currentInput,
+          userId: 'demo-user', // In production, get from auth session
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Store incident ID for summary generation
+      if (data.incidentId && !incidentId) {
+        setIncidentId(data.incidentId);
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'general',
-        content: aiResponse,
+        content: data.response,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error('Error calling LLM:', error);
+      console.error('Error calling API:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'general',
@@ -102,6 +124,54 @@ export default function ChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleEndChat = async () => {
+    if (!incidentId) {
+      alert('No active chat to end. Start a conversation first.');
+      return;
+    }
+
+    if (messages.length < 2) {
+      alert('Please have at least one exchange before ending the chat.');
+      return;
+    }
+
+    setIsGeneratingSummary(true);
+
+    try {
+      const response = await fetch('/api/chat/summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ incidentId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Add summary as a special message
+      const summaryMessage: Message = {
+        id: Date.now().toString(),
+        type: 'general',
+        content: data.summary,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, summaryMessage]);
+
+      // Show success notification
+      alert('Chat ended. Summary generated and saved to incident record.');
+
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      alert('Failed to generate summary. Please try again.');
+    } finally {
+      setIsGeneratingSummary(false);
     }
   };
 
@@ -190,8 +260,8 @@ export default function ChatPage() {
                   transition: 'background-color 0.2s',
                   backgroundColor: 'transparent'
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#374151'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#374151'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
                   <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: 'white', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -212,21 +282,50 @@ export default function ChatPage() {
 
       {/* Main Chat Area - Flexible Right */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Top Navbar - Removed for cleaner look */}
-        {!sidebarOpen && (
-          <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-            <button
-              onClick={() => setSidebarOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#9ca3af',
-                cursor: 'pointer',
-                padding: '0.25rem'
-              }}
-            >
-              <Menu size={16} />
-            </button>
+        {/* Top Navbar with Menu and End Chat */}
+        {(messages.length > 0 || !sidebarOpen) && (
+          <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(75, 85, 99, 0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#9ca3af',
+                    cursor: 'pointer',
+                    padding: '0.25rem'
+                  }}
+                >
+                  <Menu size={16} />
+                </button>
+              )}
+              {messages.length > 0 && (
+                <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
+                  {incidentId ? 'Active Consultation' : 'Chat Session'}
+                </span>
+              )}
+            </div>
+
+            {messages.length > 0 && incidentId && (
+              <button
+                onClick={handleEndChat}
+                disabled={isGeneratingSummary}
+                style={{
+                  backgroundColor: isGeneratingSummary ? '#6b7280' : '#dc2626',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  cursor: isGeneratingSummary ? 'not-allowed' : 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  opacity: isGeneratingSummary ? 0.5 : 1
+                }}
+              >
+                {isGeneratingSummary ? 'Generating Summary...' : 'End Chat & Generate Summary'}
+              </button>
+            )}
           </div>
         )}
 

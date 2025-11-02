@@ -49,14 +49,12 @@ export const upload = multer({
 
 export async function saveFileToDatabase(
   file: Express.Multer.File,
-  incidentId?: string,
-  conversationId?: string,
-  uploadedBy: string
+  uploadedBy: string,
+  incidentId?: string
 ): Promise<FileUpload> {
   const fileRecord = await prisma.attachment.create({
     data: {
       incidentId,
-      conversationId,
       filename: file.originalname,
       filePath: file.path,
       fileType: file.mimetype,

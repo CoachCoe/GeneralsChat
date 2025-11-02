@@ -192,14 +192,14 @@ export default function TodosPage() {
                     }}
                     onMouseEnter={(e) => {
                       if (filter !== key) {
-                        e.target.style.backgroundColor = '#374151';
-                        e.target.style.color = 'white';
+                        (e.target as HTMLElement).style.backgroundColor = '#374151';
+                        (e.target as HTMLElement).style.color = 'white';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (filter !== key) {
-                        e.target.style.backgroundColor = 'transparent';
-                        e.target.style.color = '#d1d5db';
+                        (e.target as HTMLElement).style.backgroundColor = 'transparent';
+                        (e.target as HTMLElement).style.color = '#d1d5db';
                       }
                     }}
                   >
@@ -235,14 +235,14 @@ export default function TodosPage() {
                     }}
                     onMouseEnter={(e) => {
                       if (dueFilter !== key) {
-                        e.target.style.backgroundColor = '#374151';
-                        e.target.style.color = 'white';
+                        (e.target as HTMLElement).style.backgroundColor = '#374151';
+                        (e.target as HTMLElement).style.color = 'white';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (dueFilter !== key) {
-                        e.target.style.backgroundColor = 'transparent';
-                        e.target.style.color = '#d1d5db';
+                        (e.target as HTMLElement).style.backgroundColor = 'transparent';
+                        (e.target as HTMLElement).style.color = '#d1d5db';
                       }
                     }}
                   >
@@ -283,10 +283,10 @@ export default function TodosPage() {
                   }}
                   onClick={() => window.location.href = `/todos/${todo.id}`}
                   onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#1f2937';
+                    (e.target as HTMLElement).style.backgroundColor = '#1f2937';
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = 'transparent';
+                    (e.target as HTMLElement).style.backgroundColor = 'transparent';
                   }}
                 >
                   <div className="flex items-start gap-4">
@@ -374,10 +374,10 @@ export default function TodosPage() {
               cursor: 'pointer'
             }}
             onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#2563eb';
+              (e.target as HTMLElement).style.backgroundColor = '#2563eb';
             }}
             onMouseLeave={(e) => {
-              e.target.style.backgroundColor = '#3b82f6';
+              (e.target as HTMLElement).style.backgroundColor = '#3b82f6';
             }}
           >
             <Plus size={20} />

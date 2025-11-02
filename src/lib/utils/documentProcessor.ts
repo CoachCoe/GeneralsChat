@@ -1,9 +1,11 @@
-import pdf from 'pdf-parse';
-import mammoth from 'mammoth';
 import fs from 'fs';
 import { promisify } from 'util';
 
 const readFile = promisify(fs.readFile);
+
+// Lazy load these to avoid initialization errors
+let pdf: any = null;
+let mammoth: any = null;
 
 export interface ProcessedDocument {
   content: string;
@@ -28,12 +30,18 @@ export async function processDocument(filePath: string): Promise<ProcessedDocume
   try {
     switch (fileExtension) {
       case '.pdf':
+        if (!pdf) {
+          pdf = (await import('pdf-parse')).default;
+        }
         const pdfData = await pdf(fileBuffer);
         content = pdfData.text;
         metadata.pageCount = pdfData.numpages;
         break;
-        
+
       case '.docx':
+        if (!mammoth) {
+          mammoth = await import('mammoth');
+        }
         const docxResult = await mammoth.extractRawText({ buffer: fileBuffer });
         content = docxResult.value;
         break;
