@@ -3,10 +3,17 @@ import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { incidentClassifier } from '@/lib/ai/classifier';
 import { DataSensitivity } from '@/types';
+import { logRequest, logResponse, logError, logAudit } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  let userId: string | undefined;
+
   try {
-    const { message, incidentId, userId } = await request.json();
+    logRequest('POST', '/api/chat');
+
+    const { message, incidentId, userId: reqUserId } = await request.json();
+    userId = reqUserId;
 
     if (!message || !userId) {
       return NextResponse.json(
@@ -43,6 +50,12 @@ export async function POST(request: NextRequest) {
         include: {
           conversations: true,
         },
+      });
+
+      // Log audit event for incident creation
+      logAudit(userId, 'create', 'incident', incident.id, {
+        title,
+        via: 'chat',
       });
     }
 
@@ -143,6 +156,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const duration = Date.now() - startTime;
+    logResponse('POST', '/api/chat', 200, duration);
+
     return NextResponse.json({
       response,
       citations,
@@ -152,7 +168,14 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Chat API error:', error);
+    const duration = Date.now() - startTime;
+    logError(error as Error, {
+      endpoint: '/api/chat',
+      userId,
+      method: 'POST',
+    });
+    logResponse('POST', '/api/chat', 500, duration);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

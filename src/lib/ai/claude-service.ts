@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/db';
+import { logAIOperation, logError, logExternalAPI } from '@/lib/logger';
 
 /**
  * Claude AI Service
@@ -78,8 +79,13 @@ class ClaudeService {
       temperature?: number;
     }
   ): Promise<ClaudeResponse> {
+    const startTime = Date.now();
+
     try {
       const client = this.getClient();
+
+      logExternalAPI('Claude API', 'messages.create', undefined, undefined);
+
       const response = await client.messages.create({
         model: this.model,
         max_tokens: options?.maxTokens || this.maxTokens,
@@ -91,7 +97,15 @@ class ClaudeService {
         })),
       });
 
+      const duration = Date.now() - startTime;
       const textContent = response.content[0];
+      const totalTokens = response.usage.input_tokens + response.usage.output_tokens;
+
+      // Approximate cost calculation (Claude 3.5 Sonnet pricing)
+      // $3 per million input tokens, $15 per million output tokens
+      const cost = (response.usage.input_tokens * 0.000003) + (response.usage.output_tokens * 0.000015);
+
+      logAIOperation('generateResponse', this.model, totalTokens, duration, cost);
 
       return {
         content: textContent.type === 'text' ? textContent.text : '',
@@ -102,7 +116,9 @@ class ClaudeService {
         stopReason: response.stop_reason || 'unknown',
       };
     } catch (error) {
-      console.error('Claude API error:', error);
+      const duration = Date.now() - startTime;
+      logExternalAPI('Claude API', 'messages.create', duration, error as Error);
+      logError(error as Error, { operation: 'generateResponse', model: this.model });
       throw new Error(`Failed to generate Claude response: ${error}`);
     }
   }
@@ -221,6 +237,8 @@ ${policyContext}`;
     timeline: string[];
     stakeholders: string[];
   }> {
+    const startTime = Date.now();
+
     const systemPrompt = `You are a school incident classification expert. Analyze the incident and provide structured classification.
 
 Respond with a JSON object containing:
@@ -265,10 +283,17 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
       }
 
       const classification = JSON.parse(jsonText);
+
+      const duration = Date.now() - startTime;
+      logAIOperation('classifyIncident', this.model, undefined, duration);
+
       return classification;
     } catch (error) {
-      console.error('Failed to parse classification JSON:', error);
-      console.error('Raw response:', response.content);
+      const duration = Date.now() - startTime;
+      logError(error as Error, {
+        operation: 'classifyIncident',
+        rawResponse: response.content.substring(0, 200),
+      });
 
       // Return a safe default
       return {
@@ -407,6 +432,8 @@ Generate the summary following the required format above.`;
    * Similar to how Claude automatically names conversations
    */
   async generateIncidentTitle(firstMessage: string): Promise<string> {
+    const startTime = Date.now();
+
     const systemPrompt = `You are an expert at creating concise, descriptive titles for school incident reports.
 
 Based on the incident description provided, generate a short title that:
@@ -445,9 +472,13 @@ Examples:
         return 'New Incident Report';
       }
 
+      const duration = Date.now() - startTime;
+      logAIOperation('generateIncidentTitle', this.model, undefined, duration);
+
       return title;
     } catch (error) {
-      console.error('Failed to generate incident title:', error);
+      const duration = Date.now() - startTime;
+      logError(error as Error, { operation: 'generateIncidentTitle' });
       return 'New Incident Report';
     }
   }
