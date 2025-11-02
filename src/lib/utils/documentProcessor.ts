@@ -20,9 +20,9 @@ export interface ProcessedDocument {
 export async function processDocument(filePath: string): Promise<ProcessedDocument> {
   const fileExtension = getFileExtension(filePath);
   const fileBuffer = await readFile(filePath);
-  
+
   let content: string;
-  let metadata: any = {
+  const metadata: any = {
     fileType: fileExtension,
     extractedAt: new Date(),
   };

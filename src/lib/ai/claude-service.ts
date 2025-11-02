@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { prisma } from '@/lib/db';
 
 /**
  * Claude AI Service
@@ -50,6 +51,23 @@ class ClaudeService {
   }
 
   /**
+   * Get the active system prompt from database, or return default
+   */
+  private async getActiveSystemPrompt(): Promise<string | null> {
+    try {
+      const activePrompt = await prisma.systemPrompt.findFirst({
+        where: { isActive: true },
+        select: { content: true }
+      });
+
+      return activePrompt?.content || null;
+    } catch (error) {
+      console.warn('Failed to fetch active system prompt from database:', error);
+      return null;
+    }
+  }
+
+  /**
    * Generate a response from Claude with context
    */
   async generateResponse(
@@ -97,7 +115,12 @@ class ClaudeService {
     policyContext: string,
     conversationHistory: ClaudeMessage[] = []
   ): Promise<ClaudeResponse> {
-    const systemPrompt = `You are a trusted compliance advisor helping school administrators navigate incident reporting and investigation procedures. Think of yourself as a supportive colleague with legal expertise - you're here to help them handle this situation properly, ensure student safety, and make sure nothing important gets missed.
+    // Try to get active system prompt from database first
+    let systemPromptContent = await this.getActiveSystemPrompt();
+
+    // If no active prompt in database, use default
+    if (!systemPromptContent) {
+      systemPromptContent = `You are a trusted compliance advisor helping school administrators navigate incident reporting and investigation procedures. Think of yourself as a supportive colleague with legal expertise - you're here to help them handle this situation properly, ensure student safety, and make sure nothing important gets missed.
 
 YOUR APPROACH:
 Start with warmth and support. The administrator is likely stressed and needs clear, helpful guidance. Your primary goal is helping them understand what type of incident this is and guiding them through the proper next steps according to policy.
@@ -164,10 +187,14 @@ WHEN YOU NEED MORE INFORMATION:
 - If policies don't give clear guidance, be honest: "I don't see clear direction on this in our policies. This might be a good time to consult with legal counsel."
 - When in doubt about severity, suggest: "Given what you've described, it would be good to loop in the superintendent" or "This sounds like a situation where legal counsel's input would be valuable"
 
-Available Policy Context:
-${policyContext}
-
 Remember: You're here to help them navigate this successfully. Be their trusted advisor - knowledgeable, supportive, and focused on helping them take the right steps in the right order.`;
+    }
+
+    // Append policy context to the system prompt (whether from database or default)
+    const finalSystemPrompt = `${systemPromptContent}
+
+Available Policy Context:
+${policyContext}`;
 
     const messages: ClaudeMessage[] = [
       ...conversationHistory,
@@ -177,7 +204,7 @@ Remember: You're here to help them navigate this successfully. Be their trusted 
       },
     ];
 
-    return this.generateResponse(messages, systemPrompt);
+    return this.generateResponse(messages, finalSystemPrompt);
   }
 
   /**

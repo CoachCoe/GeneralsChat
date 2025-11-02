@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { processDocument } from '@/lib/utils/documentProcessor';
-import { upload } from '@/lib/utils/fileUpload';
 import { PolicyType } from '@/types';
 
 export async function GET(request: NextRequest) {

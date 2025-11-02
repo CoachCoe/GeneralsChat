@@ -1,6 +1,5 @@
 import { ChromaClient, Collection } from 'chromadb';
 import { embeddingsService } from './embeddings';
-import path from 'path';
 
 /**
  * Chroma Vector Database Service
@@ -196,7 +195,7 @@ class ChromaService {
 
       const count = await this.collection.count();
       return count;
-    } catch (error) {
+    } catch {
       // Chroma not available, return 0
       return 0;
     }

@@ -233,7 +233,7 @@ export class RAGSystem {
    */
   async generateResponseWithCitations(
     query: string,
-    context: any
+    _context: any
   ): Promise<{ response: string; citations: string[]; chunks: PolicyChunk[] }> {
     // Search for relevant policies
     const relevantChunks = await this.searchRelevantPolicies(query, 5);
@@ -262,7 +262,7 @@ export class RAGSystem {
       if (this.isInitialized) {
         try {
           await chromaService.deletePolicyChunks(policyId);
-        } catch (error) {
+        } catch {
           console.warn('Could not delete from Chroma (not available)');
         }
       }

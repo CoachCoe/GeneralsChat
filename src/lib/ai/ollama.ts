@@ -9,13 +9,11 @@ export class AIRouter {
   }
 
   async processQuery(
-    query: string, 
-    context: any, 
-    sensitivity: DataSensitivity
+    query: string,
+    _context: any,
+    _sensitivity: DataSensitivity
   ): Promise<string> {
     // Simplified AI processing - will be enhanced when Ollama is properly set up
-    const systemPrompt = this.getSystemPrompt(sensitivity);
-    
     // For now, return a simple response based on the query
     const lowerQuery = query.toLowerCase();
     

@@ -153,14 +153,14 @@ export default function TodosPage() {
   const filteredTodos = getFilteredTodos();
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen" style={{ background: 'var(--background)' }}>
       <Navbar />
-      
+
       <div className="container mx-auto px-6 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">To-Do List</h1>
-          <p className="text-xl text-gray-300">Manage your tasks and stay on top of deadlines</p>
+          <h1 className="text-apple-largetitle mb-4" style={{ color: 'var(--foreground)' }}>To-Do List</h1>
+          <p className="text-apple-title3" style={{ color: 'var(--muted-foreground)' }}>Manage your tasks and stay on top of deadlines</p>
         </div>
 
         {/* Filters */}
@@ -168,8 +168,8 @@ export default function TodosPage() {
           <div className="flex flex-wrap gap-4 items-center justify-between">
             {/* Completion Filter */}
             <div className="flex items-center gap-2">
-              <Filter size={20} className="text-gray-300" />
-              <span className="text-gray-300 font-medium">Show:</span>
+              <Filter size={20} style={{ color: 'var(--muted-foreground)' }} />
+              <span className="text-apple-body font-medium" style={{ color: 'var(--foreground)' }}>Show:</span>
               <div className="flex gap-2">
                 {[
                   { key: 'all', label: 'All' },
@@ -179,28 +179,11 @@ export default function TodosPage() {
                   <button
                     key={key}
                     onClick={() => setFilter(key as FilterType)}
+                    className={filter === key ? 'btn-apple-primary' : 'btn-apple-secondary'}
                     style={{
-                      padding: '0.5rem 1rem',
-                      borderRadius: '0.5rem',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      transition: 'all 0.2s',
-                      backgroundColor: filter === key ? '#3b82f6' : 'transparent',
-                      color: filter === key ? 'white' : '#d1d5db',
-                      border: '1px solid #4b5563',
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (filter !== key) {
-                        (e.target as HTMLElement).style.backgroundColor = '#374151';
-                        (e.target as HTMLElement).style.color = 'white';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (filter !== key) {
-                        (e.target as HTMLElement).style.backgroundColor = 'transparent';
-                        (e.target as HTMLElement).style.color = '#d1d5db';
-                      }
+                      minHeight: '36px',
+                      padding: '0 var(--spacing-4)',
+                      fontSize: '15px'
                     }}
                   >
                     {label}
@@ -211,8 +194,8 @@ export default function TodosPage() {
 
             {/* Due Date Filter */}
             <div className="flex items-center gap-2">
-              <Calendar size={20} className="text-gray-300" />
-              <span className="text-gray-300 font-medium">Due:</span>
+              <Calendar size={20} style={{ color: 'var(--muted-foreground)' }} />
+              <span className="text-apple-body font-medium" style={{ color: 'var(--foreground)' }}>Due:</span>
               <div className="flex gap-2">
                 {[
                   { key: 'all', label: 'All' },
@@ -222,28 +205,11 @@ export default function TodosPage() {
                   <button
                     key={key}
                     onClick={() => setDueFilter(key as DueFilter)}
+                    className={dueFilter === key ? 'btn-apple-primary' : 'btn-apple-secondary'}
                     style={{
-                      padding: '0.5rem 1rem',
-                      borderRadius: '0.5rem',
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      transition: 'all 0.2s',
-                      backgroundColor: dueFilter === key ? '#10b981' : 'transparent',
-                      color: dueFilter === key ? 'white' : '#d1d5db',
-                      border: '1px solid #4b5563',
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (dueFilter !== key) {
-                        (e.target as HTMLElement).style.backgroundColor = '#374151';
-                        (e.target as HTMLElement).style.color = 'white';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (dueFilter !== key) {
-                        (e.target as HTMLElement).style.backgroundColor = 'transparent';
-                        (e.target as HTMLElement).style.color = '#d1d5db';
-                      }
+                      minHeight: '36px',
+                      padding: '0 var(--spacing-4)',
+                      fontSize: '15px'
                     }}
                   >
                     {label}
@@ -257,37 +223,29 @@ export default function TodosPage() {
         {/* Todo List */}
         <div className="max-w-4xl mx-auto">
           {filteredTodos.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📝</div>
-              <h3 className="text-2xl font-semibold text-white mb-2">No tasks found</h3>
-              <p className="text-gray-300">
-                {filter === 'todo' && dueFilter === 'all' 
+            <div className="text-center" style={{ padding: 'var(--spacing-8) 0' }}>
+              <div style={{ fontSize: '64px', marginBottom: 'var(--spacing-4)' }}>📝</div>
+              <h3 className="text-apple-title2 mb-2" style={{ color: 'var(--foreground)' }}>No tasks found</h3>
+              <p className="text-apple-body" style={{ color: 'var(--muted-foreground)' }}>
+                {filter === 'todo' && dueFilter === 'all'
                   ? "You're all caught up! No pending tasks."
                   : "No tasks match your current filters."
                 }
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
               {filteredTodos.map((todo) => (
                 <div
                   key={todo.id}
+                  className="card-apple"
                   style={{
-                    backgroundColor: 'transparent',
-                    border: '1px solid #4b5563',
-                    borderRadius: '0.5rem',
-                    padding: '1.5rem',
-                    transition: 'all 0.2s',
+                    padding: 'var(--spacing-6)',
                     cursor: 'pointer',
-                    opacity: todo.completed ? 0.75 : 1
+                    opacity: todo.completed ? 0.7 : 1,
+                    transition: 'all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1)'
                   }}
                   onClick={() => window.location.href = `/todos/${todo.id}`}
-                  onMouseEnter={(e) => {
-                    (e.target as HTMLElement).style.backgroundColor = '#1f2937';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.target as HTMLElement).style.backgroundColor = 'transparent';
-                  }}
                 >
                   <div className="flex items-start gap-4">
                     {/* Checkbox */}
@@ -306,9 +264,9 @@ export default function TodosPage() {
                       }}
                     >
                       {todo.completed ? (
-                        <CheckCircle size={24} className="text-green-400" />
+                        <CheckCircle size={24} style={{ color: 'var(--success)' }} />
                       ) : (
-                        <Circle size={24} className="text-gray-400 hover:text-white" />
+                        <Circle size={24} style={{ color: 'var(--muted-foreground)' }} />
                       )}
                     </button>
 
@@ -316,31 +274,32 @@ export default function TodosPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className={`text-lg font-semibold mb-2 ${
-                            todo.completed ? 'line-through text-gray-400' : 'text-white'
-                          }`}>
+                          <h3 className="text-apple-title3 font-semibold mb-2" style={{
+                            color: todo.completed ? 'var(--muted-foreground)' : 'var(--foreground)',
+                            textDecoration: todo.completed ? 'line-through' : 'none'
+                          }}>
                             {todo.title}
                           </h3>
-                          <p className={`text-sm mb-3 ${
-                            todo.completed ? 'text-gray-500' : 'text-gray-300'
-                          }`}>
+                          <p className="text-apple-body mb-3" style={{
+                            color: todo.completed ? 'var(--muted-foreground)' : 'var(--foreground)',
+                            opacity: todo.completed ? 0.6 : 0.8
+                          }}>
                             {todo.description}
                           </p>
                         </div>
                       </div>
 
                       {/* Due Date */}
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock size={16} className="text-gray-400" />
-                        <span className={`${
-                          isOverdue(todo.dueDate) && !todo.completed
-                            ? 'text-red-400 font-semibold'
+                      <div className="flex items-center gap-2 text-apple-footnote">
+                        <Clock size={16} style={{ color: 'var(--muted-foreground)' }} />
+                        <span style={{
+                          color: isOverdue(todo.dueDate) && !todo.completed
+                            ? 'var(--destructive)'
                             : isDueToday(todo.dueDate) && !todo.completed
-                            ? 'text-yellow-400 font-semibold'
-                            : todo.completed
-                            ? 'text-gray-500'
-                            : 'text-gray-400'
-                        }`}>
+                            ? 'var(--warning)'
+                            : 'var(--muted-foreground)',
+                          fontWeight: (isOverdue(todo.dueDate) || isDueToday(todo.dueDate)) && !todo.completed ? 600 : 400
+                        }}>
                           {isOverdue(todo.dueDate) && !todo.completed
                             ? `Overdue - ${formatDate(todo.dueDate)}`
                             : isDueToday(todo.dueDate) && !todo.completed
@@ -359,27 +318,11 @@ export default function TodosPage() {
 
         {/* Add New Task Button */}
         <div className="max-w-4xl mx-auto mt-8 text-center">
-          <button 
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '0.5rem',
-              transition: 'all 0.2s',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.backgroundColor = '#2563eb';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.backgroundColor = '#3b82f6';
-            }}
-          >
+          <button className="btn-apple-primary" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--spacing-2)'
+          }}>
             <Plus size={20} />
             Add New Task
           </button>

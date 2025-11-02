@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { CheckCircle, Circle, Clock, ArrowLeft, Calendar } from 'lucide-react';
+import { CheckCircle, Circle, ArrowLeft, Calendar } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
 // Mock to-do data (same as in the main todos page)

@@ -4,25 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap font-medium transition-apple focus-ring-apple disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "btn-apple-primary",
+        destructive: "btn-apple-primary bg-[var(--destructive)] hover:bg-[#ff5a50] active:bg-[#ff3b30]",
+        outline: "btn-apple-secondary",
+        secondary: "btn-apple-secondary",
+        ghost: "btn-apple-tertiary",
+        link: "text-[var(--primary)] underline-offset-4 hover:underline min-h-[var(--touch-target)] px-5",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        default: "min-h-[var(--touch-target)] px-6",
+        sm: "min-h-[36px] px-4 text-[15px]",
+        lg: "min-h-[52px] px-8 text-[17px]",
+        icon: "h-[var(--touch-target)] w-[var(--touch-target)] p-0",
       },
     },
     defaultVariants: {

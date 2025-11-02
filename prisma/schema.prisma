@@ -247,3 +247,25 @@ model AuditLog {
   @@index([timestamp])
   @@index([incidentId])
 }
+
+// ============================================
+// SYSTEM PROMPTS
+// ============================================
+
+model SystemPrompt {
+  id        String   @id @default(cuid())
+  name      String   // Friendly name like "Friendly Advisor", "Strict Legal", etc.
+  content   String   // The full system prompt text
+  isActive  Boolean  @default(false)
+
+  // Metadata
+  description String?
+  createdBy   String?  // User ID who created it
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([createdAt])
+}

@@ -3,8 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Brain, Send, Plus, Paperclip, Menu } from 'lucide-react';
-import Link from 'next/link';
-// LLM service is now called via API route for security
 import Navbar from '@/components/Navbar';
 
 interface Message {
@@ -30,25 +28,24 @@ export default function ChatPage() {
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Mock previous chats data
   const previousChats: Chat[] = [
     {
       id: '1',
       title: 'Student Fight Incident',
       lastMessage: 'I need help classifying this incident...',
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
+      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000)
     },
     {
       id: '2',
       title: 'Bullying Report',
       lastMessage: 'What are the compliance requirements...',
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000) // 1 day ago
+      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000)
     },
     {
       id: '3',
       title: 'Disciplinary Action',
       lastMessage: 'Help me understand the process...',
-      timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) // 3 days ago
+      timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
     }
   ];
 
@@ -76,7 +73,6 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      // Call API route (server-side) to keep API keys secure
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -84,7 +80,7 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: currentInput,
-          userId: 'demo-user', // In production, get from auth session
+          userId: 'demo-user',
         }),
       });
 
@@ -94,7 +90,6 @@ export default function ChatPage() {
 
       const data = await response.json();
 
-      // Store incident ID for summary generation
       if (data.incidentId && !incidentId) {
         setIncidentId(data.incidentId);
       }
@@ -155,7 +150,6 @@ export default function ChatPage() {
 
       const data = await response.json();
 
-      // Add summary as a special message
       const summaryMessage: Message = {
         id: Date.now().toString(),
         type: 'general',
@@ -164,7 +158,6 @@ export default function ChatPage() {
       };
       setMessages(prev => [...prev, summaryMessage]);
 
-      // Show success notification
       alert('Chat ended. Summary generated and saved to incident record.');
 
     } catch (error) {
@@ -175,289 +168,376 @@ export default function ChatPage() {
     }
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatDate = (date: Date) => {
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return formatTime(date);
-    } else if (diffInHours < 168) { // 7 days
-      return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
-  };
-
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen" style={{ background: 'var(--background)' }}>
       <Navbar />
-      <div style={{ display: 'flex', height: 'calc(100vh - 4rem)' }}>
-      {/* Sidebar - Fixed Width Left */}
-      <div 
-        style={{ 
-          width: sidebarOpen ? '320px' : '0px',
-          transition: 'width 0.3s ease-in-out',
-          backgroundColor: 'transparent',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}
-      >
-        {/* Sidebar Header */}
-        <div style={{ padding: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+      <div className="flex" style={{ height: 'calc(100vh - 52px)' }}>
+        {/* Sidebar */}
+        <div
+          style={{
+            width: sidebarOpen ? '260px' : '0px',
+            borderRight: '1px solid var(--separator)',
+            background: 'var(--background)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            transition: 'width 0.3s ease'
+          }}
+        >
+          {/* New Chat Button */}
+          <div style={{ padding: '12px', flexShrink: 0 }}>
             <button
-              onClick={() => setSidebarOpen(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#9ca3af',
-                cursor: 'pointer',
-                padding: '0.25rem'
+              onClick={() => {
+                setMessages([]);
+                setIncidentId(null);
               }}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                background: 'transparent',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                color: 'var(--foreground)',
+                fontSize: '14px',
+                fontWeight: 500,
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--secondary)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              ×
+              <Plus size={18} />
+              <span>New chat</span>
             </button>
           </div>
-        </div>
-        
-        {/* New Chat Button */}
-        <div style={{ padding: '1rem' }}>
-          <button
-            style={{
-              width: '100%',
-              backgroundColor: '#059669',
-              color: 'white',
-              height: '3rem',
-              fontSize: '1.125rem',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem'
-            }}
-          >
-            <Plus size={24} />
-          </button>
-        </div>
-        
-        {/* Previous Chats */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <div style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+
+          {/* Previous Chats */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '0 8px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
             {previousChats.map((chat) => (
               <div
                 key={chat.id}
                 style={{
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
+                  padding: '10px 12px',
+                  marginBottom: '4px',
+                  borderRadius: '8px',
                   cursor: 'pointer',
-                  transition: 'background-color 0.2s',
-                  backgroundColor: 'transparent'
+                  transition: 'background 0.2s',
+                  background: 'transparent'
                 }}
-                onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#374151'}
-                onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--secondary)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: 'white', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {chat.title}
-                  </h3>
-                  <span style={{ fontSize: '0.75rem', color: '#9ca3af', marginLeft: '0.5rem' }}>
-                    {formatDate(chat.timestamp)}
-                  </span>
+                <div style={{
+                  fontSize: '14px',
+                  color: 'var(--foreground)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  marginBottom: '2px'
+                }}>
+                  {chat.title}
                 </div>
-                <p style={{ fontSize: '0.75rem', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {chat.lastMessage}
-                </p>
               </div>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Main Chat Area - Flexible Right */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Top Navbar with Menu and End Chat */}
-        {(messages.length > 0 || !sidebarOpen) && (
-          <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(75, 85, 99, 0.3)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {/* Main Chat Area */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          {/* Top Bar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 16px',
+            minHeight: '48px',
+            borderBottom: '1px solid var(--separator)',
+            flexShrink: 0
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
                   style={{
-                    background: 'none',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    color: 'var(--muted-foreground)',
+                    background: 'transparent',
                     border: 'none',
-                    color: '#9ca3af',
                     cursor: 'pointer',
-                    padding: '0.25rem'
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--foreground)';
+                    e.currentTarget.style.background = 'var(--secondary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--muted-foreground)';
+                    e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  <Menu size={16} />
+                  <Menu size={20} />
                 </button>
-              )}
-              {messages.length > 0 && (
-                <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-                  {incidentId ? 'Active Consultation' : 'Chat Session'}
-                </span>
               )}
             </div>
 
             {messages.length > 0 && incidentId && (
-              <button
+              <Button
                 onClick={handleEndChat}
                 disabled={isGeneratingSummary}
-                style={{
-                  backgroundColor: isGeneratingSummary ? '#6b7280' : '#dc2626',
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  cursor: isGeneratingSummary ? 'not-allowed' : 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  opacity: isGeneratingSummary ? 0.5 : 1
-                }}
+                variant="destructive"
+                size="sm"
               >
-                {isGeneratingSummary ? 'Generating Summary...' : 'End Chat & Generate Summary'}
-              </button>
+                {isGeneratingSummary ? 'Generating Summary...' : 'End Chat'}
+              </Button>
             )}
           </div>
-        )}
 
-        {/* Messages Area */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {messages.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '2rem' }}>
-              <div style={{ padding: '1rem', borderRadius: '1rem', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)', marginBottom: '1.5rem' }}>
-                <Brain size={48} color="#10b981" />
+          {/* Messages Area */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden'
+          }}>
+            {messages.length === 0 ? (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                textAlign: 'center',
+                padding: '32px'
+              }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'var(--secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '24px'
+                }}>
+                  <Brain size={32} style={{ color: 'var(--primary)' }} />
+                </div>
+                <h2 style={{
+                  fontSize: '24px',
+                  fontWeight: 600,
+                  color: 'var(--foreground)',
+                  marginBottom: '12px'
+                }}>
+                  Chat with the General
+                </h2>
+                <p style={{
+                  fontSize: '15px',
+                  color: 'var(--muted-foreground)',
+                  maxWidth: '420px',
+                  lineHeight: '1.5'
+                }}>
+                  I'm here to help you navigate complex disciplinary incident compliance requirements.
+                  Describe your incident and I'll guide you through the process.
+                </p>
               </div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem' }}>Chat with the General</h2>
-              <p style={{ color: '#9ca3af', maxWidth: '28rem' }}>
-                I'm here to help you navigate complex disciplinary incident compliance requirements. 
-                Describe your incident and I'll guide you through the process.
-              </p>
-            </div>
-          ) : (
-            <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  style={{ display: 'flex', justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start' }}
-                >
-                  <div
-                    style={{
-                      maxWidth: '48rem',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '1rem',
-                      backgroundColor: message.type === 'user' ? '#059669' : '#374151',
-                      color: message.type === 'user' ? 'white' : '#f3f4f6'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+            ) : (
+              <div style={{ padding: '24px 16px' }}>
+                <div style={{ maxWidth: '48rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      style={{
+                        display: 'flex',
+                        gap: '12px',
+                        flexDirection: message.type === 'user' ? 'row-reverse' : 'row'
+                      }}
+                    >
                       {message.type === 'general' && (
-                        <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <Brain size={16} color="white" />
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: 'var(--secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <Brain size={18} style={{ color: 'var(--primary)' }} />
                         </div>
                       )}
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.875rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                      <div style={{
+                        flex: 1,
+                        maxWidth: message.type === 'user' ? '80%' : '100%'
+                      }}>
+                        <div style={{
+                          padding: message.type === 'user' ? '12px 16px' : '0',
+                          background: message.type === 'user' ? 'var(--secondary)' : 'transparent',
+                          borderRadius: message.type === 'user' ? '16px' : '0',
+                          fontSize: '15px',
+                          lineHeight: '1.6',
+                          color: 'var(--foreground)',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}>
                           {message.content}
                         </div>
-                        <p style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.5rem' }}>
-                          {formatTime(message.timestamp)}
-                        </p>
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-              
-              {isLoading && (
-                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <div style={{ backgroundColor: '#374151', color: '#f3f4f6', padding: '0.75rem 1rem', borderRadius: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={{ width: '8px', height: '8px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite' }}></div>
-                      <div style={{ width: '8px', height: '8px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite 0.1s' }}></div>
-                      <div style={{ width: '8px', height: '8px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }}></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
+                  ))}
 
-        {/* Input Area - Fixed at bottom */}
-        <div style={{ 
-          position: 'sticky', 
-          bottom: 0, 
-          backgroundColor: 'transparent',
-          padding: '1rem'
-        }}>
-          <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem' }}>
-              <button
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#9ca3af',
-                  cursor: 'pointer',
-                  padding: '0.5rem'
-                }}
-              >
-                <Paperclip size={20} />
-              </button>
-              <div style={{ flex: 1, position: 'relative' }}>
+                  {isLoading && (
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        background: 'var(--secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <Brain size={18} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div style={{ padding: '12px 0', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: 'var(--muted-foreground)',
+                          animation: 'bounce 1.4s infinite ease-in-out both'
+                        }}></div>
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: 'var(--muted-foreground)',
+                          animation: 'bounce 1.4s infinite ease-in-out both',
+                          animationDelay: '0.16s'
+                        }}></div>
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: 'var(--muted-foreground)',
+                          animation: 'bounce 1.4s infinite ease-in-out both',
+                          animationDelay: '0.32s'
+                        }}></div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input Area */}
+          <div style={{
+            padding: '16px',
+            borderTop: '1px solid var(--separator)',
+            background: 'var(--background)',
+            flexShrink: 0
+          }}>
+            <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
+              <div style={{
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '8px 12px',
+                background: 'var(--background)',
+                display: 'flex',
+                alignItems: 'flex-end',
+                gap: '8px'
+              }}>
+                <button
+                  style={{
+                    padding: '6px',
+                    borderRadius: '6px',
+                    color: 'var(--muted-foreground)',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--foreground)';
+                    e.currentTarget.style.background = 'var(--secondary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--muted-foreground)';
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <Paperclip size={20} />
+                </button>
+
                 <textarea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Describe your incident and I'll help you with compliance..."
+                  placeholder="Message General..."
                   style={{
-                    width: '100%',
-                    backgroundColor: 'rgba(31, 41, 55, 0.8)',
-                    border: '1px solid rgba(75, 85, 99, 0.5)',
-                    borderRadius: '0.75rem',
-                    padding: '0.75rem 1rem',
-                    paddingRight: '3rem',
-                    color: 'white',
+                    flex: 1,
+                    minHeight: '24px',
+                    maxHeight: '200px',
                     resize: 'none',
-                    minHeight: '48px',
-                    maxHeight: '120px',
-                    outline: 'none'
+                    border: 'none',
+                    outline: 'none',
+                    background: 'transparent',
+                    color: 'var(--foreground)',
+                    fontSize: '15px',
+                    lineHeight: '1.5',
+                    fontFamily: 'inherit',
+                    padding: '0'
                   }}
                   rows={1}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = target.scrollHeight + 'px';
+                  }}
                 />
+
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || isLoading}
+                  style={{
+                    padding: '6px',
+                    borderRadius: '6px',
+                    background: inputValue.trim() ? 'var(--primary)' : 'transparent',
+                    color: inputValue.trim() ? 'white' : 'var(--muted-foreground)',
+                    border: 'none',
+                    cursor: inputValue.trim() ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    opacity: inputValue.trim() ? 1 : 0.5
+                  }}
+                >
+                  <Send size={20} />
+                </button>
               </div>
-              <button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                style={{
-                  backgroundColor: '#059669',
-                  color: 'white',
-                  padding: '0.75rem',
-                  borderRadius: '0.75rem',
-                  border: 'none',
-                  cursor: inputValue.trim() && !isLoading ? 'pointer' : 'not-allowed',
-                  opacity: inputValue.trim() && !isLoading ? 1 : 0.5
-                }}
-              >
-                <Send size={20} />
-              </button>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem', textAlign: 'center' }}>
-              Press Enter to send, Shift+Enter for new line
-            </p>
           </div>
         </div>
-      </div>
       </div>
     </div>
   );

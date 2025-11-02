@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { aiRouter } from '@/lib/ai/ollama';
 import { ragSystem } from '@/lib/ai/rag';
 import { incidentClassifier } from '@/lib/ai/classifier';
 import { DataSensitivity } from '@/types';
@@ -51,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save user message
-    const userMessage = await prisma.conversation.create({
+    await prisma.conversation.create({
       data: {
         incidentId: incident.id,
         message,
@@ -60,10 +59,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Determine data sensitivity
-    const sensitivity = determineDataSensitivity(message, incident);
+    determineDataSensitivity(message, incident);
 
     // Generate AI response using RAG
-    const { response: policyContext, citations, chunks } = await ragSystem.generateResponseWithCitations(
+    const { response: policyContext, citations } = await ragSystem.generateResponseWithCitations(
       message,
       {
         incidentId: incident.id,

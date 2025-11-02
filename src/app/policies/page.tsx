@@ -23,7 +23,6 @@ export default function PoliciesPage() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  const [showUpload, setShowUpload] = useState(false);
 
   useEffect(() => {
     fetchPolicies();
@@ -93,7 +92,6 @@ export default function PoliciesPage() {
 
       // Refresh policies list
       fetchPolicies();
-      setShowUpload(false);
     } catch (error) {
       console.error('Error uploading policy:', error);
       alert('Failed to upload policy. Please try again.');

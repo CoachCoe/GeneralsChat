@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
-import { Clock, AlertTriangle, User, Calendar } from 'lucide-react';
+import { AlertTriangle, User, Calendar } from 'lucide-react';
 
 interface Incident {
   id: string;
