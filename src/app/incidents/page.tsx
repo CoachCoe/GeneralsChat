@@ -77,9 +77,6 @@ export default function IncidentsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-blue-500';
-      case 'in_progress': return 'bg-yellow-500';
-      case 'under_review': return 'bg-purple-500';
-      case 'completed': return 'bg-green-500';
       case 'closed': return 'bg-gray-500';
       default: return 'bg-gray-500';
     }
@@ -129,18 +126,18 @@ export default function IncidentsPage() {
         </div>
 
         <div className="flex gap-4 mb-6">
-          {['all', 'open', 'in_progress', 'under_review', 'completed', 'closed'].map((status) => (
+          {['all', 'open', 'closed'].map((status) => (
             <Button
               key={status}
               variant={filter === status ? 'default' : 'outline'}
               onClick={() => setFilter(status)}
               className={`capitalize ${
-                filter === status 
-                  ? 'btn-primary' 
+                filter === status
+                  ? 'btn-primary'
                   : 'btn-secondary'
               }`}
             >
-              {status.replace('_', ' ')}
+              {status}
             </Button>
           ))}
         </div>
