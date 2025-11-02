@@ -365,7 +365,9 @@ export default function ChatPage() {
                         </div>
                       )}
                       <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{message.content}</p>
+                        <div style={{ fontSize: '0.875rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                          {message.content}
+                        </div>
                         <p style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.5rem' }}>
                           {formatTime(message.timestamp)}
                         </p>
