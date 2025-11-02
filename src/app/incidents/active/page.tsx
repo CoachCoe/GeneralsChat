@@ -30,73 +30,11 @@ export default function ActiveIncidentsPage() {
         const data = await response.json();
         setIncidents(data);
       } else {
-        // Mock data for now
-        setIncidents([
-          {
-            id: '1',
-            title: 'Fighting in cafeteria',
-            description: 'Two students involved in physical altercation during lunch period',
-            status: 'active',
-            priority: 'high',
-            reportedBy: 'Ms. Johnson',
-            reportedAt: '2024-01-15T10:30:00Z',
-            assignedTo: 'Principal Smith'
-          },
-          {
-            id: '2',
-            title: 'Bullying incident',
-            description: 'Student reports ongoing harassment from classmates',
-            status: 'active',
-            priority: 'medium',
-            reportedBy: 'Mr. Davis',
-            reportedAt: '2024-01-14T14:20:00Z',
-            assignedTo: 'Counselor Wilson'
-          },
-          {
-            id: '3',
-            title: 'Vandalism in bathroom',
-            description: 'Graffiti found in boys restroom on second floor',
-            status: 'active',
-            priority: 'low',
-            reportedBy: 'Custodian Brown',
-            reportedAt: '2024-01-13T08:15:00Z'
-          }
-        ]);
+        setIncidents([]);
       }
     } catch (error) {
       console.error('Error fetching incidents:', error);
-      // Use mock data on error
-      setIncidents([
-        {
-          id: '1',
-          title: 'Fighting in cafeteria',
-          description: 'Two students involved in physical altercation during lunch period',
-          status: 'active',
-          priority: 'high',
-          reportedBy: 'Ms. Johnson',
-          reportedAt: '2024-01-15T10:30:00Z',
-          assignedTo: 'Principal Smith'
-        },
-        {
-          id: '2',
-          title: 'Bullying incident',
-          description: 'Student reports ongoing harassment from classmates',
-          status: 'active',
-          priority: 'medium',
-          reportedBy: 'Mr. Davis',
-          reportedAt: '2024-01-14T14:20:00Z',
-          assignedTo: 'Counselor Wilson'
-        },
-        {
-          id: '3',
-          title: 'Vandalism in bathroom',
-          description: 'Graffiti found in boys restroom on second floor',
-          status: 'active',
-          priority: 'low',
-          reportedBy: 'Custodian Brown',
-          reportedAt: '2024-01-13T08:15:00Z'
-        }
-      ]);
+      setIncidents([]);
     } finally {
       setLoading(false);
     }

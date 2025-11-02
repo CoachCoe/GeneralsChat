@@ -48,8 +48,8 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* To-Do List Link */}
-          <Link href="/todos" className="flex items-center gap-3 no-underline">
+          {/* Incidents Link */}
+          <Link href="/incidents" className="flex items-center gap-3 no-underline">
             <span className="text-apple-title3" style={{
               color: 'var(--muted-foreground)',
               transition: 'color 0.2s cubic-bezier(0.25, 0.1, 0.25, 1)',
@@ -58,7 +58,7 @@ export default function Navbar() {
             onMouseEnter={(e) => e.currentTarget.style.color = 'var(--foreground)'}
             onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted-foreground)'}
             >
-              To Dos
+              Incidents
             </span>
           </Link>
 
@@ -173,7 +173,7 @@ export default function Navbar() {
             </Link>
 
             <Link
-              href="/todos"
+              href="/incidents"
               onClick={() => setIsMobileMenuOpen(false)}
               style={{
                 display: 'flex',
@@ -186,7 +186,7 @@ export default function Navbar() {
               onMouseEnter={(e) => e.currentTarget.style.color = 'var(--foreground)'}
               onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted-foreground)'}
             >
-              <span className="text-apple-body">To Dos</span>
+              <span className="text-apple-body">Incidents</span>
             </Link>
 
             <Link

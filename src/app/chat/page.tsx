@@ -26,28 +26,11 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [incidentId, setIncidentId] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [previousChats, setPreviousChats] = useState<Chat[]>([]);
+  const [loadingHistories, setLoadingHistories] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const previousChats: Chat[] = [
-    {
-      id: '1',
-      title: 'Student Fight Incident',
-      lastMessage: 'I need help classifying this incident...',
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000)
-    },
-    {
-      id: '2',
-      title: 'Bullying Report',
-      lastMessage: 'What are the compliance requirements...',
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000)
-    },
-    {
-      id: '3',
-      title: 'Disciplinary Action',
-      lastMessage: 'Help me understand the process...',
-      timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-    }
-  ];
+  const userId = 'demo-user'; // In production, get from auth session
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,6 +39,51 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Fetch chat histories on mount
+  useEffect(() => {
+    fetchChatHistories();
+  }, []);
+
+  const fetchChatHistories = async () => {
+    setLoadingHistories(true);
+    try {
+      const response = await fetch(`/api/chat/history?userId=${userId}`);
+      if (!response.ok) throw new Error('Failed to fetch histories');
+
+      const data = await response.json();
+      setPreviousChats(data.histories.map((h: any) => ({
+        ...h,
+        timestamp: new Date(h.timestamp)
+      })));
+    } catch (error) {
+      console.error('Error fetching chat histories:', error);
+    } finally {
+      setLoadingHistories(false);
+    }
+  };
+
+  const loadConversation = async (chatId: string) => {
+    try {
+      const response = await fetch(`/api/chat/${chatId}`);
+      if (!response.ok) throw new Error('Failed to load conversation');
+
+      const data = await response.json();
+      setIncidentId(data.incidentId);
+      setMessages(data.messages.map((m: any) => ({
+        ...m,
+        timestamp: new Date(m.timestamp)
+      })));
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      alert('Failed to load conversation');
+    }
+  };
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setIncidentId(null);
+  };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -80,7 +108,8 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: currentInput,
-          userId: 'demo-user',
+          userId,
+          incidentId,
         }),
       });
 
@@ -92,6 +121,8 @@ export default function ChatPage() {
 
       if (data.incidentId && !incidentId) {
         setIncidentId(data.incidentId);
+        // Refresh chat histories when new incident is created
+        fetchChatHistories();
       }
 
       const aiMessage: Message = {
@@ -187,10 +218,7 @@ export default function ChatPage() {
           {/* New Chat Button */}
           <div style={{ padding: '12px', flexShrink: 0 }}>
             <button
-              onClick={() => {
-                setMessages([]);
-                setIncidentId(null);
-              }}
+              onClick={handleNewChat}
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -223,32 +251,47 @@ export default function ChatPage() {
             display: 'flex',
             flexDirection: 'column'
           }}>
-            {previousChats.map((chat) => (
-              <div
-                key={chat.id}
-                style={{
-                  padding: '10px 12px',
-                  marginBottom: '4px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                  background: 'transparent'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--secondary)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              >
-                <div style={{
-                  fontSize: '14px',
-                  color: 'var(--foreground)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  marginBottom: '2px'
-                }}>
-                  {chat.title}
-                </div>
+            {loadingHistories ? (
+              <div style={{ padding: '10px 12px', color: 'var(--muted-foreground)', fontSize: '14px' }}>
+                Loading...
               </div>
-            ))}
+            ) : previousChats.length === 0 ? (
+              <div style={{ padding: '10px 12px', color: 'var(--muted-foreground)', fontSize: '14px' }}>
+                No previous chats
+              </div>
+            ) : (
+              previousChats.map((chat) => (
+                <div
+                  key={chat.id}
+                  onClick={() => loadConversation(chat.id)}
+                  style={{
+                    padding: '10px 12px',
+                    marginBottom: '4px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                    background: incidentId === chat.id ? 'var(--secondary)' : 'transparent'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--secondary)'}
+                  onMouseLeave={(e) => {
+                    if (incidentId !== chat.id) {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  <div style={{
+                    fontSize: '14px',
+                    color: 'var(--foreground)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    marginBottom: '2px'
+                  }}>
+                    {chat.title}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
