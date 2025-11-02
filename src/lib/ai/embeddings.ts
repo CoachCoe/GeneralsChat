@@ -11,12 +11,16 @@ class EmbeddingsService {
   private model: string;
 
   constructor() {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+    // Only initialize if OpenAI is configured (optional for embeddings)
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      console.warn('OpenAI API key not found - embeddings service will not be available');
+      console.warn('The system will use keyword-based search instead');
     }
 
     this.client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: apiKey || 'dummy-key-not-used',
     });
 
     this.model = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
@@ -26,6 +30,10 @@ class EmbeddingsService {
    * Generate embedding for a single text
    */
   async generateEmbedding(text: string): Promise<number[]> {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured - cannot generate embeddings. System will use keyword search fallback.');
+    }
+
     try {
       const response = await this.client.embeddings.create({
         model: this.model,
@@ -45,6 +53,10 @@ class EmbeddingsService {
    * More efficient than calling generateEmbedding multiple times
    */
   async generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured - cannot generate embeddings. System will use keyword search fallback.');
+    }
+
     try {
       // OpenAI allows up to 2048 texts per batch
       const batchSize = 2048;
