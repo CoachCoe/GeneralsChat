@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: Params) {
           orderBy: { timestamp: 'asc' },
         },
         attachments: {
-          orderBy: { uploadedAt: 'desc' },
+          orderBy: { createdAt: 'desc' },
         },
         complianceActions: {
           orderBy: { createdAt: 'desc' },

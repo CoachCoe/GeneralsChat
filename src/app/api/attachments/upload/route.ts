@@ -49,13 +49,15 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer);
 
     // Save attachment record to database
+    // Using demo-user as default uploader for now
     const attachment = await prisma.attachment.create({
       data: {
         incidentId,
-        fileName: file.name,
+        filename: file.name,
         filePath: `/uploads/${uniqueFileName}`,
         fileType: file.type || 'application/octet-stream',
         fileSize: file.size,
+        uploadedBy: 'demo-user', // TODO: Get from authenticated user session
       },
     });
 

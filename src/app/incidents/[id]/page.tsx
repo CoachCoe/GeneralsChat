@@ -17,10 +17,10 @@ interface Conversation {
 
 interface Attachment {
   id: string;
-  fileName: string;
+  filename: string;
   fileType: string;
   fileSize: number;
-  uploadedAt: string;
+  createdAt: string;
 }
 
 interface Incident {
@@ -428,7 +428,7 @@ export default function IncidentDetailPage() {
                       <FileText className="h-5 w-5" style={{ color: 'var(--muted-foreground)' }} />
                       <div>
                         <p className="text-apple-body font-medium" style={{ color: 'var(--foreground)' }}>
-                          {attachment.fileName}
+                          {attachment.filename}
                         </p>
                         <p className="text-apple-caption2" style={{ color: 'var(--muted-foreground)' }}>
                           {formatFileSize(attachment.fileSize)} • {attachment.fileType}
@@ -436,7 +436,7 @@ export default function IncidentDetailPage() {
                       </div>
                     </div>
                     <span className="text-apple-caption2" style={{ color: 'var(--muted-foreground)' }}>
-                      {formatDate(attachment.uploadedAt)}
+                      {formatDate(attachment.createdAt)}
                     </span>
                   </div>
                 ))}
