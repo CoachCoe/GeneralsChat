@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, FileText, Calendar, User, MessageSquare, Sparkles } from 'lucide-react';
+import { ArrowLeft, FileText, Calendar, User, MessageSquare, Sparkles, Upload, CheckCircle, XCircle } from 'lucide-react';
 
 interface Conversation {
   id: string;
@@ -50,6 +50,9 @@ export default function IncidentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchIncident();
@@ -85,6 +88,66 @@ export default function IncidentDetailPage() {
       alert('Failed to generate summary. Please try again.');
     } finally {
       setGeneratingSummary(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!incident) return;
+
+    setUpdatingStatus(true);
+    try {
+      const newStatus = incident.status === 'open' ? 'closed' : 'open';
+      const response = await fetch(`/api/incidents/${incidentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update status');
+
+      const updatedIncident = await response.json();
+      setIncident({ ...incident, status: updatedIncident.status });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Failed to update incident status. Please try again.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    setUploadingFile(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('incidentId', incidentId);
+
+      const response = await fetch('/api/attachments/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to upload file');
+
+      const newAttachment = await response.json();
+
+      // Refresh incident to get updated attachments
+      await fetchIncident();
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file. Please try again.');
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -181,15 +244,40 @@ export default function IncidentDetailPage() {
                 </span>
               </div>
             </div>
-            <div className="flex gap-2">
-              {incident.severity && (
-                <Badge className={`${getSeverityColor(incident.severity)} text-white`}>
-                  {incident.severity}
+            <div className="flex gap-3 items-center">
+              <div className="flex gap-2">
+                {incident.severity && (
+                  <Badge className={`${getSeverityColor(incident.severity)} text-white`}>
+                    {incident.severity}
+                  </Badge>
+                )}
+                <Badge className={`${getStatusColor(incident.status)} text-white capitalize`}>
+                  {incident.status}
                 </Badge>
-              )}
-              <Badge className={`${getStatusColor(incident.status)} text-white capitalize`}>
-                {incident.status}
-              </Badge>
+              </div>
+              <Button
+                onClick={handleToggleStatus}
+                disabled={updatingStatus}
+                variant="outline"
+                size="sm"
+              >
+                {updatingStatus ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 mr-2" style={{ borderColor: 'var(--primary)' }}></div>
+                    Updating...
+                  </>
+                ) : incident.status === 'open' ? (
+                  <>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Close Incident
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Reopen Incident
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 
@@ -291,14 +379,42 @@ export default function IncidentDetailPage() {
         {/* Attachments */}
         <div>
           <div className="card-apple elevation-1" style={{ padding: 'var(--spacing-6)' }}>
-            <h3 className="text-apple-title2 font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
-              <FileText className="h-5 w-5" />
-              Attachments ({incident.attachments.length})
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-apple-title2 font-semibold flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
+                <FileText className="h-5 w-5" />
+                Attachments ({incident.attachments.length})
+              </h3>
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  disabled={uploadingFile}
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingFile}
+                  size="sm"
+                >
+                  {uploadingFile ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload File
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
 
             {incident.attachments.length === 0 ? (
               <p className="text-apple-body" style={{ color: 'var(--muted-foreground)' }}>
-                No attachments
+                No attachments yet. Click "Upload File" to add documents.
               </p>
             ) : (
               <div className="space-y-2">
