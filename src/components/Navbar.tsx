@@ -28,6 +28,11 @@ export default function Navbar() {
 
         {/* Right side navigation */}
         <div className="flex items-center gap-2">
+          {/* Chat Link */}
+          <Link href="/chat" className="navbar-link">
+            Chat
+          </Link>
+
           {/* Policies Link */}
           <Link href="/admin/policies" className="navbar-link">
             Policies
@@ -92,6 +97,14 @@ export default function Navbar() {
           padding: '8px'
         }}>
           <div className="flex flex-col gap-1">
+            <Link
+              href="/chat"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="navbar-dropdown-item"
+            >
+              Chat
+            </Link>
+
             <Link
               href="/admin/policies"
               onClick={() => setIsMobileMenuOpen(false)}
