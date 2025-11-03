@@ -125,10 +125,28 @@ export async function POST(request: NextRequest) {
         policyContext
       );
 
-      // Update incident with classification
+      // Format incident type for display
+      const typeLabels: Record<string, string> = {
+        bullying: 'Bullying',
+        title_ix: 'Title IX',
+        harassment: 'Harassment',
+        violence: 'Violence',
+        substance: 'Substance',
+        other: 'Other'
+      };
+
+      const typeLabel = typeLabels[classification.type] || 'Incident';
+
+      // Enhance title with incident type
+      const enhancedTitle = incident.title.startsWith(typeLabel)
+        ? incident.title
+        : `${typeLabel}: ${incident.title}`;
+
+      // Update incident with classification and enhanced title
       await prisma.incident.update({
         where: { id: incident.id },
         data: {
+          title: enhancedTitle,
           incidentType: classification.type,
           severity: classification.severity,
           timeline: JSON.stringify(classification.timeline),
