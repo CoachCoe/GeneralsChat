@@ -4,6 +4,8 @@ import { ragSystem } from '@/lib/ai/rag';
 import { incidentClassifier } from '@/lib/ai/classifier';
 import { DataSensitivity } from '@/types';
 import { logRequest, logResponse, logError, logAudit } from '@/lib/logger';
+import { createErrorResponse, validationError, notFoundError } from '@/lib/errors';
+import { chatMessageSchema, validateRequest, formatValidationErrors } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -12,15 +14,20 @@ export async function POST(request: NextRequest) {
   try {
     logRequest('POST', '/api/chat');
 
-    const { message, incidentId, userId: reqUserId } = await request.json();
-    userId = reqUserId;
+    const body = await request.json();
 
-    if (!message || !userId) {
-      return NextResponse.json(
-        { error: 'Message and userId are required' },
-        { status: 400 }
-      );
+    // Validate request body
+    const validation = validateRequest(chatMessageSchema, body);
+    if (!validation.success) {
+      logError(new Error('Validation failed'), {
+        operation: 'chat',
+        errors: formatValidationErrors(validation.errors),
+      });
+      return validationError('Invalid request data', formatValidationErrors(validation.errors));
     }
+
+    const { message, incidentId, userId: reqUserId } = validation.data;
+    userId = reqUserId;
 
     // Get or create incident
     let incident;
@@ -60,10 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!incident) {
-      return NextResponse.json(
-        { error: 'Incident not found' },
-        { status: 404 }
-      );
+      return notFoundError('Incident');
     }
 
     // Save user message
@@ -169,17 +173,19 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    logError(error as Error, {
-      endpoint: '/api/chat',
-      userId,
-      method: 'POST',
-    });
-    logResponse('POST', '/api/chat', 500, duration);
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    const errorResponse = createErrorResponse(
+      error,
+      'Failed to process chat message',
+      {
+        endpoint: '/api/chat',
+        userId,
+        method: 'POST',
+        duration,
+      }
     );
+
+    logResponse('POST', '/api/chat', errorResponse.status, duration);
+    return errorResponse;
   }
 }
 

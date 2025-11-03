@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { claudeService } from '@/lib/ai/claude-service';
 import { ragSystem } from '@/lib/ai/rag';
+import { logRequest, logResponse } from '@/lib/logger';
+import { createErrorResponse, notFoundError, successResponse } from '@/lib/errors';
 
 type Params = {
   params: Promise<{
@@ -10,7 +12,10 @@ type Params = {
 };
 
 export async function POST(request: NextRequest, { params }: Params) {
+  const startTime = Date.now();
+
   try {
+    logRequest('POST', '/api/incidents/[id]/summary');
     const { id } = await params;
 
     // Fetch incident with full conversation history
@@ -27,10 +32,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     });
 
     if (!incident) {
-      return NextResponse.json(
-        { error: 'Incident not found' },
-        { status: 404 }
-      );
+      return notFoundError('Incident');
     }
 
     // Get relevant policy context
@@ -52,15 +54,26 @@ export async function POST(request: NextRequest, { params }: Params) {
       policyContext
     );
 
-    return NextResponse.json({
+    const duration = Date.now() - startTime;
+    logResponse('POST', '/api/incidents/[id]/summary', 200, duration);
+
+    return successResponse({
       summary: summaryResponse.content,
       usage: summaryResponse.usage,
     });
   } catch (error) {
-    console.error('Generate summary error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate summary' },
-      { status: 500 }
+    const duration = Date.now() - startTime;
+    const errorResponse = createErrorResponse(
+      error,
+      'Failed to generate summary',
+      {
+        endpoint: '/api/incidents/[id]/summary',
+        method: 'POST',
+        duration,
+      }
     );
+
+    logResponse('POST', '/api/incidents/[id]/summary', errorResponse.status, duration);
+    return errorResponse;
   }
 }
