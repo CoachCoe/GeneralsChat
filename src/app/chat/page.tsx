@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Brain, Send, Plus, Paperclip, Menu } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import toast from 'react-hot-toast';
 
 interface Message {
   id: string;
@@ -76,7 +77,7 @@ export default function ChatPage() {
       })));
     } catch (error) {
       console.error('Error loading conversation:', error);
-      alert('Failed to load conversation');
+      toast.error('Failed to load conversation. Please try again.');
     }
   };
 
@@ -155,12 +156,12 @@ export default function ChatPage() {
 
   const handleEndChat = async () => {
     if (!incidentId) {
-      alert('No active chat to end. Start a conversation first.');
+      toast.error('No active chat to end. Start a conversation first.');
       return;
     }
 
     if (messages.length < 2) {
-      alert('Please have at least one exchange before ending the chat.');
+      toast.error('Please have at least one exchange before ending the chat.');
       return;
     }
 
@@ -189,11 +190,11 @@ export default function ChatPage() {
       };
       setMessages(prev => [...prev, summaryMessage]);
 
-      alert('Chat ended. Summary generated and saved to incident record.');
+      toast.success('Chat ended. Summary generated and saved to incident record.');
 
     } catch (error) {
       console.error('Error generating summary:', error);
-      alert('Failed to generate summary. Please try again.');
+      toast.error('Failed to generate summary. Please try again.');
     } finally {
       setIsGeneratingSummary(false);
     }

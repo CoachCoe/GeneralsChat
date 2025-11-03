@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { logRequest, logResponse } from '@/lib/logger';
+import { createErrorResponse, notFoundError, successResponse } from '@/lib/errors';
 
 type Params = {
   params: Promise<{
@@ -8,7 +10,10 @@ type Params = {
 };
 
 export async function GET(request: NextRequest, { params }: Params) {
+  const startTime = Date.now();
+
   try {
+    logRequest('GET', '/api/incidents/[id]');
     const { id } = await params;
 
     const incident = await prisma.incident.findUnique({
@@ -34,24 +39,35 @@ export async function GET(request: NextRequest, { params }: Params) {
     });
 
     if (!incident) {
-      return NextResponse.json(
-        { error: 'Incident not found' },
-        { status: 404 }
-      );
+      return notFoundError('Incident');
     }
 
-    return NextResponse.json(incident);
+    const duration = Date.now() - startTime;
+    logResponse('GET', '/api/incidents/[id]', 200, duration);
+
+    return successResponse(incident);
   } catch (error) {
-    console.error('Get incident error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch incident' },
-      { status: 500 }
+    const duration = Date.now() - startTime;
+    const errorResponse = createErrorResponse(
+      error,
+      'Failed to fetch incident',
+      {
+        endpoint: '/api/incidents/[id]',
+        method: 'GET',
+        duration,
+      }
     );
+
+    logResponse('GET', '/api/incidents/[id]', errorResponse.status, duration);
+    return errorResponse;
   }
 }
 
 export async function PATCH(request: NextRequest, { params }: Params) {
+  const startTime = Date.now();
+
   try {
+    logRequest('PATCH', '/api/incidents/[id]');
     const { id } = await params;
     const body = await request.json();
     const { status, title, description } = body;
@@ -74,12 +90,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       },
     });
 
-    return NextResponse.json(incident);
+    const duration = Date.now() - startTime;
+    logResponse('PATCH', '/api/incidents/[id]', 200, duration);
+
+    return successResponse(incident);
   } catch (error) {
-    console.error('Update incident error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update incident' },
-      { status: 500 }
+    const duration = Date.now() - startTime;
+    const errorResponse = createErrorResponse(
+      error,
+      'Failed to update incident',
+      {
+        endpoint: '/api/incidents/[id]',
+        method: 'PATCH',
+        duration,
+      }
     );
+
+    logResponse('PATCH', '/api/incidents/[id]', errorResponse.status, duration);
+    return errorResponse;
   }
 }
