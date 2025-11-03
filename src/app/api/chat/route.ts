@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save user message
-    await prisma.conversation.create({
+    const userMessage = await prisma.conversation.create({
       data: {
         incidentId: incident.id,
         message,
@@ -81,6 +81,18 @@ export async function POST(request: NextRequest) {
 
     // Determine data sensitivity
     determineDataSensitivity(message, incident);
+
+    // Build complete conversation history INCLUDING the current message
+    const conversationHistory = [
+      ...incident.conversations.map(conv => ({
+        role: conv.sender as 'user' | 'assistant',
+        content: conv.message,
+      })),
+      {
+        role: 'user' as const,
+        content: message,
+      }
+    ];
 
     // Generate AI response using RAG
     const { response: policyContext, citations } = await ragSystem.generateResponseWithCitations(
@@ -93,14 +105,11 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Use LLM service with RAG context to generate intelligent response
+    // Use LLM service with COMPLETE conversation history
     const { content: response, usage } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
       message,
       policyContext,
-      incident.conversations.map(conv => ({
-        role: conv.sender as 'user' | 'assistant',
-        content: conv.message,
-      }))
+      conversationHistory
     );
 
     // Classify incident if this is the first substantive message
