@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Settings, Menu, X } from 'lucide-react';
 
 export default function Navbar() {
@@ -22,8 +23,15 @@ export default function Navbar() {
     <nav className={`navbar-apple sticky top-0 z-50 w-full safe-area-inset-top ${isScrolled ? 'scrolled' : ''}`}>
       <div className="w-full flex items-center justify-between h-[52px] px-4 max-w-[1440px] mx-auto">
         {/* Logo/Brand - Clickable to home */}
-        <Link href="/" className="navbar-link" style={{ fontWeight: 600, color: 'var(--foreground)' }}>
-          Home
+        <Link href="/" className="flex items-center" style={{ opacity: 0.9, transition: 'opacity 0.2s' }}>
+          <Image
+            src="/logo.png"
+            alt="Generals Chat Logo"
+            width={40}
+            height={40}
+            style={{ objectFit: 'contain' }}
+            priority
+          />
         </Link>
 
         {/* Right side navigation */}

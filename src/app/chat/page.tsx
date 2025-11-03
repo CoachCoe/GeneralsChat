@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Brain, Send, Plus, Paperclip, Menu } from 'lucide-react';
+import { Send, Plus, Paperclip, Menu } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 interface Message {
   id: string;
@@ -372,13 +373,17 @@ export default function ChatPage() {
                   width: '64px',
                   height: '64px',
                   borderRadius: '50%',
-                  background: 'var(--secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '24px'
+                  overflow: 'hidden',
+                  marginBottom: '24px',
+                  border: '2px solid var(--primary)',
                 }}>
-                  <Brain size={32} style={{ color: 'var(--primary)' }} />
+                  <Image
+                    src="/General.jpeg"
+                    alt="The General"
+                    width={64}
+                    height={64}
+                    style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                  />
                 </div>
                 <h2 style={{
                   fontSize: '24px',
@@ -415,13 +420,17 @@ export default function ChatPage() {
                           width: '32px',
                           height: '32px',
                           borderRadius: '50%',
-                          background: 'var(--secondary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                          border: '1px solid var(--primary)',
                         }}>
-                          <Brain size={18} style={{ color: 'var(--primary)' }} />
+                          <Image
+                            src="/General.jpeg"
+                            alt="The General"
+                            width={32}
+                            height={32}
+                            style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                          />
                         </div>
                       )}
                       <div style={{
@@ -450,13 +459,17 @@ export default function ChatPage() {
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        background: 'var(--secondary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        border: '1px solid var(--primary)',
                       }}>
-                        <Brain size={18} style={{ color: 'var(--primary)' }} />
+                        <Image
+                          src="/General.jpeg"
+                          alt="The General"
+                          width={32}
+                          height={32}
+                          style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                        />
                       </div>
                       <div style={{ padding: '12px 0', display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <div style={{
