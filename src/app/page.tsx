@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { FileText, CheckCircle, Shield, Brain, Clock } from 'lucide-react';
 import Navbar from '@/components/Navbar';
@@ -42,17 +43,22 @@ export default function Dashboard() {
           <div className="card-apple elevation-2" style={{ padding: 'var(--spacing-8)' }}>
             <div className="text-center" style={{ paddingBottom: 'var(--spacing-6)' }}>
               <div style={{
-                padding: 'var(--spacing-4)',
-                borderRadius: 'var(--radius-2xl)',
-                background: 'linear-gradient(135deg, rgba(48, 209, 88, 0.15) 0%, rgba(100, 210, 255, 0.15) 100%)',
-                width: 'fit-content',
-                margin: '0 auto var(--spacing-6)'
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                margin: '0 auto var(--spacing-6)',
+                border: '3px solid var(--primary)',
+                boxShadow: '0 4px 12px rgba(48, 209, 88, 0.2)'
               }}>
-                <Brain style={{
-                  width: '48px',
-                  height: '48px',
-                  color: 'var(--primary)'
-                }} />
+                <Image
+                  src="/General.jpeg"
+                  alt="The General"
+                  width={80}
+                  height={80}
+                  style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                  priority
+                />
               </div>
               <h2 className="text-apple-title1 mb-4" style={{ color: 'var(--foreground)' }}>
                 Chat with the General
