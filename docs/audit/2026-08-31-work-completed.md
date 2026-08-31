@@ -59,7 +59,7 @@ not safely runnable by anyone in its current state.
 | SEC-2, SEC-3 (blocker) | Arbitrary file write on both upload paths. New `src/lib/uploads.ts`: server-generated basename (`randomUUID` + validated extension, never `file.name`) plus a `path.resolve` containment assertion. The admin route also wrote the file *before* checking its extension; validation now precedes the write. | `ebe2ae2` |
 | SEC-4 (blocker) | SSRF in the policy URL fetch. New `src/lib/safe-fetch.ts`: https-only, DNS resolved and non-public addresses refused, redirects re-validated per hop, Content-Type and body-size caps, timeout. | `a002d2a` |
 | SEC-5 (blocker, partial) | Attachment extension allowlist excluding `.html`/`.svg`, closing the stored-XSS vector. **The `public/` location is unchanged — see deferred.** | `ebe2ae2` |
-| SEC-10, SPEC-30 (major) | The documented 10MB limit was enforced nowhere. All three upload handlers now reject on `file.size` before buffering, returning 413. | `ebe2ae2` |
+| SEC-10, SPEC-30 (major, partial) | The documented 10MB limit was enforced nowhere. All three handlers now reject oversized files with 413. **This does not prevent memory exhaustion** — see the correction below. | `ebe2ae2` |
 | SEC-12 (major) | Unbounded `parseInt` pagination reaching Prisma `skip`/`take`. New `paginationSchema` with `z.coerce` clamping. | `5c52034` |
 | SEC-13 (major) | Six zod schemas existed and were imported nowhere. Wired into `POST /api/incidents` and `PATCH /api/incidents/[id]`. | `5c52034` |
 | SEC-9 (major, partial) | Classifier output is now validated against a zod enum instead of a bare `JSON.parse` returning `any`. **Retrieved policy text still enters the system prompt — see deferred.** | `5c52034` |
@@ -126,6 +126,20 @@ not safely runnable by anyone in its current state.
 | SPEC-34 | Which policy-upload endpoint is canonical? | Two divergent implementations coexist; the docs cite one, the shipped UI calls the other. |
 | SPEC-35 | Must a generated summary be persisted, and where? | `/api/incidents/[id]/summary` still discards a paid multi-thousand-token summary (FLOW-16). |
 | FLOW-12b | Does `/incidents/pending` mean an incident status or incidents with open `ComplianceAction` rows? | That page still returns nothing. An explanatory comment was left at the fetch site instead of a guessed query. |
+
+### Correction — SEC-10 is only partly fixed
+
+The commit message for `ebe2ae2` claims the size check runs "before buffering
+the body". That is wrong, and self-review caught it. All three handlers call
+`await request.formData()` first, which fully parses and buffers the request
+body into memory; `file.size` is only readable afterwards. So the limit does
+reject oversized uploads — preventing disk fill and database bloat — but the
+bytes are already resident by then, and the denial-of-service path in SEC-10
+(POST a multi-gigabyte body, OOM the process) **is still open**.
+
+Closing it properly requires rejecting on `Content-Length` before touching the
+body, and streaming to disk with a hard ceiling rather than `arrayBuffer()`,
+plus the same cap at the ingress. Recorded rather than claimed as done.
 
 ### Blocked on authentication (SEC-1)
 
