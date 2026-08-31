@@ -3,6 +3,22 @@ import { prisma } from '@/lib/db';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import {
+  assertAllowedExtension,
+  assertWithinSizeLimit,
+  safeUploadPath,
+  UploadError,
+} from '@/lib/uploads';
+
+/**
+ * Deliberately excludes .html/.svg/.xhtml: these files are served from
+ * `public/` on the app's own origin, so an uploaded document that the
+ * browser executes as markup is stored XSS. (SEC-5)
+ */
+const ALLOWED_ATTACHMENT_EXTENSIONS = [
+  '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp',
+  '.txt', '.md', '.doc', '.docx', '.xls', '.xlsx', '.csv',
+] as const;
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,9 +45,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Validate type and size before buffering the body. (SEC-5, SEC-10)
+    const ext = assertAllowedExtension(file.name, ALLOWED_ATTACHMENT_EXTENSIONS);
+    assertWithinSizeLimit(file);
 
     // Create uploads directory if it doesn't exist
     const uploadsDir = join(process.cwd(), 'public', 'uploads');
@@ -39,14 +55,11 @@ export async function POST(request: NextRequest) {
       await mkdir(uploadsDir, { recursive: true });
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const uniqueFileName = `${timestamp}_${sanitizedFileName}`;
-    const filePath = join(uploadsDir, uniqueFileName);
+    const filePath = safeUploadPath(uploadsDir, ext);
+    const uniqueFileName = filePath.slice(uploadsDir.length + 1);
 
     // Write file to disk
-    await writeFile(filePath, buffer);
+    await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
 
     // Save attachment record to database
     // Using demo-user as default uploader for now
@@ -64,6 +77,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(attachment);
   } catch (error) {
     console.error('File upload error:', error);
+    if (error instanceof UploadError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: 'Failed to upload file' },
       { status: 500 }

@@ -3,6 +3,17 @@ import { prisma } from '@/lib/db';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { processDocument } from '@/lib/utils/documentProcessor';
+import {
+  assertAllowedExtension,
+  assertWithinSizeLimit,
+  safeUploadPath,
+  UploadError,
+  uploadErrorStatus,
+} from '@/lib/uploads';
+
+/** Formats the documentProcessor can actually parse. */
+const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
 
 // POST /api/admin/policies/upload - Upload policy file or fetch from URL
 export async function POST(request: NextRequest) {
@@ -35,42 +46,29 @@ export async function POST(request: NextRequest) {
 
     // Handle file upload
     if (file) {
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
+      // Validate type and size BEFORE anything touches the disk. Previously
+      // the file was written first and the extension checked afterwards, so a
+      // rejected upload still landed on the filesystem. (SEC-2, SEC-10)
+      const ext = assertAllowedExtension(file.name, ALLOWED_POLICY_EXTENSIONS);
+      assertWithinSizeLimit(file);
 
-      // Save file to uploads directory
       const uploadsDir = join(process.cwd(), 'uploads', 'policies');
       if (!existsSync(uploadsDir)) {
         await mkdir(uploadsDir, { recursive: true });
       }
 
-      const fileName = `${Date.now()}-${file.name}`;
-      filePath = join(uploadsDir, fileName);
+      // Server-generated basename: `file.name` is never part of the path.
+      filePath = safeUploadPath(uploadsDir, ext);
+      const buffer = Buffer.from(await file.arrayBuffer());
       await writeFile(filePath, buffer);
 
-      // Extract text based on file type
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-
-      if (fileExt === 'txt' || fileExt === 'md') {
+      if (ext === '.txt' || ext === '.md') {
         content = buffer.toString('utf-8');
-      } else if (fileExt === 'pdf') {
-        // For PDF, we'll need to use a PDF parser
-        // For now, return an error asking to use text format
-        return NextResponse.json(
-          { error: 'PDF parsing not yet implemented. Please convert to .txt first or paste content directly.' },
-          { status: 400 }
-        );
-      } else if (fileExt === 'docx' || fileExt === 'doc') {
-        // For DOCX, we'll need to use a DOCX parser
-        return NextResponse.json(
-          { error: 'DOCX parsing not yet implemented. Please convert to .txt first or paste content directly.' },
-          { status: 400 }
-        );
       } else {
-        return NextResponse.json(
-          { error: 'Unsupported file type. Please use .txt, .md format.' },
-          { status: 400 }
-        );
+        // PDF and DOCX are parsed by documentProcessor, which has always
+        // supported both -- this route just never called it. (FLOW-21/SPEC-7)
+        const processed = await processDocument(filePath);
+        content = processed.content;
       }
     }
     // Handle URL fetch
@@ -138,9 +136,12 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     console.error('Error uploading policy:', error);
+    if (error instanceof UploadError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: 'Failed to upload policy' },
-      { status: 500 }
+      { status: uploadErrorStatus(error) }
     );
   }
 }

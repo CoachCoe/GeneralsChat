@@ -3,6 +3,16 @@ import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { processDocument } from '@/lib/utils/documentProcessor';
 import { PolicyType } from '@/types';
+import { mkdir, writeFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import {
+  assertAllowedExtension,
+  assertWithinSizeLimit,
+  safeUploadPath,
+  UploadError,
+} from '@/lib/uploads';
+
+const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,13 +62,19 @@ export async function POST(request: NextRequest) {
     let filePath = '';
 
     if (file) {
-      // Process uploaded file
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const filename = `${Date.now()}-${file.name}`;
-      const uploadPath = `${process.env.UPLOADS_DIR || './uploads'}/${filename}`;
-      
-      // Save file
-      await require('fs').promises.writeFile(uploadPath, buffer);
+      // Validate before writing. The previous implementation concatenated
+      // `file.name` straight into the path, so a `../` filename escaped the
+      // uploads directory entirely. (SEC-3, SEC-10)
+      const ext = assertAllowedExtension(file.name, ALLOWED_POLICY_EXTENSIONS);
+      assertWithinSizeLimit(file);
+
+      const uploadsDir = process.env.UPLOADS_DIR || './uploads';
+      if (!existsSync(uploadsDir)) {
+        await mkdir(uploadsDir, { recursive: true });
+      }
+
+      const uploadPath = safeUploadPath(uploadsDir, ext);
+      await writeFile(uploadPath, Buffer.from(await file.arrayBuffer()));
       filePath = uploadPath;
 
       // Extract text content
@@ -90,6 +106,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ policy });
   } catch (error) {
     console.error('Create policy error:', error);
+    if (error instanceof UploadError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: 'Failed to create policy' },
       { status: 500 }
