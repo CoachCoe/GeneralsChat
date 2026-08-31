@@ -15,7 +15,20 @@ const classificationSchema = z.object({
   type: z.enum(INCIDENT_TYPES),
   severity: z.enum(SEVERITIES),
   reasoning: z.string(),
-  requiredActions: z.array(z.string()),
+  /**
+   * Each action carries its own deadline. Previously this was a plain string
+   * array paired with the separate `timeline` array *by index*, even though
+   * the prompt asked for the two independently and never required them to
+   * correspond -- so a mandatory 24-hour report routinely inherited an
+   * unrelated entry's date, or fell through to a hardcoded 3-day default.
+   * (FLOW-17)
+   */
+  requiredActions: z.array(
+    z.object({
+      description: z.string(),
+      dueInHours: z.number().positive().max(24 * 365),
+    })
+  ),
   timeline: z.array(z.string()),
   stakeholders: z.array(z.string()),
 });
@@ -302,10 +315,19 @@ Respond with a JSON object containing:
   "type": "bullying" | "title_ix" | "harassment" | "violence" | "substance" | "other",
   "severity": "low" | "medium" | "high" | "critical",
   "reasoning": "Brief explanation of why this classification was chosen",
-  "requiredActions": ["Action 1", "Action 2", ...],
+  "requiredActions": [
+    { "description": "Action 1", "dueInHours": 24 },
+    { "description": "Action 2", "dueInHours": 120 }
+  ],
   "timeline": ["Immediate: ...", "Within 24h: ...", "Within 5 days: ...", ...],
   "stakeholders": ["Administrator", "Parents", "Counselor", ...]
 }
+
+Every entry in requiredActions MUST carry its own "dueInHours" deadline,
+counted from now. Use the shortest legally required window for that specific
+action -- e.g. a mandatory DCYF or police report is typically 24 hours, not a
+default. Do not rely on the "timeline" array to date the actions; that array
+is narrative only.
 
 Consider:
 - Title IX requirements for sexual harassment
@@ -349,7 +371,10 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
         type: 'other',
         severity: 'medium',
         reasoning: 'Unable to automatically classify. Manual review required.',
-        requiredActions: ['Review incident details', 'Contact administrator'],
+        requiredActions: [
+          { description: 'Review incident details', dueInHours: 24 },
+          { description: 'Contact administrator', dueInHours: 24 },
+        ],
         timeline: ['Immediate: Begin investigation'],
         stakeholders: ['Administrator', 'Reporter'],
       };
