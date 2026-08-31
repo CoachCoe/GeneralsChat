@@ -4,9 +4,11 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { processDocument } from '@/lib/utils/documentProcessor';
+import { safeFetchText, UnsafeUrlError } from '@/lib/safe-fetch';
 import {
   assertAllowedExtension,
   assertWithinSizeLimit,
+  maxUploadBytes,
   safeUploadPath,
   UploadError,
   uploadErrorStatus,
@@ -73,15 +75,18 @@ export async function POST(request: NextRequest) {
     }
     // Handle URL fetch
     else if (url) {
+      // Guarded fetch: https only, non-public addresses refused, redirects
+      // re-validated per hop, body size and time capped. A bare fetch() here
+      // was an unauthenticated SSRF oracle whose response was stored and
+      // readable back out via GET /api/admin/policies/<id>. (SEC-4)
       try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch URL: ${response.statusText}`);
-        }
-        content = await response.text();
+        content = await safeFetchText(url, { maxBytes: maxUploadBytes() });
       } catch (error) {
+        if (error instanceof UnsafeUrlError) {
+          return NextResponse.json({ error: error.message }, { status: 400 });
+        }
         return NextResponse.json(
-          { error: `Failed to fetch content from URL: ${error}` },
+          { error: 'Failed to fetch content from the provided URL' },
           { status: 400 }
         );
       }
