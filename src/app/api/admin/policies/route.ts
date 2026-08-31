@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { ragSystem } from '@/lib/ai/rag';
 
 // GET /api/admin/policies - List all policies
 export async function GET() {
@@ -56,27 +57,28 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Create chunks (500 chars per chunk)
-    const chunkSize = 500;
-    const chunks = content.match(new RegExp(`.{1,${chunkSize}}`, 'g')) || [];
+    // Indexed through the RAG system, which applies the documented 1000-word /
+    // 200-word-overlap split AND generates embeddings + Chroma entries. The
+    // previous inline `content.match(/.{1,500}/g)` chunker was wrong three
+    // ways: `.` excludes \n without the s flag, so String.match returned one
+    // match per LINE and dropped the newlines entirely (a policy with 60-char
+    // lines became hundreds of 60-char fragments); there was no overlap, so any
+    // requirement spanning a boundary was severed; and writing PolicyChunk rows
+    // directly left `embedding` null and Chroma untouched, making
+    // admin-uploaded policies invisible to vector search.
+    // (FLOW-22, FLOW-23, SPEC-9, DEAD-11)
+    await ragSystem.addPolicyDocument(policy.id, content, {
+      title,
+      policyType,
+      effectiveDate,
+      keywords: keywords || [],
+    });
 
-    for (let i = 0; i < chunks.length; i++) {
-      await prisma.policyChunk.create({
-        data: {
-          policyId: policy.id,
-          content: chunks[i],
-          chunkIndex: i,
-          metadata: JSON.stringify({
-            keywords: keywords || [],
-          }),
-        }
-      });
-    }
+    const chunksCreated = await prisma.policyChunk.count({
+      where: { policyId: policy.id },
+    });
 
-    return NextResponse.json({
-      policy,
-      chunksCreated: chunks.length
-    }, { status: 201 });
+    return NextResponse.json({ policy, chunksCreated }, { status: 201 });
   } catch (error) {
     console.error('Error creating policy:', error);
     return NextResponse.json(

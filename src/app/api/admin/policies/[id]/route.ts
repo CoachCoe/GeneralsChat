@@ -57,27 +57,18 @@ export async function PUT(request: NextRequest, { params }: Params) {
       }
     });
 
-    // If content was updated, recreate chunks
+    // If content was updated, re-index. Purges the vector store as well as the
+    // DB rows -- deleteMany alone left stale Chroma entries behind (SPEC-15) --
+    // and re-chunks through the RAG system so granularity matches every other
+    // ingestion path. (FLOW-23, SPEC-9, DEAD-11)
     if (content !== undefined) {
-      // Delete old chunks
-      await prisma.policyChunk.deleteMany({
-        where: { policyId: id }
+      await ragSystem.deletePolicyChunks(id);
+      await ragSystem.addPolicyDocument(id, content, {
+        title: policy.title,
+        policyType: policy.policyType,
+        effectiveDate: policy.effectiveDate?.toISOString(),
+        ...(metadata ? { keywords: metadata } : {}),
       });
-
-      // Create new chunks
-      const chunkSize = 500;
-      const chunks = content.match(new RegExp(`.{1,${chunkSize}}`, 'g')) || [];
-
-      for (let i = 0; i < chunks.length; i++) {
-        await prisma.policyChunk.create({
-          data: {
-            policyId: id,
-            content: chunks[i],
-            chunkIndex: i,
-            metadata: metadata ? JSON.stringify(metadata) : undefined,
-          }
-        });
-      }
     }
 
     return NextResponse.json({ policy });

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { PolicyChunk } from '@/types';
 import { chromaService } from './chroma';
 import { embeddingsService } from './embeddings';
+import { splitIntoChunks } from '@/lib/utils/documentProcessor';
 
 /**
  * Enhanced RAG System with Vector Search
@@ -43,7 +44,7 @@ export class RAGSystem {
 
     try {
       // Split content into chunks with overlap
-      const chunks = this.splitIntoChunks(content, 1000, 200);
+      const chunks = splitIntoChunks(content, 1000, 200);
 
       // Check if embeddings are available
       const hasEmbeddings = process.env.OPENAI_API_KEY &&
@@ -237,24 +238,6 @@ export class RAGSystem {
   /**
    * Split content into chunks with overlap for better context
    */
-  private splitIntoChunks(
-    content: string,
-    chunkSize: number = 1000,
-    overlap: number = 200
-  ): string[] {
-    const words = content.split(/\s+/);
-    const chunks: string[] = [];
-
-    for (let i = 0; i < words.length; i += chunkSize - overlap) {
-      const chunk = words.slice(i, i + chunkSize).join(' ');
-      if (chunk.trim()) {
-        chunks.push(chunk.trim());
-      }
-    }
-
-    return chunks;
-  }
-
   /**
    * Generate response with citations from relevant policy chunks
    */
