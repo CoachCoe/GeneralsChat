@@ -7,6 +7,28 @@ import { embeddingsService } from './embeddings';
  * Manages vector storage and similarity search for policy documents
  * Uses file-based storage for development (no server required)
  */
+/**
+ * Chroma accepts only string | number | boolean metadata values. Anything else
+ * (arrays, nested objects, null) is serialised or dropped.
+ */
+function toScalarMetadata(
+  metadata?: Record<string, unknown>
+): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  if (!metadata) return out;
+  for (const [key, value] of Object.entries(metadata)) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      out[key] = value;
+    } else if (Array.isArray(value)) {
+      out[key] = value.join(', ');
+    } else {
+      out[key] = JSON.stringify(value);
+    }
+  }
+  return out;
+}
+
 class ChromaService {
   private client: ChromaClient;
   private collection: Collection | null = null;
@@ -80,10 +102,14 @@ class ChromaService {
 
       // Prepare data for Chroma
       const ids = chunks.map(chunk => chunk.id);
+      // Chroma metadata values must be scalars. Callers pass through arbitrary
+      // policy metadata (keywords is an array), which would be rejected -- and
+      // the add is wrapped in a catch upstream, so the rejection would surface
+      // only as a warning and a silently empty vector index.
       const metadatas = chunks.map(chunk => ({
         policyId: chunk.policyId,
         chunkIndex: chunk.chunkIndex,
-        ...chunk.metadata,
+        ...toScalarMetadata(chunk.metadata),
       }));
 
       // Add to Chroma

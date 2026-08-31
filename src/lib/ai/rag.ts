@@ -118,11 +118,16 @@ export class RAGSystem {
     await this.initialize();
 
     try {
-      // Try vector search first
+      // Only policyType is mirrored into Chroma chunk metadata, so only that
+      // can be filtered vector-side. Passing isActive here would filter on a
+      // metadata key no chunk has, which matches nothing and would silently
+      // kill vector search entirely. isActive is enforced against the database
+      // during enrichment below, where it also covers chunks indexed before
+      // that field existed.
       const vectorResults = await chromaService.searchSimilarChunks(
         query,
         limit,
-        filter
+        filter?.policyType ? { policyType: filter.policyType } : undefined
       );
 
       // Enrich with database data if needed
@@ -131,6 +136,7 @@ export class RAGSystem {
           // Get full chunk data from database
           const dbChunk = await prisma.policyChunk.findUnique({
             where: { id: result.id },
+            include: { policy: { select: { isActive: true } } },
           });
 
           // A vector hit with no surviving DB row is an orphan: the policy was
@@ -141,9 +147,15 @@ export class RAGSystem {
             return null;
           }
 
+          // Deactivated policies must not be cited as authority. (SPEC-5)
+          if (filter?.isActive !== false && !dbChunk.policy.isActive) {
+            return null;
+          }
+
+          const { policy: _policy, ...chunk } = dbChunk;
           return {
-            ...dbChunk,
-            embedding: dbChunk.embedding ? JSON.parse(dbChunk.embedding) : undefined,
+            ...chunk,
+            embedding: chunk.embedding ? JSON.parse(chunk.embedding) : undefined,
           };
         })
       );

@@ -67,7 +67,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
         title: policy.title,
         policyType: policy.policyType,
         effectiveDate: policy.effectiveDate?.toISOString(),
-        ...(metadata ? { keywords: metadata } : {}),
+        ...(metadata && typeof metadata === 'object' ? metadata : {}),
       });
     }
 
