@@ -132,15 +132,12 @@ export class RAGSystem {
             where: { id: result.id },
           });
 
+          // A vector hit with no surviving DB row is an orphan: the policy was
+          // deleted but its Chroma entry was not purged. Returning the Chroma
+          // copy meant a deleted policy kept being served to the model as
+          // authoritative context indefinitely. Drop it instead. (SPEC-15)
           if (!dbChunk) {
-            return {
-              id: result.id,
-              policyId: result.policyId,
-              content: result.content,
-              chunkIndex: result.chunkIndex,
-              embedding: undefined,
-              createdAt: new Date(),
-            };
+            return null;
           }
 
           return {
@@ -150,10 +147,22 @@ export class RAGSystem {
         })
       );
 
-      return enrichedResults;
+      const liveResults = enrichedResults.flatMap(chunk => (chunk ? [chunk] : []));
+
+      // An empty vector result is a miss, not a success. Chroma returns []
+      // without throwing when the collection is empty or the filter matches
+      // nothing, so this path previously returned [] and skipped the fallback
+      // entirely -- which is exactly what happens to policies written while
+      // Chroma was unreachable, making them silently unretrievable the moment
+      // Chroma came back up. (FLOW-5, SPEC-3)
+      if (liveResults.length === 0) {
+        return this.fallbackSearch(query, limit, filter);
+      }
+
+      return liveResults;
     } catch (error) {
       console.error('Vector search failed, using fallback:', error);
-      return this.fallbackSearch(query, limit);
+      return this.fallbackSearch(query, limit, filter);
     }
   }
 
@@ -161,7 +170,11 @@ export class RAGSystem {
    * Fallback keyword search when vector search is unavailable
    * Extracts keywords from query and searches for them
    */
-  private async fallbackSearch(query: string, limit: number): Promise<PolicyChunk[]> {
+  private async fallbackSearch(
+    query: string,
+    limit: number,
+    filter?: { policyType?: string; isActive?: boolean }
+  ): Promise<PolicyChunk[]> {
     // Extract keywords from query (simple approach: words 4+ chars, lowercase)
     const keywords = query
       .toLowerCase()
@@ -174,15 +187,29 @@ export class RAGSystem {
       return [];
     }
 
-    // Search for any keyword (OR logic)
-    // Note: SQLite is case-insensitive for LIKE by default
+    // `mode: 'insensitive'` is required: the datasource is PostgreSQL
+    // (prisma/schema.prisma:10), where LIKE is case-sensitive. The comment
+    // this replaces asserted SQLite semantics, a leftover from before the
+    // Postgres migration -- so lowercased keywords could never match policy
+    // codes or capitalised terms ("JICK", "Title IX", "DCYF"), silently
+    // dropping recall to zero on exactly the queries this tool exists for.
+    // (FLOW-4, SPEC-6)
+    //
+    // The isActive predicate joins through to Policy so that a deactivated or
+    // superseded policy stops being cited as authority. The filter argument
+    // was previously accepted and ignored here. (SPEC-5)
     const chunks = await prisma.policyChunk.findMany({
       where: {
         OR: keywords.map(keyword => ({
           content: {
             contains: keyword,
+            mode: 'insensitive' as const,
           },
         })),
+        policy: {
+          isActive: filter?.isActive ?? true,
+          ...(filter?.policyType ? { policyType: filter.policyType } : {}),
+        },
       },
       take: limit * 2, // Get more results for scoring
       orderBy: {
@@ -233,10 +260,31 @@ export class RAGSystem {
    */
   async generateResponseWithCitations(
     query: string,
-    _context: any
+    context?: {
+      incidentType?: string | null;
+      previousMessages?: { sender: string; message: string }[];
+      // Callers also pass incidentId / severity / maxResults; accepted but
+      // not currently used for retrieval.
+      [key: string]: unknown;
+    }
   ): Promise<{ response: string; citations: string[]; chunks: PolicyChunk[] }> {
-    // Search for relevant policies
-    const relevantChunks = await this.searchRelevantPolicies(query, 5);
+    // Retrieval query includes the incident type and the last couple of user
+    // turns. Previously the context argument was named `_context` and never
+    // read, so a short follow-up ("no, just the one witness") retrieved on
+    // those words alone -- and since keywords under 4 chars are dropped, often
+    // retrieved nothing at all. (FLOW-6)
+    const recentUserTurns = (context?.previousMessages ?? [])
+      .filter(m => m.sender === 'user')
+      .slice(-2)
+      .map(m => m.message);
+
+    const retrievalQuery = [context?.incidentType, ...recentUserTurns, query]
+      .filter(Boolean)
+      .join(' ');
+
+    const relevantChunks = await this.searchRelevantPolicies(retrievalQuery, 5, {
+      isActive: true,
+    });
 
     // Build context from relevant chunks
     const policyContext = relevantChunks

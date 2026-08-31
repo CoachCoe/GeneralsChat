@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { ragSystem } from '@/lib/ai/rag';
 
 type Params = {
   params: Promise<{
@@ -93,7 +94,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
-    // Chunks will be deleted automatically via CASCADE
+
+    // Purge the vector store first. The DB cascade removes PolicyChunk rows,
+    // but Chroma entries survived it -- and vector hits whose DB row is gone
+    // were being returned to the model as authoritative policy context, so a
+    // deleted policy kept being cited indefinitely. (SPEC-15)
+    await ragSystem.deletePolicyChunks(id);
+
+    // Remaining chunks (if any) are removed by CASCADE.
     await prisma.policy.delete({
       where: { id }
     });
