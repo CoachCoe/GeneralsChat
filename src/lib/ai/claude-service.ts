@@ -1,6 +1,46 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logAIOperation, logError, logExternalAPI } from '@/lib/logger';
+import { INCIDENT_TYPES, SEVERITIES } from '@/types';
+
+/**
+ * The model's classification JSON, validated rather than trusted.
+ *
+ * Previously this was a bare JSON.parse whose result was returned as
+ * `type: string` and cast with `as any` at the call site, so a malformed or
+ * injected value flowed straight into the incident record. (SEC-9, DEAD-13)
+ */
+const classificationSchema = z.object({
+  type: z.enum(INCIDENT_TYPES),
+  severity: z.enum(SEVERITIES),
+  reasoning: z.string(),
+  requiredActions: z.array(z.string()),
+  timeline: z.array(z.string()),
+  stakeholders: z.array(z.string()),
+});
+
+export type ClassificationResult = z.infer<typeof classificationSchema>;
+
+/**
+ * Pulls the first JSON object out of a model response.
+ *
+ * The previous implementation only stripped markdown fences when the response
+ * *started* with one, so any prose preamble ("Here is the classification:")
+ * defeated it and silently fell through to the severity:'medium' default.
+ */
+function extractJsonObject(raw: string): string {
+  const withoutFences = raw
+    .replace(/```(?:json)?\s*/gi, '')
+    .replace(/```/g, '')
+    .trim();
+  const start = withoutFences.indexOf('{');
+  const end = withoutFences.lastIndexOf('}');
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error('No JSON object found in model response');
+  }
+  return withoutFences.slice(start, end + 1);
+}
 
 /**
  * Claude AI Service
@@ -229,14 +269,7 @@ ${policyContext}`;
   async classifyIncident(
     incidentDescription: string,
     policyContext?: string
-  ): Promise<{
-    type: string;
-    severity: string;
-    reasoning: string;
-    requiredActions: string[];
-    timeline: string[];
-    stakeholders: string[];
-  }> {
+  ): Promise<ClassificationResult> {
     const startTime = Date.now();
 
     const systemPrompt = `You are a school incident classification expert. Analyze the incident and provide structured classification.
@@ -272,17 +305,9 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
     );
 
     try {
-      // Extract JSON from response (Claude might wrap it in markdown)
-      let jsonText = response.content.trim();
-
-      // Remove markdown code blocks if present
-      if (jsonText.startsWith('```json')) {
-        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/```\n?/g, '');
-      }
-
-      const classification = JSON.parse(jsonText);
+      const classification = classificationSchema.parse(
+        JSON.parse(extractJsonObject(response.content))
+      );
 
       const duration = Date.now() - startTime;
       logAIOperation('classifyIncident', this.model, undefined, duration);

@@ -31,8 +31,8 @@ export class IncidentClassifier {
       );
 
       return {
-        type: classification.type as any,
-        severity: classification.severity as any,
+        type: classification.type,
+        severity: classification.severity,
         requiredActions,
         timeline,
         stakeholders: classification.stakeholders,

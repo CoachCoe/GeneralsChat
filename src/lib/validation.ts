@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { INCIDENT_STATUSES, INCIDENT_TYPES, SEVERITIES } from '@/types';
+
+const incidentTypeEnum = z.enum(INCIDENT_TYPES);
+const severityEnum = z.enum(SEVERITIES);
+const incidentStatusEnum = z.enum(INCIDENT_STATUSES);
 
 /**
  * Validation Schemas for API Routes
@@ -20,33 +25,19 @@ export const createIncidentSchema = z.object({
   reporterId: z.string().min(1, 'Reporter ID is required'),
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   description: z.string().min(1, 'Description is required').max(10000, 'Description is too long'),
-  incidentType: z.enum([
-    'bullying',
-    'title_ix',
-    'harassment',
-    'violence',
-    'substance',
-    'other',
-  ]).optional(),
-  severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-  status: z.enum(['open', 'investigating', 'resolved', 'closed']).default('open'),
+  incidentType: incidentTypeEnum.optional(),
+  severity: severityEnum.optional(),
+  status: incidentStatusEnum.default('open'),
 });
 
 export type CreateIncidentInput = z.infer<typeof createIncidentSchema>;
 
 export const updateIncidentSchema = z.object({
-  status: z.enum(['open', 'investigating', 'resolved', 'closed']).optional(),
+  status: incidentStatusEnum.optional(),
   title: z.string().min(1).max(200).optional(),
   description: z.string().min(1).max(10000).optional(),
-  incidentType: z.enum([
-    'bullying',
-    'title_ix',
-    'harassment',
-    'violence',
-    'substance',
-    'other',
-  ]).optional(),
-  severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  incidentType: incidentTypeEnum.optional(),
+  severity: severityEnum.optional(),
 });
 
 export type UpdateIncidentInput = z.infer<typeof updateIncidentSchema>;
@@ -105,6 +96,18 @@ export const fileUploadSchema = z.object({
 });
 
 export type FileUploadInput = z.infer<typeof fileUploadSchema>;
+
+/**
+ * Pagination for list endpoints. `parseInt` with no bounds allowed
+ * ?limit=1000000 to dump an entire table in one request, and ?limit=abc to
+ * reach Prisma as `take: NaN`. (SEC-12)
+ */
+export const paginationSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+});
+
+export type PaginationInput = z.infer<typeof paginationSchema>;
 
 /**
  * Validate request body against a schema
