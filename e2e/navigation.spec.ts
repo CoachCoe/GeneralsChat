@@ -8,10 +8,13 @@ test.describe('Navigation', () => {
     // Verify home page loads
     await expect(page).toHaveTitle(/School Compliance|GeneralsChat/i);
 
-    // Test Chat link
+    // Test Chat link. The chat page has no <h1> -- its only heading is an
+    // <h2> inside the welcome block -- so the previous h1 assertion could
+    // never pass. Assert the composer instead, which is the real signal that
+    // the chat interface rendered. (TEST-11)
     await page.click('text=Chat');
     await page.waitForURL('**/chat');
-    await expect(page.locator('h1')).toContainText(/Chat|General/i);
+    await expect(page.getByPlaceholder('Message General...')).toBeVisible();
 
     // Test Incidents link
     await page.click('text=Incidents');
@@ -23,10 +26,13 @@ test.describe('Navigation', () => {
     await page.waitForURL('**/admin/policies');
     await expect(page.locator('h1')).toContainText(/Policies|Policy/i);
 
-    // Test Todos link
-    await page.click('text=Todos');
-    await page.waitForURL('**/todos');
-    await expect(page.locator('h1')).toContainText('Todos');
+    // Was a /todos leg. There is no /todos route and no "Todos" string
+    // anywhere in src/ -- all six occurrences were in this file, so both tests
+    // in it failed unconditionally. Replaced with the real navbar target that
+    // had no coverage at all. (TEST-11, DEAD-30)
+    await page.click('a[href="/admin/prompt"]');
+    await page.waitForURL('**/admin/prompt');
+    await expect(page.locator('h1')).toContainText(/System Prompt/i);
   });
 
   test('should have working navbar on all pages', async ({ page }) => {
@@ -34,7 +40,7 @@ test.describe('Navigation', () => {
       { url: '/', navText: 'Chat' },
       { url: '/chat', navText: 'Incidents' },
       { url: '/incidents', navText: 'Chat' },
-      { url: '/todos', navText: 'Chat' }
+      { url: '/admin/prompt', navText: 'Chat' }
     ];
 
     for (const { url, navText } of pages) {
@@ -45,9 +51,9 @@ test.describe('Navigation', () => {
       await expect(navbar).toBeVisible();
 
       // Verify key nav links are present
-      await expect(navbar.locator('text=Chat')).toBeVisible();
-      await expect(navbar.locator('text=Incidents')).toBeVisible();
-      await expect(navbar.locator('text=Todos')).toBeVisible();
+      await expect(navbar.locator('a[href="/chat"]').first()).toBeVisible();
+      await expect(navbar.locator('a[href="/incidents"]').first()).toBeVisible();
+      await expect(navbar.locator('a[href="/admin/policies"]').first()).toBeVisible();
     }
   });
 
