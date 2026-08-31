@@ -1,4 +1,5 @@
 import { prisma } from '../src/lib/db';
+import { INCIDENT_TYPE_LABELS } from '../src/types';
 
 /**
  * Migration script to enhance existing chat titles with incident type classification
@@ -7,14 +8,8 @@ import { prisma } from '../src/lib/db';
  * the incident type prefix in their title yet.
  */
 
-const typeLabels: Record<string, string> = {
-  bullying: 'Bullying',
-  title_ix: 'Title IX',
-  harassment: 'Harassment',
-  violence: 'Violence',
-  substance: 'Substance',
-  other: 'Other'
-};
+// Uses the shared label map so the backfill cannot drift from the runtime.
+const typeLabels: Record<string, string> = INCIDENT_TYPE_LABELS;
 
 async function migrateChatTitles() {
   console.log('🔄 Starting chat title migration...\n');
@@ -44,8 +39,12 @@ async function migrateChatTitles() {
 
       const typeLabel = typeLabels[incident.incidentType] || 'Incident';
 
-      // Check if title already has the type prefix
-      if (incident.title.startsWith(typeLabel + ':')) {
+      // Same predicate as the runtime at api/chat/route.ts. Testing for
+      // `typeLabel + ':'` here meant a title the runtime deliberately left
+      // alone -- e.g. "Bullying Report", which generateIncidentTitle is
+      // prompted to produce -- was rewritten to "Bullying: Bullying Report".
+      // (FLOW-19)
+      if (incident.title.startsWith(typeLabel)) {
         console.log(`⏭️  Skipping "${incident.title}" (already has prefix)`);
         skippedCount++;
         continue;

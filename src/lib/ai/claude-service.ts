@@ -246,11 +246,34 @@ WHEN YOU NEED MORE INFORMATION:
 Remember: You're here to help them navigate this successfully. Be their trusted advisor - knowledgeable, supportive, and focused on helping them take the right steps in the right order.`;
     }
 
-    // Append policy context to the system prompt (whether from database or default)
-    const finalSystemPrompt = `${systemPromptContent}
+    // Append policy context to the system prompt (whether from database or default).
+    //
+    // When retrieval returned nothing, the previous code spliced in an empty
+    // string under the "Available Policy Context:" header and left the
+    // instruction to "Reference specific policy codes (e.g. JICK, ACAC, JLF)"
+    // standing -- so the model had nothing to cite but those in-prompt examples
+    // and attributed district deadlines to policies it was never given.
+    // Given FLOW-4/FLOW-5/FLOW-22 that is the common path, not an edge case.
+    // (FLOW-3, SPEC-3)
+    const hasPolicyContext = policyContext.trim().length > 0;
+    const finalSystemPrompt = hasPolicyContext
+      ? `${systemPromptContent}
 
 Available Policy Context:
-${policyContext}`;
+${policyContext}`
+      : `${systemPromptContent}
+
+Available Policy Context:
+(none)
+
+IMPORTANT - NO POLICY RETRIEVED FOR THIS QUERY:
+No district policy text was retrieved for this question. For this response you must:
+- NOT cite or invent any policy code (JICK, ACAC, JLF or otherwise)
+- NOT state district-specific deadlines or requirements as established fact
+- Say plainly that you could not locate the applicable district policy
+- Limit yourself to general best practice and statutory obligations you are
+  confident about, labelled as such
+- Recommend they confirm with their compliance officer or legal counsel`;
 
     const messages: ClaudeMessage[] = [
       ...conversationHistory,

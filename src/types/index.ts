@@ -24,6 +24,16 @@ export const INCIDENT_TYPES = [
 ] as const;
 export type IncidentType = (typeof INCIDENT_TYPES)[number];
 
+/** Display labels, derived from the same list so they cannot drift. */
+export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
+  bullying: 'Bullying',
+  title_ix: 'Title IX',
+  harassment: 'Harassment',
+  violence: 'Violence',
+  substance: 'Substance',
+  other: 'Other',
+};
+
 export const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
 export type Severity = (typeof SEVERITIES)[number];
 

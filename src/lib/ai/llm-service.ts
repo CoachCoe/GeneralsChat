@@ -1,5 +1,16 @@
 import { claudeService, ClaudeMessage } from './claude-service';
 
+/**
+ * Raised when the upstream model call fails. Callers must surface this as an
+ * error response, never persist its message as assistant guidance.
+ */
+export class LLMUnavailableError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'LLMUnavailableError';
+  }
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -97,10 +108,16 @@ export class LLMService {
     } catch (error) {
       console.error('School compliance response error:', error);
 
-      return {
-        content:
-          "I'm experiencing technical difficulties. For urgent compliance matters, please contact your district's compliance officer or legal counsel directly.",
-      };
+      // Rethrow rather than returning filler text. Swallowing the error here
+      // made a failed model call indistinguishable from real guidance to the
+      // caller, which then wrote the apology into the incident record as an
+      // assistant turn stamped confidence: 0.9, replayed it as conversation
+      // history, and folded it into the end-of-chat summary -- all behind an
+      // HTTP 200. (FLOW-7, TEST-5)
+      throw new LLMUnavailableError(
+        "The compliance assistant is temporarily unavailable. For urgent matters, contact your district's compliance officer or legal counsel directly.",
+        { cause: error }
+      );
     }
   }
 

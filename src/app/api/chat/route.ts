@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { incidentClassifier } from '@/lib/ai/classifier';
-import { DataSensitivity } from '@/types';
+import { DataSensitivity, INCIDENT_TYPE_LABELS } from '@/types';
 import { logRequest, logResponse, logError, logAudit } from '@/lib/logger';
 import { createErrorResponse, validationError, notFoundError } from '@/lib/errors';
 import { chatMessageSchema, validateRequest, formatValidationErrors } from '@/lib/validation';
+import { LLMUnavailableError } from '@/lib/ai/llm-service';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -36,8 +37,12 @@ export async function POST(request: NextRequest) {
         where: { id: incidentId },
         include: {
           conversations: {
-            orderBy: { timestamp: 'asc' },
-            take: 10, // Last 10 messages for context
+            // Newest-first with a take, then reversed below. `asc` + `take`
+            // returned the ten OLDEST messages, so from turn six onward the
+            // model never saw anything said in between -- which is exactly the
+            // context looping this was meant to fix. (FLOW-2, SPEC-11)
+            orderBy: { timestamp: 'desc' },
+            take: 20,
           },
         },
       });
@@ -70,8 +75,11 @@ export async function POST(request: NextRequest) {
       return notFoundError('Incident');
     }
 
+    // Oldest-to-newest, the order the model expects.
+    const priorMessages = [...incident.conversations].reverse();
+
     // Save user message
-    const userMessage = await prisma.conversation.create({
+    await prisma.conversation.create({
       data: {
         incidentId: incident.id,
         message,
@@ -79,20 +87,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Determine data sensitivity
-    determineDataSensitivity(message, incident);
+    // Determine data sensitivity. The return value used to be discarded
+    // entirely; it is now recorded on the message metadata below. (FLOW-10)
+    const dataSensitivity = determineDataSensitivity(message, incident);
 
-    // Build complete conversation history INCLUDING the current message
-    const conversationHistory = [
-      ...incident.conversations.map(conv => ({
-        role: conv.sender as 'user' | 'assistant',
-        content: conv.message,
-      })),
-      {
-        role: 'user' as const,
-        content: message,
-      }
-    ];
+    // Prior turns only. The current message is appended once by
+    // generateComplianceResponse, which already receives it as userQuery --
+    // adding it here too sent it to the model twice on every request. (FLOW-1)
+    const conversationHistory = priorMessages.map(conv => ({
+      role: conv.sender as 'user' | 'assistant',
+      content: conv.message,
+    }));
 
     // Generate AI response using RAG
     const { response: policyContext, citations } = await ragSystem.generateResponseWithCitations(
@@ -101,7 +106,7 @@ export async function POST(request: NextRequest) {
         incidentId: incident.id,
         incidentType: incident.incidentType,
         severity: incident.severity,
-        previousMessages: incident.conversations,
+        previousMessages: priorMessages,
       }
     );
 
@@ -114,7 +119,13 @@ export async function POST(request: NextRequest) {
 
     // Classify incident if this is the first substantive message
     let classification = null;
-    if (incident.conversations.length === 0 && message.length > 50) {
+    // Previously `conversations.length === 0 && message.length > 50`. Both had
+    // to hold in the same request, but the first is only true on turn one --
+    // so a short opening message (SYSTEM_STATUS's own example, "A student was
+    // bullied today", is 27 chars) skipped classification permanently, leaving
+    // incidentType, severity, timeline null and zero ComplianceAction rows.
+    // (FLOW-18, SPEC-10)
+    if (!incident.incidentType) {
       // Pass policy context to classifier for better accuracy
       classification = await incidentClassifier.classifyIncident(
         message,
@@ -125,17 +136,7 @@ export async function POST(request: NextRequest) {
         policyContext
       );
 
-      // Format incident type for display
-      const typeLabels: Record<string, string> = {
-        bullying: 'Bullying',
-        title_ix: 'Title IX',
-        harassment: 'Harassment',
-        violence: 'Violence',
-        substance: 'Substance',
-        other: 'Other'
-      };
-
-      const typeLabel = typeLabels[classification.type] || 'Incident';
+      const typeLabel = INCIDENT_TYPE_LABELS[classification.type] || 'Incident';
 
       // Enhance title with incident type
       const enhancedTitle = incident.title.startsWith(typeLabel)
@@ -182,7 +183,7 @@ export async function POST(request: NextRequest) {
           citations,
           classification,
           usage: usage || undefined,
-          confidence: 0.9, // Claude typically provides high-quality responses
+          dataSensitivity,
         }),
       },
     });
@@ -200,6 +201,21 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const duration = Date.now() - startTime;
+
+    // A failed model call is surfaced as 503, and no assistant message is
+    // written -- the throw happens before the conversation.create below, so
+    // the incident record never gains filler text presented as guidance.
+    // The user's own message is still persisted, which is intentional.
+    // (FLOW-7, TEST-5)
+    if (error instanceof LLMUnavailableError) {
+      logError(error, { operation: 'chat', userId, duration });
+      logResponse('POST', '/api/chat', 503, duration);
+      return NextResponse.json(
+        { error: error.message, code: 'LLM_UNAVAILABLE' },
+        { status: 503 }
+      );
+    }
+
     const errorResponse = createErrorResponse(
       error,
       'Failed to process chat message',
