@@ -21,7 +21,10 @@ interface Incident {
     name: string;
     email: string;
   };
-  actions: Array<{
+  // The API returns this relation as `complianceActions`
+  // (api/incidents/route.ts:32); reading `actions` made the whole block
+  // below unreachable in both copies of this page. (DEAD-8)
+  complianceActions: Array<{
     id: string;
     actionType: string;
     description?: string;
@@ -44,6 +47,13 @@ export default function PendingIncidentsPage() {
 
   const fetchIncidents = async () => {
     try {
+      // NOTE: "pending" is not a value any code path writes to Incident.status
+      // (see FLOW-12 / SPEC-12 in docs/audit/2026-08-31-findings.md), so this
+      // page returns nothing today. The fix is deliberately NOT applied here:
+      // the homepage card for this route reads "Pending Actions", which may
+      // mean incidents with open ComplianceAction rows rather than an incident
+      // status at all. That is open question FLOW-12b and needs a product
+      // decision, not a guess.
       const response = await fetch('/api/incidents?status=pending');
       const data = await response.json();
       
@@ -194,11 +204,11 @@ export default function PendingIncidentsPage() {
                     </div>
                   </div>
                   
-                  {incident.actions.length > 0 && (
+                  {incident.complianceActions.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <h4 className="text-sm font-medium text-white mb-2">Pending Actions</h4>
                       <div className="space-y-2">
-                        {incident.actions.slice(0, 2).map((action) => (
+                        {incident.complianceActions.slice(0, 2).map((action) => (
                           <div key={action.id} className="flex items-center justify-between text-sm">
                             <span className="text-gray-300">{action.description || action.actionType}</span>
                             <Badge variant="outline" className="text-xs border-white/20 text-gray-300">
@@ -206,9 +216,9 @@ export default function PendingIncidentsPage() {
                             </Badge>
                           </div>
                         ))}
-                        {incident.actions.length > 2 && (
+                        {incident.complianceActions.length > 2 && (
                           <p className="text-xs text-gray-500">
-                            +{incident.actions.length - 2} more actions
+                            +{incident.complianceActions.length - 2} more actions
                           </p>
                         )}
                       </div>
