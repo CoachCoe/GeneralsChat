@@ -21,12 +21,12 @@
 
 3. **Run the script:**
    ```bash
-   npx tsx scripts/batch-upload-policies.ts
+   npm run policies:batch-upload
    ```
 
 4. **Verify upload:**
    - Check the console output for success messages
-   - Visit http://localhost:3002/policies to see uploaded policies
+   - Visit http://localhost:3000/policies to see uploaded policies
 
 ---
 
@@ -35,7 +35,7 @@
 **Best for:** Quick testing or single policy upload
 
 ```bash
-curl -X POST http://localhost:3002/api/policies \
+curl -X POST http://localhost:3000/api/policies \
   -F "title=JLDBB - Suicide Prevention" \
   -F "policyType=suicide_prevention" \
   -F "effectiveDate=2024-01-01" \
@@ -59,7 +59,7 @@ curl -X POST http://localhost:3002/api/policies \
    npm run dev
    ```
 
-2. Navigate to: http://localhost:3002/policies
+2. Navigate to: http://localhost:3000/policies
 
 3. Click **"Upload Policy"** button
 
@@ -116,7 +116,7 @@ When uploading, use one of these **exact** policy type strings:
 
 ### Option 1: Check Database
 ```bash
-npx tsx scripts/verify-db.ts
+npm run db:verify
 ```
 
 Look for:
@@ -126,12 +126,12 @@ Look for:
 ```
 
 ### Option 2: Test in Chat
-1. Go to http://localhost:3002/chat
+1. Go to http://localhost:3000/chat
 2. Ask: "What does our policy say about [topic]?"
 3. The chatbot should reference the uploaded policy
 
 ### Option 3: Prisma Studio
-1. Open http://localhost:5555
+1. Run `npm run db:studio`, then open http://localhost:5555
 2. Click "Policy" table
 3. View all uploaded policies and their chunks
 
@@ -187,7 +187,7 @@ Look for:
 
 ### "API error" or "Network error"
 - Verify dev server is running: `npm run dev`
-- Check server is on correct port (3002 by default)
+- Check server is on correct port (3000 by default)
 - Ensure .env file has required API keys
 
 ### Policy uploaded but not appearing in chat

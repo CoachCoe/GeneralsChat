@@ -1,3 +1,28 @@
+> **DOES NOT MATCH THE SHIPPED CODE — 2026-08-31.**
+>
+> This document describes the assistant as "a school district attorney and
+> compliance expert specializing in risk mitigation and liability protection",
+> using headers like `## Immediate Legal Requirements` and `## Risk Mitigation
+> Steps`. The code does not do that:
+>
+> - the in-code default prompt (`src/lib/ai/claude-service.ts`) opens
+>   "You are a trusted compliance advisor ... Think of yourself as a supportive
+>   colleague" and instructs a warm, encouraging style;
+> - the seeded active database prompt (`scripts/seed-prompt.ts`) ends
+>   `Always maintain a tone of "I'm here to help you do this right" rather than
+>   "I'm here to assess your liability."` — the direct negation of this document;
+> - the persona is **database-driven**: any `SystemPrompt` row with
+>   `isActive: true` completely replaces the in-code default at request time,
+>   and is editable by anyone at `/admin/prompt`. No document mentioned this.
+>
+> The attorney persona survives only in `generateChatSummary`.
+>
+> Which of these is authoritative is an open product question
+> (SPEC-32 in `docs/audit/2026-08-31-findings.md`) and was deliberately not
+> resolved by the audit. The "Test Results — VERIFIED WORKING" section below
+> describes output the shipped prompt steers away from. Line-number citations
+> in this file are also stale (SPEC-25).
+
 # Lawyer Persona & End-of-Chat Summary - Implementation Complete
 
 ## Summary of Changes
@@ -159,7 +184,7 @@ npx tsx scripts/test-lawyer-persona.ts
 ### 2. Test End-of-Chat Summary (Manual Test Required)
 
 **Steps:**
-1. Open http://localhost:3002/chat
+1. Open http://localhost:3000/chat
 2. Start a conversation about an incident
 3. Exchange 3-4 messages with details
 4. Click **"End Chat & Generate Summary"** button (red button in top bar)
