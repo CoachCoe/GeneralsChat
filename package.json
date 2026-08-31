@@ -6,12 +6,17 @@
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build --turbopack",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint src scripts e2e",
+    "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
     "migrate": "prisma migrate deploy",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "db:studio": "prisma studio",
+    "db:seed-prompt": "tsx scripts/seed-prompt.ts",
+    "db:verify": "tsx scripts/verify-db.ts",
+    "policies:batch-upload": "tsx scripts/batch-upload-policies.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",

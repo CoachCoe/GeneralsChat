@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { claudeService } from '@/lib/ai/claude-service';
 import { ragSystem } from '@/lib/ai/rag';
 import { prisma } from '@/lib/db';
+import { createErrorResponse } from '@/lib/errors';
 
 /**
  * POST /api/chat/summary
@@ -108,11 +109,15 @@ export async function POST(request: NextRequest) {
       messagesAnalyzed: incident.conversations.length,
     });
 
-  } catch (error: any) {
+  } catch (error) {
+    // Was `details: error.message` with no NODE_ENV guard, unlike every other
+    // route -- so a malformed incidentId or a JSON.parse failure on metadata
+    // handed the caller raw Prisma or Anthropic SDK text. createErrorResponse
+    // gates that behind development. (SEC-15, DEAD-9)
     console.error('Error generating chat summary:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate summary', details: error.message },
-      { status: 500 }
-    );
+    return createErrorResponse(error, 'Failed to generate summary', {
+      endpoint: '/api/chat/summary',
+      method: 'POST',
+    });
   }
 }
