@@ -1,9 +1,11 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import fetch from 'node-fetch';
 
 // Load environment variables
 config({ path: resolve(__dirname, '../.env') });
+
+// Was hardcoded to a port nothing serves. (REPO-8, SPEC-22)
+const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 /**
  * Complete End-to-End RAG Test
@@ -23,7 +25,7 @@ async function testCompleteRAG() {
 
     console.log('2️⃣  Sending to chat API (which uses RAG + Claude)...\n');
 
-    const response = await fetch('http://localhost:3001/api/chat', {
+    const response = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -75,7 +77,7 @@ async function testCompleteRAG() {
     console.log('   ✓ Chat API fully functional\n');
 
     console.log('💡 Try it yourself:');
-    console.log('   1. Open http://localhost:3001/chat');
+    console.log(`   1. Open ${BASE_URL}/chat`);
     console.log('   2. Ask about bullying policies');
     console.log('   3. Claude will reference the uploaded policy!\n');
 

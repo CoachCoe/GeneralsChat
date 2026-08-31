@@ -1,8 +1,10 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import fetch from 'node-fetch';
 
 config({ path: resolve(__dirname, '../.env') });
+
+// Was hardcoded to a port nothing serves. (REPO-8, SPEC-22)
+const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 /**
  * Test Script: Verify Enhanced Chat Behavior
@@ -22,7 +24,7 @@ async function testChatBehavior() {
   console.log('User says: "A student was bullied today"\n');
 
   try {
-    const response1 = await fetch('http://localhost:3002/api/chat', {
+    const response1 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,7 +63,7 @@ async function testChatBehavior() {
   console.log('User says: "Two 7th grade students got into a physical fight in the cafeteria at lunch today. Student A punched Student B in the face. There were about 30 witnesses. Parents have not been notified yet. No serious injuries but Student B has a bloody nose."\n');
 
   try {
-    const response2 = await fetch('http://localhost:3002/api/chat', {
+    const response2 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -119,7 +121,7 @@ async function testChatBehavior() {
   console.log('User says: "A female student reported that a male student touched her inappropriately in the hallway yesterday"\n');
 
   try {
-    const response3 = await fetch('http://localhost:3002/api/chat', {
+    const response3 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

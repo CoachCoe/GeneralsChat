@@ -1,8 +1,10 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import fetch from 'node-fetch';
 
 config({ path: resolve(__dirname, '../.env') });
+
+// Was hardcoded to a port nothing serves. (REPO-8, SPEC-22)
+const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 /**
  * Test Script: Verify Enhanced Lawyer Persona & End-of-Chat Summary
@@ -24,7 +26,7 @@ async function testLawyerPersonaAndSummary() {
   console.log('Administrator says: "I have a bullying complaint from a parent"\n');
 
   try {
-    const response1 = await fetch('http://localhost:3002/api/chat', {
+    const response1 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,7 +63,7 @@ async function testLawyerPersonaAndSummary() {
   console.log('Administrator says: "Two 8th graders. One student called the other names repeatedly over several weeks. Parents called yesterday. I learned about it this morning. No documentation yet."\n');
 
   try {
-    const response2 = await fetch('http://localhost:3002/api/chat', {
+    const response2 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -101,7 +103,7 @@ async function testLawyerPersonaAndSummary() {
   console.log('Administrator says: "No witnesses that I know of. Both students are in same homeroom. Target student has been out sick for 3 days. Perpetrator has no prior incidents."\n');
 
   try {
-    const response3 = await fetch('http://localhost:3002/api/chat', {
+    const response3 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -135,7 +137,7 @@ async function testLawyerPersonaAndSummary() {
   try {
     console.log('Generating comprehensive summary...\n');
 
-    const summaryResponse = await fetch('http://localhost:3002/api/chat/summary', {
+    const summaryResponse = await fetch(`${BASE_URL}/api/chat/summary`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ incidentId }),
