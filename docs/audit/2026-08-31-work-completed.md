@@ -295,3 +295,90 @@ Noted here because they are cheap and a reviewer may want them in this PR:
   `SystemPrompt` table the earlier one creates. Not a functional break — a fresh
   `migrate deploy` produces all 9 tables — but the history reads backwards
   (REPO-11).
+
+---
+
+# Addendum — follow-up round
+
+After review, the three items the maintainer prioritised were completed in this
+same PR: authentication, `/incidents/new`, and a runnable e2e suite.
+
+## Verification (second round)
+
+| Check | Command | Result |
+|---|---|---|
+| typecheck | `npm run typecheck` | **PASS** |
+| lint | `npm run lint` | **PASS** — 0 errors, 2 warnings (was 7) |
+| build | `npm run build` | **PASS** |
+| test | `npm test` | **PASS — 18/18**, exits 0 |
+
+The e2e suite now runs unattended against a dedicated local Postgres with a
+local Claude stub, so it makes no billed API calls and needs no hand-started
+server. Auth behaviour was additionally verified against a live server with a
+26-check probe covering unauthenticated access, role enforcement, IDOR, and
+identity binding.
+
+## SEC-1 — authentication (closed)
+
+NextAuth v5, Credentials provider, JWT sessions, single tenant. Passwords are
+bcrypt hashes in `User.passwordHash`. The config is split so `middleware.ts`
+stays Edge-safe (no Prisma, no bcrypt). Middleware denies by default and every
+handler re-checks independently. Roles: `admin`, `investigator`, `reporter`.
+
+This closed SEC-6, SEC-7 and SEC-8 with it: admin routes require the admin
+role; every by-id lookup and mutation is scoped, returning 404 rather than 403
+for out-of-scope rows; and identity is never read from the request body again.
+
+SEC-5 was closed as a consequence — attachments moved out of `public/` and are
+served by `GET /api/attachments/[id]`, which re-checks session and ownership
+and sets `Content-Disposition: attachment` plus `nosniff`.
+
+SEC-17 was closed too: `AuditLog` is finally written, recording incident
+create/view/update and attachment downloads with the acting user.
+
+## FLOW-14 — `/incidents/new` (closed)
+
+Now posts to `/api/chat`, the same endpoint `/chat` uses, so guidance comes
+from the real classify → retrieve → Claude path and the incident is persisted.
+The step indicator reflects what the server returned rather than message
+length. The layout is unchanged.
+
+## Two bugs found by the new tests
+
+Both were invisible to the read-only audit and only surfaced once assertions
+could fail:
+
+1. **The first message of every new conversation returned 400.**
+   `chatMessageSchema` used `incidentId: z.string().optional()`, which accepts
+   `undefined` but not `null` — and the chat page holds `incidentId` in state
+   initialised to `null`, which `JSON.stringify` emits. The opening turn of the
+   primary journey was broken. Now `.nullish()`.
+
+2. **Chroma was dead in every environment.** `getOrCreateCollection` was called
+   with no `embeddingFunction`, so chromadb fell back to
+   `DefaultEmbeddingFunction` and threw `Cannot find module
+   '@chroma-core/default-embed'` before any network call. Separately the client
+   was built with `{ path }`, which chromadb v3 ignores in favour of
+   host/port/ssl — so `CHROMA_URL` never took effect. Both fixed; verified the
+   failure mode changed to a genuine `ChromaConnectionError`, proving the
+   client now attempts the connection. **A successful vector round-trip is
+   still unverified** — that needs a running Chroma server.
+
+## Still open after this round
+
+| # | Item | Why |
+|---|---|---|
+| SEC-11 | No rate limiting on LLM endpoints | Now authenticated, so it is a cost/abuse concern rather than an open door. Needs a Redis-backed limiter to survive multi-instance. |
+| SEC-4 (partial) | DNS rebinding in the policy URL fetch | Needs a hostname allowlist, which is a product decision about permitted sources. |
+| SEC-10 (partial) | Upload OOM path | Needs `Content-Length` rejection and streaming to disk; `request.formData()` buffers first. |
+| REPO-1 | CI | Still not applied — the audit rules forbade editing workflows. The `ci.yml` above should now also run `npm test` with a `postgres:16` service. |
+| SPEC-32..35 | Product questions | Unchanged; still need answers. |
+| FLOW-12b | `/incidents/pending` semantics | Unchanged. |
+| — | `PolicyChunk` re-index | Unchanged; existing rows still have old-chunker granularity and no embeddings. |
+| DEAD-8, 9, 12, 32 | Consolidation | Unchanged. |
+
+The unit-test layer (TEST-4, TEST-12 … TEST-18) is also still absent. The e2e
+suite now covers the primary journeys and access control, but the pure
+functions — `cosineSimilarity`, `splitIntoChunks`, `cleanText`,
+`handlePrismaError`, the zod schemas — still have no tests and need no
+database, network, or server to get them.

@@ -35,13 +35,18 @@ cd GeneralsChat
 npm install
 
 cp .env.example .env
-# Set DATABASE_URL and ANTHROPIC_API_KEY at minimum.
+# Set DATABASE_URL, ANTHROPIC_API_KEY and AUTH_SECRET at minimum.
+# Generate a secret with: openssl rand -base64 32
 
 # Start a local Postgres if you don't have one:
 docker compose up -d db
 
 npm run migrate          # apply Prisma migrations
 npm run db:seed-prompt   # seed the active system prompt
+
+# There is no self-registration. Create the first admin:
+npm run user:create -- --email you@district.org --name "Your Name" --role admin
+
 npm run dev              # http://localhost:3000
 ```
 
@@ -70,12 +75,14 @@ docker run -p 8000:8000 chromadb/chroma
 | `npm start` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint over `src scripts e2e` |
-| `npm run test:e2e` | Playwright suite — **requires a running server**, see below |
+| `npm test` | Playwright suite — starts its own server, see below |
+| `npm run test:e2e` | Same as `npm test` |
 | `npm run migrate` | `prisma migrate deploy` |
 | `npm run db:studio` | Prisma Studio on :5555 |
 | `npm run db:seed-prompt` | Seed the active `SystemPrompt` row |
 | `npm run db:verify` | Print row counts per table |
 | `npm run policies:batch-upload` | Bulk-upload policy documents |
+| `npm run user:create` | Create or update a user and set a password |
 
 `scripts/test-*.ts` are **manual demo scripts, not automated tests** — they
 print a transcript and assert nothing. They need a running server and read
@@ -102,16 +109,21 @@ and generate embeddings when configured.
 ## Testing
 
 ```bash
-npm run dev          # in one terminal
-npm run test:e2e     # in another
+createdb generalschat_test
+DATABASE_URL="postgresql://localhost:5432/generalschat_test?schema=public" \
+AUTH_SECRET="$(openssl rand -base64 32)" \
+npm test
 ```
 
-The Playwright config has no `webServer`, so the server must already be
-running, and the suite writes to whatever database `DATABASE_URL` points at and
-makes real, billed Claude API calls. **Do not run it against a shared or
-production database.** The suite also has substantial known problems — several
-tests cannot fail as written. See `docs/audit/2026-08-31-findings.md`, TEST-1
-through TEST-23.
+The suite starts its own server, resets and seeds the database, and serves
+Anthropic calls from a local stub — so it makes **no billed API calls** and
+needs no hand-started server.
+
+`global-setup` refuses to run unless the database name contains `test`, so
+pointing `DATABASE_URL` at a real database cannot wipe it.
+
+Set `ANTHROPIC_BASE_URL` to route model calls at a gateway, proxy, or stub;
+leave it unset to use the real API.
 
 ## Architecture notes
 
@@ -130,27 +142,51 @@ row completely replaces the in-code default. It is editable at `/admin/prompt`.
 `LAWYER_PERSONA_UPDATE.md` describes an earlier, different persona and is
 superseded on this point.
 
+## Authentication
+
+Single tenant, credentials-based, with JWT sessions. There is **no
+self-registration** — accounts are created with `npm run user:create`.
+
+Roles:
+
+| Role | Can |
+|---|---|
+| `admin` | Everything, including `/admin/*` (policies and the system prompt) |
+| `investigator` | Read and update every incident |
+| `reporter` | Read and update only incidents they filed |
+
+`middleware.ts` denies by default: only `/login`, `/about` and `/api/auth/*`
+are reachable without a session. API routes answer 401/403; page routes
+redirect. Every route handler re-checks the session independently, so a
+middleware matcher mistake cannot silently expose a route.
+
+`AUTH_SECRET` is required. In Docker, set it and `NEXTAUTH_URL` in the
+environment; `docker-compose.yml` will refuse to start without `AUTH_SECRET`.
+
 ## Security status
 
-An audit on 2026-08-31 found blocking issues. Several are fixed; the largest is
-not:
+An audit on 2026-08-31 found 153 issues. The blocking ones are fixed:
+authentication and authorization, arbitrary file write on both upload paths,
+SSRF in the policy URL fetch, attachments served from `public/` with no access
+check, missing upload size and type limits, unvalidated write bodies and
+pagination, a production container running the dev server, and a page that
+fabricated compliance determinations with `Math.random()`.
 
-- **There is no authentication or authorization anywhere in this application.**
-  Every API route is public. `GET /api/incidents` returns every incident with
-  reporter names and emails; `GET /api/chat/<id>` returns full consultation
-  transcripts. `next-auth` is not wired up and the schema lacks the models an
-  adapter would need. **Do not deploy this with real student data.**
-- Attachments are written into `public/` and are therefore downloadable by URL
-  with no access check. Relocating them depends on the auth work above.
-- There is no rate limiting on the unauthenticated LLM endpoints.
-- The `AuditLog` table exists for FERPA disclosure accounting and is never
-  written to.
+Still open, and worth knowing before you deploy:
 
-Fixed in the audit branch: arbitrary file write on both upload paths, SSRF in
-the policy URL fetch, missing upload size and type limits, unvalidated write
-bodies and pagination, and a production container that ran the dev server.
+- **No rate limiting** on the LLM endpoints. They are authenticated now, so
+  this is a cost and abuse concern rather than an open door, but a single
+  signed-in user can still run up the Anthropic bill.
+- **DNS rebinding** is not fully mitigated in the policy URL fetch; the
+  hostname allowlist described in SEC-4 is the real fix.
+- **Upload size limits** reject oversized files but do not prevent memory
+  exhaustion, because `request.formData()` buffers the body first.
+- **Vector search is unverified.** Two config bugs that made it fail in every
+  environment are fixed, but a successful round-trip has not been observed
+  against a running Chroma server.
 
-Full detail: `docs/audit/2026-08-31-findings.md`.
+Full detail: `docs/audit/2026-08-31-findings.md` and
+`docs/audit/2026-08-31-work-completed.md`.
 
 ## License
 
