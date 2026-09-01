@@ -6,6 +6,7 @@ import {
   POLICY_JURISDICTIONS,
   PolicyChunk,
   PolicyCitation,
+  PolicyReference,
   PolicyCoverage,
   LOCAL_JURISDICTIONS,
 } from '@/types';
@@ -299,6 +300,7 @@ export class RAGSystem {
     citations: PolicyCitation[];
     chunks: PolicyChunk[];
     coverage: PolicyCoverage;
+    references: PolicyReference[];
   }> {
     // Retrieval query includes the incident type and the last couple of user
     // turns. Previously the context argument was named `_context` and never
@@ -330,7 +332,8 @@ export class RAGSystem {
 
     const relevantChunks = await this.ensureCategoryRepresentation(matched, guaranteed);
 
-    const policyContext = this.buildJurisdictionContext(relevantChunks);
+    const references: PolicyReference[] = [];
+    const policyContext = this.buildJurisdictionContext(relevantChunks, references);
     const citations = this.buildCitations(relevantChunks);
     const coverage = await this.assessCoverage(guaranteed);
 
@@ -339,6 +342,7 @@ export class RAGSystem {
       citations,
       chunks: relevantChunks,
       coverage,
+      references,
     };
   }
 
@@ -407,7 +411,13 @@ export class RAGSystem {
    * from a school handbook -- and the citations it was asked to produce were
    * raw cuids nobody could look up.
    */
-  private buildJurisdictionContext(chunks: PolicyChunk[]): string {
+  private buildJurisdictionContext(
+    chunks: PolicyChunk[],
+    // Populated as the excerpts are numbered, so an attribution the model
+    // makes can be checked against the excerpts it was actually given rather
+    // than taken on trust. (OQ-5)
+    references?: PolicyReference[]
+  ): string {
     if (chunks.length === 0) return '';
 
     const sections: string[] = [];
@@ -428,6 +438,7 @@ export class RAGSystem {
               statute: chunk.sectionStatute ?? undefined,
             })
           : title;
+        references?.push({ n, policyId: chunk.policyId, citation: source });
         return `[${n}] ${source}\n${chunk.content}`;
       });
 

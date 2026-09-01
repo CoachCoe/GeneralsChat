@@ -293,16 +293,17 @@ type limits, unvalidated write bodies and pagination, a production container
 running the dev server, and a page that fabricated compliance determinations
 with `Math.random()`.
 
-The 2026-09-01 audit found six blockers. Five are fixed — see
+The 2026-09-01 audit found six blockers. **All six are now fixed** — see
 [`docs/audit/2026-09-01-work-completed.md`](docs/audit/2026-09-01-work-completed.md).
 
-**The sixth is open and you should know it before trusting any deadline this
-tool shows you.** Obligation deadlines are produced by a classification call
-that is never given the retrieved policy, so they are the model's recall of
-New Hampshire law rather than something a policy states, and
-`ComplianceAction` carries no `policyId` to check them against. The fix needs
-a product decision (OQ-5 in the findings). Until it lands, confirm every
-deadline against the cited policy.
+The last of them is worth understanding, because it changes how deadlines
+read. Obligations are now derived **after** retrieval, and each one records
+whether a retrieved policy excerpt actually states its deadline. An obligation
+whose deadline the loaded policy does not support says so on its own row, does
+not get the red or amber of a real deadline state, and is excluded from the
+"N things are late" count. With a thin policy library most obligations will be
+unverified, and that is the honest reading rather than a defect: the system is
+saying it could not find the rule, instead of asserting one.
 
 Still open, and worth knowing before you deploy:
 

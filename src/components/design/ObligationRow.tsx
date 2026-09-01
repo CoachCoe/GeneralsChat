@@ -15,6 +15,8 @@ export interface Obligation {
   incidentTitle?: string;
   jurisdiction?: string;
   citation?: string;
+  /** 'policy' when a retrieved excerpt states this deadline, else 'model'. */
+  deadlineSource?: string;
 }
 
 /**
@@ -53,6 +55,7 @@ export function ObligationRow({
         dueDate={obligation.dueDate}
         status={obligation.status}
         completedAt={obligation.completedAt}
+        verified={obligation.deadlineSource !== 'model'}
       />
 
       <div className="flex flex-1 flex-col gap-1.5">
@@ -66,6 +69,12 @@ export function ObligationRow({
 
         {obligation.incidentTitle && showIncident && (
           <span className="text-[12px] text-text-muted">{obligation.incidentTitle}</span>
+        )}
+
+        {obligation.deadlineSource === 'model' && !done && (
+          <span className="text-[12px] leading-[1.4] text-text-muted">
+            Deadline not found in the loaded policy — confirm it before acting.
+          </span>
         )}
 
         {(obligation.jurisdiction || obligation.citation) && (

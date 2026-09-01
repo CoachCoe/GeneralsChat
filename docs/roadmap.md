@@ -209,7 +209,7 @@ incident type, mapped narrowly to `mandatory_reporting`, and treated as
 CONFIDENTIAL.
 
 **OQ-5 — deadlines with no policy behind them: keep the obligation, keep the
-urgency, mark the provenance.** *(Queued — this is the B1 fix.)*
+urgency, mark the provenance. Done 2026-09-02.**
 
 Suppressing the obligation is the worst option: "you must report this to DCYF"
 is worth saying even when the library cannot cite a deadline, and *nothing*
@@ -229,9 +229,18 @@ which for a 24-hour report is the part that matters. So:
 - `ObligationRow` already renders an `AuthorityChip` and citation whenever they
   are present. The data has simply never existed.
 
-Also fix `FLOW-35` alongside it: a failed classification should leave
-`incidentType` null so the next turn retries, rather than stamping `other`
-permanently with no way to correct it.
+`FLOW-35` was fixed alongside it: a failed classification now throws rather
+than returning a default, so `incidentType` stays null and the next turn
+retries. The old default (`other` / `low` / no obligations) was written
+permanently, so an API timeout and a genuine "we could not tell" produced the
+same record — on the incident where the system knew least.
+
+What this does **not** do: verify that the deadline the model attributed to an
+excerpt is the deadline that excerpt actually states. It verifies that the
+excerpt exists and was supplied. A model that cites a real excerpt for a number
+that excerpt does not contain still produces a policy-backed row. Closing that
+needs the deadline parsed out of the provision text, which is a bigger piece of
+work and wants real incidents to calibrate against — step 6.
 
 **OQ-2 — canonical ingestion: `/api/admin/policies/upload`.** *(Queued.)*
 Delete `POST /api/policies`; keep `POST /api/admin/policies` for the paste-text

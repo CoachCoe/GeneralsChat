@@ -16,10 +16,10 @@ datasource db {
 // ============================================
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      String   @default("reporter") // admin, investigator, reporter
+  id    String @id @default(cuid())
+  email String @unique
+  name  String
+  role  String @default("reporter") // admin, investigator, reporter
 
   // Authentication. Credentials provider with JWT sessions, so no Account /
   // Session / VerificationToken models are needed. Nullable because rows
@@ -34,11 +34,11 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  reportedIncidents  Incident[]         @relation("IncidentReporter")
-  assignedActions    ComplianceAction[] @relation("AssignedActions")
-  conversations      Conversation[]
-  attachments        Attachment[]
-  auditLogs          AuditLog[]
+  reportedIncidents Incident[]         @relation("IncidentReporter")
+  assignedActions   ComplianceAction[] @relation("AssignedActions")
+  conversations     Conversation[]
+  attachments       Attachment[]
+  auditLogs         AuditLog[]
 
   @@index([email])
   @@index([role])
@@ -49,14 +49,14 @@ model User {
 // ============================================
 
 model Incident {
-  id          String   @id @default(cuid())
+  id          String @id @default(cuid())
   title       String
   description String
 
   // Classification
-  incidentType String?  // bullying, title_ix, harassment, violence, other
-  severity     String?  // low, medium, high, critical
-  status       String   @default("open") // open, in_progress, under_review, completed, closed
+  incidentType String? // bullying, title_ix, harassment, violence, other
+  severity     String? // low, medium, high, critical
+  status       String  @default("open") // open, in_progress, under_review, completed, closed
 
   // Reporter information
   reporterId String
@@ -67,15 +67,15 @@ model Incident {
   metadata String? // JSON: Additional metadata, classification details, stakeholders
 
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   closedAt  DateTime?
 
   // Relations
-  conversations      Conversation[]
-  complianceActions  ComplianceAction[]
-  attachments        Attachment[]
-  auditLogs          AuditLog[]
+  conversations     Conversation[]
+  complianceActions ComplianceAction[]
+  attachments       Attachment[]
+  auditLogs         AuditLog[]
 
   @@index([reporterId])
   @@index([status])
@@ -93,8 +93,8 @@ model Conversation {
   incidentId String
   incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
-  message  String
-  sender   String  // user, assistant
+  message String
+  sender  String // user, assistant
 
   // User reference (optional, for tracking who sent user messages)
   userId String?
@@ -115,22 +115,41 @@ model Conversation {
 // ============================================
 
 model ComplianceAction {
-  id          String   @id @default(cuid())
-  incidentId  String
-  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
-  actionType  String   // Type of action required
+  actionType  String // Type of action required
   description String?
-  status      String   @default("pending") // pending, in_progress, completed, overdue
+  status      String  @default("pending") // pending, in_progress, completed, overdue
 
   // Assignment and timing
   assignedTo   String?
-  assignedUser User?    @relation("AssignedActions", fields: [assignedTo], references: [id])
+  assignedUser User?     @relation("AssignedActions", fields: [assignedTo], references: [id])
   dueDate      DateTime?
   completedAt  DateTime?
 
   // Evidence files (JSON array of file paths)
   evidenceFiles String?
+
+  /// Which policy excerpt this obligation's deadline was actually drawn from,
+  /// and how it was reached.
+  ///
+  /// `deadlineSource` is 'policy' when the model attributed the deadline to a
+  /// retrieved excerpt AND that attribution resolved to a real reference, and
+  /// 'model' otherwise. It is not a confidence score: it is the difference
+  /// between a deadline the district's own policy states and one recalled from
+  /// training. A confidently wrong statutory deadline is worse than no answer,
+  /// so the two must be distinguishable at the row level rather than inferred
+  /// from the text. (OQ-5)
+  ///
+  /// SetNull, not Cascade: deleting a policy must not delete the obligations
+  /// an administrator is still on the hook for. They lose their citation and
+  /// fall back to unverified, which is the honest degradation.
+  deadlineSource String  @default("model")
+  citation       String?
+  policyId       String?
+  policy         Policy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -147,10 +166,10 @@ model ComplianceAction {
 // ============================================
 
 model Policy {
-  id            String   @id @default(cuid())
-  title         String
-  content       String?  // Full policy text
-  filePath      String?  // Path to uploaded file
+  id       String  @id @default(cuid())
+  title    String
+  content  String? // Full policy text
+  filePath String? // Path to uploaded file
 
   version       Int      @default(1)
   effectiveDate DateTime
@@ -159,13 +178,13 @@ model Policy {
   /// Orthogonal to `category` -- a district bullying policy and a federal
   /// Title IX rule are different jurisdictions AND different categories, and
   /// an incident normally implicates several of both.
-  jurisdiction  String   @default("district")
+  jurisdiction String @default("district")
 
   /// What the policy is about: bullying, title_ix, mandatory_reporting, ...
   /// This is what incident classification matches against during retrieval.
-  category      String   @default("other")
+  category String @default("other")
 
-  isActive      Boolean  @default(true)
+  isActive Boolean @default(true)
 
   // Metadata (JSON: keywords, categories, etc.)
   metadata String?
@@ -175,7 +194,9 @@ model Policy {
   updatedAt DateTime @updatedAt
 
   // Relations
-  chunks PolicyChunk[]
+  chunks            PolicyChunk[]
+  /// Obligations whose deadline was attributed to this policy. (OQ-5)
+  complianceActions ComplianceAction[]
 
   @@index([jurisdiction])
   @@index([category])
@@ -186,12 +207,12 @@ model Policy {
 }
 
 model PolicyChunk {
-  id         String   @id @default(cuid())
-  policyId   String
-  policy     Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  policyId String
+  policy   Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
 
-  content    String   // Chunk text content
-  chunkIndex Int      // Order within the policy
+  content    String // Chunk text content
+  chunkIndex Int // Order within the policy
 
   /// The document's own section label for this chunk, e.g. "F". Null when the
   /// policy has no parseable structure, in which case it is cited at policy
@@ -221,20 +242,20 @@ model PolicyChunk {
 // ============================================
 
 model Attachment {
-  id         String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // File information
-  filename   String
-  filePath   String
-  fileType   String
-  fileSize   Int
+  filename String
+  filePath String
+  fileType String
+  fileSize Int
 
   // Relations
   incidentId String?
   incident   Incident? @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
   uploadedBy String
-  uploader   User     @relation(fields: [uploadedBy], references: [id])
+  uploader   User   @relation(fields: [uploadedBy], references: [id])
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -248,19 +269,19 @@ model Attachment {
 // ============================================
 
 model AuditLog {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // What happened
-  action    String   // created, updated, deleted, viewed, exported
-  entity    String   // incident, policy, user, etc.
-  entityId  String?  // ID of the affected entity
+  action   String // created, updated, deleted, viewed, exported
+  entity   String // incident, policy, user, etc.
+  entityId String? // ID of the affected entity
 
   // Who did it
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   // Details (JSON: before/after values, IP address, etc.)
-  details   String?
+  details String?
 
   // When
   timestamp DateTime @default(now())
@@ -280,14 +301,14 @@ model AuditLog {
 // ============================================
 
 model SystemPrompt {
-  id        String   @id @default(cuid())
-  name      String   // Friendly name like "Friendly Advisor", "Strict Legal", etc.
-  content   String   // The full system prompt text
-  isActive  Boolean  @default(false)
+  id       String  @id @default(cuid())
+  name     String // Friendly name like "Friendly Advisor", "Strict Legal", etc.
+  content  String // The full system prompt text
+  isActive Boolean @default(false)
 
   // Metadata
   description String?
-  createdBy   String?  // User ID who created it
+  createdBy   String? // User ID who created it
 
   // Timestamps
   createdAt DateTime @default(now())

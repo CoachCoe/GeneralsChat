@@ -58,6 +58,24 @@ function replyFor(body: StubRequest): string {
   if (system.includes('concise, descriptive titles for school incident reports')) {
     return 'Playground Bullying Report';
   }
+  // Obligation derivation. Attribute the first obligation to excerpt [1] when
+  // the prompt actually contains one, and leave the second unattributed, so the
+  // suite exercises both the policy-backed and the unverified path. The excerpt
+  // number is only honoured if the route can resolve it, which is the point.
+  if (system.includes('list the actions the administrator must take')) {
+    const hasExcerpt = /\[1\]/.test(userText);
+    return JSON.stringify({
+      obligations: [
+        {
+          description: 'Notify the superintendent',
+          dueInHours: 24,
+          sourceExcerpt: hasExcerpt ? 1 : null,
+        },
+        { description: 'Complete the investigation report', dueInHours: 240, sourceExcerpt: null },
+      ],
+    });
+  }
+
   if (system.includes('school district attorney reviewing an incident consultation')) {
     return 'SUMMARY: consultation summary for the incident file.';
   }
