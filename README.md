@@ -165,7 +165,6 @@ paths exist; see `QUICK_START_POLICY_UPLOAD.md` for detail.
    `scripts/batch-upload-policies.ts` first, and put the files in
    `sample-policies/`.
 2. The admin UI at `/admin/policies` (`.txt`, `.md`, `.pdf`, `.docx`).
-3. `POST /api/policies` directly.
 
 All three now index through the same chunker (1000 words, 200-word overlap)
 and generate embeddings when configured. For a single document:

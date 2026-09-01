@@ -95,6 +95,43 @@ export function safeUploadPath(uploadsDir: string, ext: string): string {
  * Lives here, with the other upload rules, because there are three ingestion
  * routes and a guard on one of them is not a guard.
  */
+/**
+ * Where uploaded files live, resolved one way.
+ *
+ * There were four expressions for this across six call sites, and they
+ * disagreed. Two were wrong in ways that only show up in deployment:
+ *
+ *   join(cwd, UPLOADS_DIR, 'attachments')
+ *
+ * silently prefixes the working directory to an absolute path, so
+ * UPLOADS_DIR=/app/uploads resolves to /app/app/uploads/attachments -- outside
+ * the mounted volume, on a container platform where anything outside the mount
+ * dies with the revision. Upload and download shared the same wrong expression,
+ * so the app worked perfectly until the first redeploy, at which point every
+ * attachment -- student records -- was gone with no error anywhere.
+ *
+ * And `join(cwd, 'uploads', 'policies')` ignored UPLOADS_DIR entirely, so a
+ * policy written by one route was not where `policies:reindex` looked, and its
+ * containment check therefore failed every time and re-copied the file on
+ * every run.
+ *
+ * `resolve` is the fix: it honours an absolute UPLOADS_DIR and resolves a
+ * relative one against the working directory. (OQ-2, DEAD-62)
+ */
+export function uploadsRoot(): string {
+  return resolve(process.env.UPLOADS_DIR ?? './uploads');
+}
+
+/** Policy source documents. `policies:reindex` re-extracts from these. */
+export function policyUploadsDir(): string {
+  return resolve(uploadsRoot(), 'policies');
+}
+
+/** Attachments. Student records: never under `public/`, never in the image. */
+export function attachmentUploadsDir(): string {
+  return resolve(uploadsRoot(), 'attachments');
+}
+
 export function assertIndexablePolicyText(content: string): void {
   if (countWords(content) === 0) {
     throw new UploadError(

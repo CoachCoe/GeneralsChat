@@ -5,8 +5,9 @@ import { randomUUID } from 'crypto';
 import { prisma } from '../src/lib/db';
 import { processDocument } from '../src/lib/utils/documentProcessor';
 
-const policyUploadsDir = resolve(process.env.UPLOADS_DIR ?? './uploads', 'policies');
+
 import { ragSystem } from '../src/lib/ai/rag';
+import { policyUploadsDir } from '../src/lib/uploads';
 
 config({ path: resolve(__dirname, '../.env') });
 
@@ -119,9 +120,10 @@ async function main() {
         // re-index silently falls back to stored content and drops every
         // section label, with nothing in the output saying why.
         let filePath = policy.filePath;
-        if (!resolve(filePath).startsWith(policyUploadsDir + sep)) {
-          const adopted = resolve(policyUploadsDir, `${randomUUID()}${extname(filePath).toLowerCase()}`);
-          mkdirSync(policyUploadsDir, { recursive: true });
+        const policyDir = policyUploadsDir();
+        if (!resolve(filePath).startsWith(policyDir + sep)) {
+          const adopted = resolve(policyDir, `${randomUUID()}${extname(filePath).toLowerCase()}`);
+          mkdirSync(policyDir, { recursive: true });
           copyFileSync(filePath, adopted);
           filePath = adopted;
           console.log(`         adopted source into ${relative(process.cwd(), adopted)}`);

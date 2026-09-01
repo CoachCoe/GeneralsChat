@@ -1,23 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { ragSystem } from '@/lib/ai/rag';
-import { processDocument } from '@/lib/utils/documentProcessor';
 import { POLICY_CATEGORIES, POLICY_JURISDICTIONS } from '@/types';
-import { mkdir, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
-import {
-  assertAllowedExtension,
-  assertWithinSizeLimit,
-  safeUploadPath,
-  UploadError,
-  assertIndexablePolicyText,
-} from '@/lib/uploads';
-import { requireRole, requireUser } from '@/lib/session';
-import { policyFacetsSchema } from '@/lib/validation';
-import { validationError } from '@/lib/errors';
-import { recordAudit } from '@/lib/audit';
-
-const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
+import { requireUser } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,6 +28,18 @@ export async function GET(request: NextRequest) {
 
     const policies = await prisma.policy.findMany({
       where,
+      // Explicit projection. This returned whole rows, so any authenticated
+      // user could read `content` and `filePath` -- an absolute server path,
+      // which is reconnaissance for the path-traversal bug class this codebase
+      // has already shipped twice. The library page uses six fields. (SEC-27)
+      select: {
+        id: true,
+        title: true,
+        jurisdiction: true,
+        category: true,
+        effectiveDate: true,
+        isActive: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -57,100 +53,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    // Policy ingestion is an admin action. (SEC-6)
-    const guard = await requireRole('admin');
-    if (!guard.ok) return guard.response;
-
-    const formData = await request.formData();
-    const title = formData.get('title') as string;
-    const facets = policyFacetsSchema.safeParse({
-      jurisdiction: formData.get('jurisdiction'),
-      category: formData.get('category'),
-    });
-    if (!facets.success) {
-      return validationError(
-        'Jurisdiction and category must each be one of the known values',
-        facets.error.flatten().fieldErrors
-      );
-    }
-    const { jurisdiction, category } = facets.data;
-    const effectiveDate = formData.get('effectiveDate') as string;
-    const file = formData.get('file') as File;
-
-    if (!title) {
-      return NextResponse.json(
-        { error: 'Title and policy type are required' },
-        { status: 400 }
-      );
-    }
-
-    let content = '';
-    let filePath = '';
-
-    if (file) {
-      // Validate before writing. The previous implementation concatenated
-      // `file.name` straight into the path, so a `../` filename escaped the
-      // uploads directory entirely. (SEC-3, SEC-10)
-      const ext = assertAllowedExtension(file.name, ALLOWED_POLICY_EXTENSIONS);
-      assertWithinSizeLimit(file);
-
-      const uploadsDir = process.env.UPLOADS_DIR || './uploads';
-      if (!existsSync(uploadsDir)) {
-        await mkdir(uploadsDir, { recursive: true });
-      }
-
-      const uploadPath = safeUploadPath(uploadsDir, ext);
-      await writeFile(uploadPath, Buffer.from(await file.arrayBuffer()));
-      filePath = uploadPath;
-
-      // Extract text content
-      const processed = await processDocument(uploadPath);
-      content = processed.content;
-    }
-
-    assertIndexablePolicyText(content);
-
-    // Create policy record
-    const policy = await prisma.policy.create({
-      data: {
-        title,
-        content,
-        filePath,
-        jurisdiction,
-        category,
-        effectiveDate: effectiveDate ? new Date(effectiveDate) : new Date(),
-        isActive: true,
-      },
-    });
-    await recordAudit({
-      userId: guard.user.id,
-      action: 'created',
-      entity: 'policy',
-      entityId: policy.id,
-      details: { title: policy.title, jurisdiction: policy.jurisdiction, category: policy.category },
-    });
-
-    // Add to RAG system for search with metadata
-    if (content) {
-      await ragSystem.addPolicyDocument(policy.id, content, {
-        title,
-        jurisdiction,
-        category,
-        effectiveDate: effectiveDate || new Date().toISOString(),
-      });
-    }
-
-    return NextResponse.json({ policy });
-  } catch (error) {
-    console.error('Create policy error:', error);
-    if (error instanceof UploadError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-    return NextResponse.json(
-      { error: 'Failed to create policy' },
-      { status: 500 }
-    );
-  }
-}
+// POST is gone. It was the third of three ingestion routes, called by no
+// client, and it sat outside the /api/admin prefix -- so `isAdminPath` in
+// auth.config.ts did not cover it and the handler's own requireRole was the
+// only thing holding. It is also the route SEC-3 exploited.
+//
+// The canonical path is POST /api/admin/policies/upload (file or URL), with
+// POST /api/admin/policies for pasted text. Both live behind the prefix the
+// middleware gates, and both write to policyUploadsDir(). (OQ-2)

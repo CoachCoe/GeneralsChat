@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
 import { existsSync } from 'fs';
 import {
   assertAllowedExtension,
   assertWithinSizeLimit,
   safeUploadPath,
   UploadError,
+  attachmentUploadsDir,
 } from '@/lib/uploads';
 import { incidentScope, requireUser } from '@/lib/session';
 
@@ -59,11 +59,7 @@ export async function POST(request: NextRequest) {
     // path handed out by GET /api/incidents/[id] was a direct download link for
     // anyone. They are now written outside the served tree and read back only
     // through GET /api/attachments/[id], which re-checks the session. (SEC-5)
-    const uploadsDir = join(
-      process.cwd(),
-      process.env.UPLOADS_DIR || './uploads',
-      'attachments'
-    );
+    const uploadsDir = attachmentUploadsDir();
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
