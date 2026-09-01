@@ -271,7 +271,11 @@ function determineDataSensitivity(message: string, incident: any): DataSensitivi
     return DataSensitivity.RESTRICTED;
   }
   
-  if (incident.incidentType === 'title_ix' || incident.severity === 'critical') {
+  if (
+    incident.incidentType === 'title_ix' ||
+    incident.incidentType === 'abuse_neglect' ||
+    incident.severity === 'critical'
+  ) {
     return DataSensitivity.CONFIDENTIAL;
   }
   
