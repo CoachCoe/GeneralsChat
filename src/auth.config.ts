@@ -11,8 +11,13 @@ import type { NextAuthConfig } from 'next-auth';
  * Node-runtime route handler.
  */
 
-/** Routes reachable without a session. Everything else is denied by default. */
-const PUBLIC_PATHS = ['/login', '/about'];
+/**
+ * Routes reachable without a session. Everything else is denied by default.
+ *
+ * `/api/health` is here because a container platform's probe has no session.
+ * It returns a fixed `{status:'ok'}` and reads nothing.
+ */
+const PUBLIC_PATHS = ['/login', '/about', '/api/health'];
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
@@ -24,6 +29,28 @@ function isPublicPath(pathname: string): boolean {
 function isAdminPath(pathname: string): boolean {
   return pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
 }
+
+/**
+ * Whether to issue the session cookie as Secure, taken from the URL the
+ * deployment declares for itself rather than from the protocol of the request.
+ *
+ * Behind a platform ingress that terminates TLS -- Azure Container Apps, and
+ * every other managed container host -- the app sees plain http even though
+ * the browser spoke https, so deriving from the request marks the cookie
+ * insecure on a site that is in fact secure. Deriving from NODE_ENV is worse
+ * in the other direction: the e2e suite runs a production build over http, and
+ * a __Secure- cookie is rejected outright there, so auth would break in tests
+ * for a reason that has nothing to do with the code under test.
+ *
+ * The declared URL is the one signal that is true in both places. (SEC-28)
+ */
+export function shouldUseSecureCookies(declaredUrl: string | undefined): boolean {
+  return (declaredUrl ?? '').trim().toLowerCase().startsWith('https://');
+}
+
+const useSecureCookies = shouldUseSecureCookies(
+  process.env.NEXTAUTH_URL ?? process.env.AUTH_URL
+);
 
 export const authConfig = {
   pages: {
@@ -41,6 +68,18 @@ export const authConfig = {
      */
     maxAge: 30 * 60,
     updateAge: 5 * 60,
+  },
+  /* Pinned, not derived from the request protocol. See useSecureCookies. */
+  cookies: {
+    sessionToken: {
+      name: useSecureCookies ? '__Secure-authjs.session-token' : 'authjs.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: useSecureCookies,
+      },
+    },
   },
   callbacks: {
     /**
