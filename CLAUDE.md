@@ -25,9 +25,23 @@ npm test              # Playwright; starts its own server and stub
 requests go to a local stub via `ANTHROPIC_BASE_URL`.
 
 ```bash
-DATABASE_URL="postgresql://localhost:5432/generalschat_test?schema=public" \
+DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_test?schema=public" \
 AUTH_SECRET="$(openssl rand -base64 32)" npm test
 ```
+
+Give the URL an explicit role. Prisma does not fall back to the OS user the way
+`psql` does, so a userless URL fails migrate with `P1010: User was denied
+access` while `psql -l` on the same database works fine.
+
+**`.env` points at production.** There is no local database in this checkout —
+`DATABASE_URL` in `.env` is the hosted Postgres the pilot runs on. Any script
+run without an explicit override writes to real data. `npm test` is safe by
+construction (its setup refuses a database whose name lacks `test`), but the
+`policies:*` and `prisma` commands are not: they take whatever `.env` gives
+them. Re-indexing against production with an unmigrated schema is what once
+left every policy with zero chunks and retrieval silently returning nothing.
+Prefer `npm run policies:reindex` with no flag — it is a dry run — and read what
+it says it would do before passing `--apply`.
 
 ## Invariants — breaking these is a bug, not a style choice
 

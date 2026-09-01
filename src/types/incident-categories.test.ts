@@ -1,0 +1,64 @@
+import { describe, expect, it } from 'vitest';
+import {
+  ALWAYS_RETRIEVED_CATEGORY,
+  categoriesForIncidentType,
+  INCIDENT_TYPES,
+  POLICY_CATEGORIES,
+} from './index';
+
+/**
+ * This mapping decides which policies an incident retrieves. Get it wrong and
+ * an administrator is either shown policy that does not apply, or not shown
+ * policy that does.
+ */
+describe('categoriesForIncidentType', () => {
+  it('always includes mandatory reporting for a classified incident', () => {
+    // "Must I report this, to whom, by when" is the question the tool exists
+    // to answer, and that policy shares almost no vocabulary with how an
+    // incident gets described — so relevance alone would never surface it.
+    for (const type of INCIDENT_TYPES) {
+      const categories = categoriesForIncidentType(type);
+      if (categories.length === 0) continue; // `other` constrains nothing
+      expect(categories, type).toContain(ALWAYS_RETRIEVED_CATEGORY);
+    }
+  });
+
+  it('returns no categories for an unclassified incident, so retrieval is unfiltered', () => {
+    // Narrowing to mandatory_reporting alone would exclude every other policy
+    // on any turn where classification has not run — which is the opening turn.
+    expect(categoriesForIncidentType(null)).toEqual([]);
+    expect(categoriesForIncidentType(undefined)).toEqual([]);
+    expect(categoriesForIncidentType('not-a-type')).toEqual([]);
+  });
+
+  it('leaves retrieval unfiltered for `other`, which implicates nothing specific', () => {
+    expect(categoriesForIncidentType('other')).toEqual([]);
+  });
+
+  it('maps each incident type only to categories that exist', () => {
+    for (const type of INCIDENT_TYPES) {
+      for (const category of categoriesForIncidentType(type)) {
+        expect(POLICY_CATEGORIES, `${type} -> ${category}`).toContain(category);
+      }
+    }
+  });
+
+  it('returns no duplicates', () => {
+    for (const type of INCIDENT_TYPES) {
+      const c = categoriesForIncidentType(type);
+      expect(new Set(c).size, type).toBe(c.length);
+    }
+  });
+
+  it('maps bullying to bullying and discipline', () => {
+    expect(categoriesForIncidentType('bullying')).toEqual(
+      expect.arrayContaining(['bullying', 'discipline'])
+    );
+  });
+
+  it('maps title_ix to title_ix and discrimination', () => {
+    expect(categoriesForIncidentType('title_ix')).toEqual(
+      expect.arrayContaining(['title_ix', 'discrimination'])
+    );
+  });
+});

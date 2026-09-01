@@ -117,6 +117,43 @@ incident timeline.
 
 ---
 
+### ~~5a. Cite the specific provision, not just the policy~~ — **done 2026-09-01**
+
+Guidance cited whole policies: *"Policy JICK: Bullying Prevention"*. It now
+cites the provision the guidance actually rests on, with the statute that
+provision implements — `JICK §D — Procedures for Reporting Bullying
+(RSA 193-F:4, II(f) - (h))` — the way a citation works in a paper.
+
+`src/lib/policy-sections.ts` parses lettered sections and the RSA references in
+their headers; `splitPolicyIntoSectionedChunks` chunks *within* a section so no
+chunk straddles two provisions and every chunk can name its own. Retrieval
+prefixes each excerpt with its reference and the prompt instructs the model to
+quote references exactly and never invent one. Parsing is deliberately
+conservative — fewer than two sections, out-of-order labels, or lowercase list
+items all fall back to policy-level citation, because a wrong section on a
+statutory obligation is worse than none.
+
+Three things this turned up:
+
+- **Stored policy text had no newlines.** It was extracted before the
+  `cleanText` fix, so section structure was unrecoverable from the database.
+  Re-indexing now re-extracts from the source file, and adopts that file into
+  `uploads/policies/` so provenance no longer depends on the operator's
+  downloads folder still existing.
+- **`policies:reindex` deleted chunks before it could fail.** Running it against
+  a database missing the new columns left all five policies at zero chunks and
+  retrieval returning nothing. It now refuses to touch anything until it has
+  probed that the schema is current. The delete-then-add is still not
+  transactional — `addPolicyDocument` writes through the global client — so the
+  preflight is the guard, not a fix for the underlying window.
+- **PDF headers wrap.** JICK §H is one header across two lines; taking only the
+  matched line cited it as ending on "Disciplinary". Headers now rejoin across a
+  single continuation line.
+
+All 11 JICK sections (A–K) parse, 9 of them carrying their RSA reference.
+
+---
+
 ## Next — gated on real use
 
 ### 6. Run a real incident end to end, and watch it — *maintainer*
@@ -136,6 +173,11 @@ your obligation and here is the law behind it*.
 `policyId` + `citation` on `ComplianceAction`, and the classifier attributing
 each action to one of the retrieved policies.
 
+Step 5a makes this materially better than it would have been: an obligation can
+now cite the provision it came from rather than the policy, so the chip can read
+`JICK §D` instead of `Policy JICK`. The section label is already on the chunk
+the guidance was drawn from, so attribution has something precise to attach to.
+
 Deliberately after step 6: watching which obligations come back attributable
 decides whether the citation is a required field or best-effort. Building it
 blind risks designing for attribution that does not hold up.
@@ -151,7 +193,7 @@ blind risks designing for attribution that does not hold up.
 | Rate limiting (SEC-11) | Irrelevant at one user; one signed-in account can still run up the Anthropic bill |
 | Upload OOM (SEC-10, partial) | Size limits reject oversized files, but `request.formData()` buffers the body first, so a large POST still lands in memory |
 | DNS rebinding (SEC-4, partial) | Needs a hostname allowlist, which is a decision about permitted policy sources |
-| Unit tests | No runner exists. The pure functions — `describeDeadline`, `splitIntoChunks`, `assessCoverage`, `handlePrismaError`, the zod schemas — have no coverage, and this is where a silent regression would **misstate a statutory deadline** |
+| ~~Unit tests~~ | **Done 2026-09-01.** Vitest, 79 tests over the pure logic: `describeDeadline`, `splitIntoChunks`, `cleanText`, `buildCoverageReport`, the upload path guards, the zod schemas, and the incident→category mapping. `npm run test:unit` runs in under a second; `npm test` runs unit then e2e, and CI runs unit before installing a browser. Writing them found three real bugs — see the audit record |
 
 ---
 

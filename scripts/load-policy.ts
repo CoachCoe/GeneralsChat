@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
-import { resolve, basename } from 'path';
-import { existsSync } from 'fs';
+import { resolve, basename, extname } from 'path';
+import { randomUUID } from 'crypto';
+import { existsSync, mkdirSync, copyFileSync } from 'fs';
 import { prisma } from '../src/lib/db';
 import { ragSystem } from '../src/lib/ai/rag';
 import { processDocument } from '../src/lib/utils/documentProcessor';
@@ -98,6 +99,13 @@ async function main() {
     console.log(`  superseded the previous "${title}" (${existing.id})`);
   }
 
+  // Keep a copy of the source. Re-indexing re-extracts from it, so the
+  // provenance cannot depend on the operator's download folder still existing.
+  const uploadsDir = resolve(process.env.UPLOADS_DIR ?? './uploads', 'policies');
+  mkdirSync(uploadsDir, { recursive: true });
+  const stored = resolve(uploadsDir, `${randomUUID()}${extname(file).toLowerCase()}`);
+  copyFileSync(file, stored);
+
   const policy = await prisma.policy.create({
     data: {
       title,
@@ -105,7 +113,7 @@ async function main() {
       jurisdiction,
       category,
       effectiveDate: new Date(effective),
-      filePath: file,
+      filePath: stored,
       isActive: true,
     },
   });

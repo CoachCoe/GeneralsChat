@@ -1,6 +1,8 @@
 import { execSync } from 'child_process';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@/generated/prisma';
+import { parsePolicySections } from '../../src/lib/policy-sections';
+import { splitPolicyIntoSectionedChunks } from '../../src/lib/utils/documentProcessor';
 
 export const TEST_PASSWORD = 'e2e-test-password-1';
 
@@ -71,9 +73,18 @@ export async function resetDatabase(): Promise<void> {
         title: 'Policy JICK: Bullying Prevention',
         jurisdiction: 'district',
         category: 'bullying',
-        content:
-          'District procedure: staff must report suspected bullying to the ' +
+        // Lettered sections, as the real NHSBA policy is written. The seed
+        // chunks this through the production parser, so the section-level
+        // citation shown in chat is produced the same way it is in the pilot
+        // rather than hand-written into the fixture.
+        content: [
+          'D. Procedures for Reporting Bullying - RSA 193-F:4, II(f) - (h).',
+          'District procedure: staff must report suspected bullying to the',
           'superintendent within 24 hours and document the incident in PowerSchool.',
+          '',
+          'F. Investigative Procedures - RSA 193-F:4, II(k).',
+          'The principal shall complete an investigation within 5 school days.',
+        ].join('\n'),
       },
       {
         title: 'Policy JLF: Reporting Child Abuse and Neglect',
@@ -114,8 +125,17 @@ export async function resetDatabase(): Promise<void> {
           isActive: true,
         },
       });
-      await prisma.policyChunk.create({
-        data: { policyId: created.id, chunkIndex: 0, content: p.content },
+      const sections = parsePolicySections(p.content);
+      const chunks = splitPolicyIntoSectionedChunks(p.content, sections);
+      await prisma.policyChunk.createMany({
+        data: chunks.map((chunk, index) => ({
+          policyId: created.id,
+          chunkIndex: index,
+          content: chunk.content,
+          sectionLabel: chunk.sectionLabel ?? null,
+          sectionTitle: chunk.sectionTitle ?? null,
+          sectionStatute: chunk.sectionStatute ?? null,
+        })),
       });
     }
 

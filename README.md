@@ -76,8 +76,9 @@ docker run -p 8000:8000 chromadb/chroma
 | `npm start` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint over `src scripts e2e` |
-| `npm test` | Playwright suite — starts its own server, see below |
-| `npm run test:e2e` | Same as `npm test` |
+| `npm test` | Unit tests, then the Playwright suite |
+| `npm run test:unit` | Vitest over the pure logic — no database, no server, under a second |
+| `npm run test:e2e` | Playwright — starts its own server, see below |
 | `npm run test:e2e:ui` | Playwright UI mode |
 | `npm run migrate` | `prisma migrate deploy` |
 | `npm run db:studio` | Prisma Studio on :5555 |
@@ -182,6 +183,16 @@ npm run policies:coverage -- --check   # non-zero exit if anything is unretrieva
 > active policy ends up unretrievable.
 
 ## Testing
+
+Two layers. Unit tests cover the pure logic that decides what an administrator
+is told — deadline formatting, chunking, coverage assessment, upload path
+containment, the validation schemas. They need nothing running:
+
+```bash
+npm run test:unit
+```
+
+The end-to-end suite covers the journeys and access control:
 
 ```bash
 createdb generalschat_test
