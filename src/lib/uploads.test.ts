@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { resolve, sep } from 'path';
 import {
   assertAllowedExtension,
+  attachmentUploadsDir,
+  policyUploadsDir,
+  uploadsRoot,
   assertIndexablePolicyText,
   assertWithinSizeLimit,
   DEFAULT_MAX_UPLOAD_BYTES,
@@ -141,6 +144,44 @@ describe('assertIndexablePolicyText', () => {
       throw new Error('expected a throw');
     } catch (error) {
       expect((error as { status?: number }).status).toBe(422);
+    }
+  });
+});
+
+describe('uploads directory resolution', () => {
+  const original = process.env.UPLOADS_DIR;
+  afterEach(() => {
+    if (original === undefined) delete process.env.UPLOADS_DIR;
+    else process.env.UPLOADS_DIR = original;
+  });
+
+  it('honours an absolute UPLOADS_DIR instead of prefixing the working directory', () => {
+    // The bug this replaces: join(cwd, '/app/uploads', 'attachments') gives
+    // /app/app/uploads/attachments. On a container platform that is outside
+    // the mounted volume, so every attachment -- student records -- is
+    // destroyed on the next revision. Upload and download shared the same
+    // wrong expression, so nothing failed until a redeploy. (OQ-2, DEAD-62)
+    process.env.UPLOADS_DIR = '/srv/files';
+    expect(uploadsRoot()).toBe('/srv/files');
+    expect(attachmentUploadsDir()).toBe('/srv/files/attachments');
+    expect(policyUploadsDir()).toBe('/srv/files/policies');
+  });
+
+  it('resolves a relative UPLOADS_DIR against the working directory', () => {
+    process.env.UPLOADS_DIR = './uploads';
+    expect(policyUploadsDir()).toBe(resolve(process.cwd(), 'uploads', 'policies'));
+  });
+
+  it('defaults to ./uploads when unset', () => {
+    delete process.env.UPLOADS_DIR;
+    expect(uploadsRoot()).toBe(resolve(process.cwd(), 'uploads'));
+  });
+
+  it('keeps policies and attachments apart under one root', () => {
+    process.env.UPLOADS_DIR = '/srv/files';
+    expect(policyUploadsDir()).not.toBe(attachmentUploadsDir());
+    for (const dir of [policyUploadsDir(), attachmentUploadsDir()]) {
+      expect(dir.startsWith(uploadsRoot() + sep)).toBe(true);
     }
   });
 });

@@ -10,6 +10,7 @@ import { Settings, Menu, X } from 'lucide-react';
 export default function Navbar() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -44,15 +45,21 @@ export default function Navbar() {
             Chat
           </Link>
 
-          {/* Policies Link */}
-          <Link href="/admin/policies" className="navbar-link">
+          {/* The read-only library, which any signed-in user may read. This
+              pointed at /admin/policies for everyone, so a reporter clicking
+              "Policies" was bounced to the home queue with no explanation and
+              the library README documents was reachable only by typing the
+              URL. The page itself links admins onward to /admin/policies.
+              (SPEC-50) */}
+          <Link href="/policies" className="navbar-link">
             Policies
           </Link>
 
-          {/* Prompt Link */}
-          <Link href="/admin/prompt" className="navbar-link">
-            Prompt
-          </Link>
+          {isAdmin && (
+            <Link href="/admin/prompt" className="navbar-link">
+              Advisor
+            </Link>
+          )}
 
           {/* Incidents Link */}
           <Link href="/incidents" className="navbar-link">
@@ -144,20 +151,22 @@ export default function Navbar() {
             </Link>
 
             <Link
-              href="/admin/policies"
+              href="/policies"
               onClick={() => setIsMobileMenuOpen(false)}
               className="navbar-dropdown-item"
             >
               Policies
             </Link>
 
-            <Link
-              href="/admin/prompt"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="navbar-dropdown-item"
-            >
-              Prompt
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/admin/prompt"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="navbar-dropdown-item"
+              >
+                Advisor
+              </Link>
+            )}
 
             <Link
               href="/incidents"

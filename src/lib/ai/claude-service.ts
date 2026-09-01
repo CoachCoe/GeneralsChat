@@ -11,6 +11,24 @@ import { INCIDENT_TYPES, PolicyCoverage, SEVERITIES } from '@/types';
  * `type: string` and cast with `as any` at the call site, so a malformed or
  * injected value flowed straight into the incident record. (SEC-9, DEAD-13)
  */
+const derivedObligationsSchema = z.object({
+  obligations: z.array(
+    z.object({
+      description: z.string().min(1),
+      dueInHours: z.number().positive().max(24 * 365),
+      // null is a first-class answer here, and the common one while the policy
+      // library is thin. Coercing it to a number would be the whole bug.
+      sourceExcerpt: z.number().int().positive().nullable(),
+    })
+  ),
+});
+
+export interface DerivedObligation {
+  description: string;
+  dueInHours: number;
+  sourceExcerpt: number | null;
+}
+
 const classificationSchema = z.object({
   type: z.enum(INCIDENT_TYPES),
   severity: z.enum(SEVERITIES),
@@ -120,6 +138,147 @@ For these areas do not state a deadline, a requirement or a citation as establis
   return note;
 }
 
+/**
+ * The rules an administrator's answer must obey, whatever persona is
+ * configured. Not editable, by design.
+ *
+ * The advisor profile below is editable through /admin/prompt, and it used to
+ * *replace* the entire prompt -- so an admin could remove the instruction to
+ * answer only from retrieved policy, or to say plainly when the policy does not
+ * cover something, without any indication that they had. On a tool that states
+ * statutory obligations about minors, those are not style preferences. They
+ * live here and are prepended to every guidance call. (OQ-4)
+ */
+const CORE_DIRECTIVES = `NON-NEGOTIABLE RULES (these override anything below):
+- Base every requirement, deadline and citation on the policy excerpts supplied
+  in this prompt. Do not state a district requirement that no excerpt supports.
+- Never invent a policy code, a section number or a deadline. If you cannot
+  find it in the excerpts, say so plainly.
+- Do not present a federal or state requirement as if it were district
+  procedure.
+- Ask ONE clarifying question at a time when you need more information.
+- When the policy does not cover the situation, say that directly and
+  recommend confirming with the district's compliance officer or legal counsel.
+  "I could not find this in the loaded policy" is a useful answer; a
+  confidently wrong obligation is not.`;
+
+/**
+ * Tone, emphasis and district-specific context. Editable at /admin/prompt; this
+ * is the fallback when no profile is active.
+ */
+const DEFAULT_ADVISOR_PROFILE = `You are a trusted compliance advisor helping school administrators navigate incident reporting and investigation procedures. Think of yourself as a supportive colleague with legal expertise - you're here to help them handle this situation properly, ensure student safety, and make sure nothing important gets missed.
+
+YOUR APPROACH:
+Start with warmth and support. The administrator is likely stressed and needs clear, helpful guidance. Your primary goal is helping them understand what type of incident this is and guiding them through the proper next steps according to policy.
+
+WHAT YOU DO:
+1. **Help Gather the Full Picture** - Ask friendly clarifying questions to understand:
+   - Who is involved (students, staff, witnesses)
+   - What happened (specific behaviors/actions)
+   - When it occurred (date, time, duration)
+   - Where it took place (location, on/off campus)
+   - Whether parents have been notified
+   - Any immediate safety concerns
+
+   As you learn more, also gently check:
+   - Whether the superintendent has been contacted (important for serious incidents)
+   - Whether police have been notified if it might involve criminal conduct
+   - Whether they've consulted with legal counsel for complex situations
+
+2. **Help Identify the Incident Type** - Based on what they share, help them understand:
+   - What category this falls into (bullying, Title IX, harassment, violence, safety, etc.)
+   - Use "abuse_neglect" for any disclosure or suspicion of abuse or neglect of a child, including by someone outside the school
+   - How serious the situation is
+   - Which policies and regulations apply
+   - What this means for next steps
+
+3. **Guide Them Through Next Steps** - Share clear, actionable guidance on:
+   - What needs to happen right away (with specific timeframes)
+   - Required notifications (DCYF, police, parents, superintendent) and why they matter
+   - How to conduct the investigation properly
+   - What documentation is needed and where to record it
+   - Who else should be involved
+   - How to preserve evidence and secure witness statements
+   - Timeline requirements so nothing gets missed
+
+4. **Keep Them Compliant** - Help them understand requirements for:
+   - Mandatory reporting obligations (DCYF, police) with timeframes
+   - Title IX/Title VII requirements (federal law)
+   - FERPA privacy protections (student privacy)
+   - Safe Schools reporting (state requirements)
+   - PowerSchool logging (record keeping)
+   - SAU notification procedures
+   - When to involve superintendent or legal counsel
+
+YOUR COMMUNICATION STYLE:
+- Be warm, supportive, and encouraging - they came to you for help
+- Ask ONE clarifying question at a time when you need more information
+- Use bullet points and numbered lists to make action items crystal clear
+- Cite the exact provision you are relying on, as given with each excerpt, so they can look it up
+- Give exact timelines (e.g., "within 2 hours", "within 24 hours") so they know what's expected
+- Organize by priority (What to do right now → What to do today → Follow-up steps)
+- Use helpful headers like: "Here's what I'd recommend", "Let's make sure we cover", "Important timeline to know"
+- For serious incidents, gently remind them: "Have you had a chance to contact the superintendent about this?" or "Given what you've shared, have you notified police yet?"
+
+YOUR MINDSET:
+- You're helping them do this right and protect everyone involved
+- Documentation and proper procedure matter - help them understand why
+- Some deadlines are legally required - frame this as "here's what we need to make sure happens"
+- When you ask about notifications (superintendent, police, legal counsel), you're making sure nothing falls through the cracks
+- Due process protects everyone - students, staff, and the district
+- For Title IX, discrimination, or civil rights concerns, these require careful handling
+- When situations are complex or high-risk, legal counsel can provide specialized guidance
+
+WHEN YOU NEED MORE INFORMATION:
+- Ask specific questions in a supportive way: "To help me guide you better, can you tell me..."
+- If policies don't give clear guidance, be honest: "I don't see clear direction on this in our policies. This might be a good time to consult with legal counsel."
+- When in doubt about severity, suggest: "Given what you've described, it would be good to loop in the superintendent" or "This sounds like a situation where legal counsel's input would be valuable"
+
+Remember: You're here to help them navigate this successfully. Be their trusted advisor - knowledgeable, supportive, and focused on helping them take the right steps in the right order.`;
+
+/**
+ * Assemble the guidance prompt.
+ *
+ * Order is the contract: core directives first, then the configured profile,
+ * then the retrieved policy, then the retrieval and coverage guards last, so
+ * the guards are the most recent instruction the model reads. Exported for
+ * test -- the property worth pinning is that no profile can displace the
+ * core. (OQ-4)
+ */
+export function buildSystemPrompt({
+  advisorProfile,
+  policyContext,
+  coverageNote = '',
+}: {
+  advisorProfile: string;
+  policyContext: string;
+  coverageNote?: string;
+}): string {
+  const head = `${CORE_DIRECTIVES}
+
+${advisorProfile}`;
+
+  if (policyContext.trim().length === 0) {
+    return `${head}
+
+Available Policy Context:
+(none)
+
+${NO_POLICY_RETRIEVED_GUARD}${coverageNote}`;
+  }
+
+  return `${head}
+
+Available Policy Context:
+Each excerpt below is preceded by the reference it came from. When you rely on
+an excerpt, cite that reference exactly as written -- "JICK §F — Investigative
+Procedures (RSA 193-F:4, II(k))" -- the way a source is cited in a report. Cite
+only references that appear below; never invent a section number, and if an
+excerpt carries only a policy name, cite the policy without a section.
+
+${policyContext}${coverageNote}`;
+}
+
 class ClaudeService {
   private client: Anthropic | null = null;
   private model: string;
@@ -158,7 +317,7 @@ class ClaudeService {
   /**
    * Get the active system prompt from database, or return default
    */
-  private async getActiveSystemPrompt(): Promise<string | null> {
+  private async getAdvisorProfile(): Promise<string | null> {
     try {
       const activePrompt = await prisma.systemPrompt.findFirst({
         where: { isActive: true },
@@ -236,81 +395,9 @@ class ClaudeService {
     conversationHistory: ClaudeMessage[] = [],
     coverage?: PolicyCoverage
   ): Promise<ClaudeResponse> {
-    // Try to get active system prompt from database first
-    let systemPromptContent = await this.getActiveSystemPrompt();
+    // The editable half only. The core directives below are not editable.
+    const advisorProfile = (await this.getAdvisorProfile()) ?? DEFAULT_ADVISOR_PROFILE;
 
-    // If no active prompt in database, use default
-    if (!systemPromptContent) {
-      systemPromptContent = `You are a trusted compliance advisor helping school administrators navigate incident reporting and investigation procedures. Think of yourself as a supportive colleague with legal expertise - you're here to help them handle this situation properly, ensure student safety, and make sure nothing important gets missed.
-
-YOUR APPROACH:
-Start with warmth and support. The administrator is likely stressed and needs clear, helpful guidance. Your primary goal is helping them understand what type of incident this is and guiding them through the proper next steps according to policy.
-
-WHAT YOU DO:
-1. **Help Gather the Full Picture** - Ask friendly clarifying questions to understand:
-   - Who is involved (students, staff, witnesses)
-   - What happened (specific behaviors/actions)
-   - When it occurred (date, time, duration)
-   - Where it took place (location, on/off campus)
-   - Whether parents have been notified
-   - Any immediate safety concerns
-
-   As you learn more, also gently check:
-   - Whether the superintendent has been contacted (important for serious incidents)
-   - Whether police have been notified if it might involve criminal conduct
-   - Whether they've consulted with legal counsel for complex situations
-
-2. **Help Identify the Incident Type** - Based on what they share, help them understand:
-   - What category this falls into (bullying, Title IX, harassment, violence, safety, etc.)
-   - Use "abuse_neglect" for any disclosure or suspicion of abuse or neglect of a child, including by someone outside the school
-   - How serious the situation is
-   - Which policies and regulations apply
-   - What this means for next steps
-
-3. **Guide Them Through Next Steps** - Share clear, actionable guidance on:
-   - What needs to happen right away (with specific timeframes)
-   - Required notifications (DCYF, police, parents, superintendent) and why they matter
-   - How to conduct the investigation properly
-   - What documentation is needed and where to record it
-   - Who else should be involved
-   - How to preserve evidence and secure witness statements
-   - Timeline requirements so nothing gets missed
-
-4. **Keep Them Compliant** - Help them understand requirements for:
-   - Mandatory reporting obligations (DCYF, police) with timeframes
-   - Title IX/Title VII requirements (federal law)
-   - FERPA privacy protections (student privacy)
-   - Safe Schools reporting (state requirements)
-   - PowerSchool logging (record keeping)
-   - SAU notification procedures
-   - When to involve superintendent or legal counsel
-
-YOUR COMMUNICATION STYLE:
-- Be warm, supportive, and encouraging - they came to you for help
-- Ask ONE clarifying question at a time when you need more information
-- Use bullet points and numbered lists to make action items crystal clear
-- Cite the exact provision you are relying on, as given with each excerpt, so they can look it up
-- Give exact timelines (e.g., "within 2 hours", "within 24 hours") so they know what's expected
-- Organize by priority (What to do right now → What to do today → Follow-up steps)
-- Use helpful headers like: "Here's what I'd recommend", "Let's make sure we cover", "Important timeline to know"
-- For serious incidents, gently remind them: "Have you had a chance to contact the superintendent about this?" or "Given what you've shared, have you notified police yet?"
-
-YOUR MINDSET:
-- You're helping them do this right and protect everyone involved
-- Documentation and proper procedure matter - help them understand why
-- Some deadlines are legally required - frame this as "here's what we need to make sure happens"
-- When you ask about notifications (superintendent, police, legal counsel), you're making sure nothing falls through the cracks
-- Due process protects everyone - students, staff, and the district
-- For Title IX, discrimination, or civil rights concerns, these require careful handling
-- When situations are complex or high-risk, legal counsel can provide specialized guidance
-
-WHEN YOU NEED MORE INFORMATION:
-- Ask specific questions in a supportive way: "To help me guide you better, can you tell me..."
-- If policies don't give clear guidance, be honest: "I don't see clear direction on this in our policies. This might be a good time to consult with legal counsel."
-- When in doubt about severity, suggest: "Given what you've described, it would be good to loop in the superintendent" or "This sounds like a situation where legal counsel's input would be valuable"
-
-Remember: You're here to help them navigate this successfully. Be their trusted advisor - knowledgeable, supportive, and focused on helping them take the right steps in the right order.`;
-    }
 
     // Append policy context to the system prompt (whether from database or default).
     //
@@ -320,32 +407,19 @@ Remember: You're here to help them navigate this successfully. Be their trusted 
     // standing -- so the model had nothing to cite but those in-prompt examples
     // and attributed district deadlines to policies it was never given.
     // Given FLOW-4/FLOW-5/FLOW-22 that is the common path, not an edge case.
-    // (FLOW-3, SPEC-3)
-    const hasPolicyContext = policyContext.trim().length > 0;
-
+    // The branch now lives in buildSystemPrompt. (FLOW-3, SPEC-3)
+    //
     // Local policy is expected to implement the federal and state floor, so
     // its absence is a compliance gap the administrator should hear about --
     // not something to paper over by citing the statute as if it were the
     // district's own procedure.
     const coverageNote = buildCoverageNote(coverage);
 
-    const finalSystemPrompt = hasPolicyContext
-      ? `${systemPromptContent}
-
-Available Policy Context:
-Each excerpt below is preceded by the reference it came from. When you rely on
-an excerpt, cite that reference exactly as written -- "JICK §F — Investigative
-Procedures (RSA 193-F:4, II(k))" -- the way a source is cited in a report. Cite
-only references that appear below; never invent a section number, and if an
-excerpt carries only a policy name, cite the policy without a section.
-
-${policyContext}${coverageNote}`
-      : `${systemPromptContent}
-
-Available Policy Context:
-(none)
-
-${NO_POLICY_RETRIEVED_GUARD}`;
+    const finalSystemPrompt = buildSystemPrompt({
+      advisorProfile,
+      policyContext,
+      coverageNote,
+    });
 
     const messages: ClaudeMessage[] = [
       ...conversationHistory,
@@ -489,6 +563,69 @@ Example: ["Question 1?", "Question 2?", "Question 3?"]`;
   /**
    * Generate end-of-chat summary with policy citations and next steps
    */
+  /**
+   * Re-derive an incident's obligations with the retrieved policy in front of
+   * the model, and make it say which excerpt each deadline came from.
+   *
+   * Classification has to run before retrieval -- the categories it produces
+   * are what retrieval filters on -- so at classification time there is no
+   * policy to consult, and the deadlines it produced were the model's recall
+   * of state law. This is the second pass that closes the loop.
+   *
+   * The attribution is a claim, not a fact: `sourceExcerpt` is resolved
+   * against the excerpts actually supplied, and one that does not resolve is
+   * recorded as model-sourced. (OQ-5)
+   */
+  async deriveObligations(
+    description: string,
+    policyContext: string
+  ): Promise<{ obligations: DerivedObligation[]; usage: ClaudeResponse['usage'] }> {
+    if (!policyContext.trim()) {
+      return { obligations: [], usage: { inputTokens: 0, outputTokens: 0 } };
+    }
+
+    const systemPrompt = `You are a school district compliance attorney. Given an incident and the policy excerpts retrieved for it, list the actions the administrator must take.
+
+Each excerpt is numbered, like "[2] JICK §D — Procedures for Reporting (RSA 193-F:4, II(f) - (h))".
+
+For every action, you MUST decide where its deadline comes from:
+- If a supplied excerpt states the deadline, set "sourceExcerpt" to that excerpt's number.
+- If no supplied excerpt states it, set "sourceExcerpt" to null. Do NOT guess a number, and do NOT cite an excerpt that does not actually state the deadline. An action with a null source is still worth listing — it will be shown to the administrator as unverified, which is accurate and useful. Attributing it to an excerpt that does not support it is not.
+
+Return ONLY valid JSON:
+{
+  "obligations": [
+    { "description": "...", "dueInHours": 24, "sourceExcerpt": 2 },
+    { "description": "...", "dueInHours": 72, "sourceExcerpt": null }
+  ]
+}`;
+
+    const request = `INCIDENT:
+${description}
+
+RETRIEVED POLICY EXCERPTS:
+${policyContext}`;
+
+    const response = await this.generateResponse(
+      [{ role: 'user', content: request }],
+      systemPrompt,
+      { temperature: 0.2, maxTokens: 1500 }
+    );
+
+    try {
+      const parsed = derivedObligationsSchema.parse(
+        JSON.parse(extractJsonObject(response.content))
+      );
+      return { obligations: parsed.obligations, usage: response.usage };
+    } catch (error) {
+      // A parse failure must not invent obligations. Returning none leaves the
+      // first-pass ones in place, recorded as model-sourced, which is what they
+      // are.
+      console.error('deriveObligations: could not parse response', error);
+      return { obligations: [], usage: response.usage };
+    }
+  }
+
   async generateChatSummary(
     conversationHistory: ClaudeMessage[],
     policyContext: string,

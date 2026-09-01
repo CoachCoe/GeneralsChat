@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { incidentClassifier } from '@/lib/ai/classifier';
-import { DataSensitivity, INCIDENT_TYPE_LABELS } from '@/types';
+import { DataSensitivity, INCIDENT_TYPE_LABELS, PolicyReference } from '@/types';
 import { logRequest, logResponse, logError } from '@/lib/logger';
 import { recordAudit } from '@/lib/audit';
 import { createErrorResponse, validationError, notFoundError } from '@/lib/errors';
@@ -10,6 +10,9 @@ import { chatMessageSchema, validateRequest, formatValidationErrors } from '@/li
 import { LLMUnavailableError } from '@/lib/ai/llm-service';
 import { SUMMARY_SENDER } from '@/lib/ai/incident-summary';
 import { incidentScope, requireUser } from '@/lib/session';
+import { actionTypeFor, ClassificationUnavailableError } from '@/lib/ai/classifier';
+import { resolveProvenance } from '@/lib/obligation-provenance';
+import { claudeService } from '@/lib/ai/claude-service';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -128,48 +131,48 @@ export async function POST(request: NextRequest) {
     // incidentType, severity, timeline null and zero ComplianceAction rows.
     // (FLOW-18, SPEC-10)
     if (!incident.incidentType) {
-      classification = await incidentClassifier.classifyIncident(
-        message,
-        {
+      try {
+        classification = await incidentClassifier.classifyIncident(message, {
           incidentId: incident.id,
           reporterId: userId,
-        }
-      );
+        });
 
-      const typeLabel = INCIDENT_TYPE_LABELS[classification.type] || 'Incident';
+        const typeLabel = INCIDENT_TYPE_LABELS[classification.type] || 'Incident';
 
-      // Enhance title with incident type
-      const enhancedTitle = incident.title.startsWith(typeLabel)
-        ? incident.title
-        : `${typeLabel}: ${incident.title}`;
+        // Enhance title with incident type
+        const enhancedTitle = incident.title.startsWith(typeLabel)
+          ? incident.title
+          : `${typeLabel}: ${incident.title}`;
 
-      // Update incident with classification and enhanced title
-      await prisma.incident.update({
-        where: { id: incident.id },
-        data: {
-          title: enhancedTitle,
-          incidentType: classification.type,
-          severity: classification.severity,
-          timeline: JSON.stringify(classification.timeline),
-          metadata: JSON.stringify({
-            classification,
-            stakeholders: classification.stakeholders,
-          }),
-        },
-      });
-
-      // Create compliance actions
-      for (const action of classification.requiredActions) {
-        await prisma.complianceAction.create({
+        // Update incident with classification and enhanced title
+        await prisma.incident.update({
+          where: { id: incident.id },
           data: {
-            incidentId: incident.id,
-            actionType: action.type,
-            description: action.description,
-            dueDate: action.dueDate,
-            assignedTo: action.assignedTo,
-            status: 'pending',
+            title: enhancedTitle,
+            incidentType: classification.type,
+            severity: classification.severity,
+            timeline: JSON.stringify(classification.timeline),
+            metadata: JSON.stringify({
+              classification,
+              stakeholders: classification.stakeholders,
+            }),
           },
         });
+
+        // Obligations are NOT created here. Classification runs before
+        // retrieval -- its categories are what retrieval filters on -- so at
+        // this point no policy has been consulted and any deadline would be
+        // the model's recall of state law. They are created after retrieval,
+        // below. (OQ-5)
+      } catch (error) {
+        if (!(error instanceof ClassificationUnavailableError)) throw error;
+        // Leave incidentType null so the next turn retries. The guidance call
+        // below still runs -- an administrator mid-incident should get an
+        // answer -- it is just retrieved without a category filter, and the
+        // incident stays visibly unclassified rather than being stamped
+        // `other` forever. (FLOW-35)
+        logError(error, { endpoint: '/api/chat', note: 'classification unavailable; will retry next turn' });
+        classification = null;
       }
     }
 
@@ -178,7 +181,12 @@ export async function POST(request: NextRequest) {
     // null and the category filter matched nothing -- on the one turn that
     // matters most. Diagnosing the incident is what tells us which policies
     // apply, which is the whole point of the tool.
-    const { response: policyContext, citations, coverage } = await ragSystem.generateResponseWithCitations(
+    const {
+      response: policyContext,
+      citations,
+      coverage,
+      references,
+    } = await ragSystem.generateResponseWithCitations(
       message,
       {
         incidentId: incident.id,
@@ -187,6 +195,12 @@ export async function POST(request: NextRequest) {
         previousMessages: priorMessages,
       }
     );
+
+    // Phase two: now that policy has been retrieved, derive the obligations
+    // from it and record where each deadline actually came from. (OQ-5)
+    if (classification) {
+      await createObligations(incident.id, message, policyContext, references, classification);
+    }
 
     const { content: response, usage } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
       message,
@@ -252,6 +266,67 @@ export async function POST(request: NextRequest) {
 
     logResponse('POST', '/api/chat', errorResponse.status, duration);
     return errorResponse;
+  }
+}
+
+/**
+ * Create an incident's obligations from the policy that was actually retrieved.
+ *
+ * Two passes, because the ordering is forced: classification produces the
+ * categories retrieval filters on, so it cannot see policy, and its deadlines
+ * are therefore the model's recall of state law. This pass re-derives them with
+ * the excerpts in hand and records, per obligation, whether the deadline came
+ * from a retrieved policy or from the model.
+ *
+ * The model's attribution is checked, not trusted. `sourceExcerpt` is resolved
+ * against the excerpts actually supplied; a number that does not resolve --
+ * invented, or off-by-one -- yields an unverified obligation rather than a
+ * confident citation to the wrong provision.
+ *
+ * Falls back to the first-pass obligations when the second pass returns
+ * nothing (an empty library, or an unparseable response). Those are recorded
+ * as model-sourced, which is exactly what they are: losing the obligation
+ * entirely would be worse, because "you must report this to DCYF" is worth
+ * saying even when no deadline can be attributed. (OQ-5)
+ */
+async function createObligations(
+  incidentId: string,
+  message: string,
+  policyContext: string,
+  references: PolicyReference[],
+  classification: { requiredActions: { type: string; description: string; dueDate: Date }[] }
+): Promise<void> {
+  const { obligations } = await claudeService.deriveObligations(message, policyContext);
+
+  if (obligations.length > 0) {
+    for (const obligation of obligations) {
+      const provenance = resolveProvenance(obligation.sourceExcerpt, references);
+
+      await prisma.complianceAction.create({
+        data: {
+          incidentId,
+          actionType: actionTypeFor(obligation.description),
+          description: obligation.description,
+          dueDate: new Date(Date.now() + obligation.dueInHours * 60 * 60 * 1000),
+          status: 'pending',
+          ...provenance,
+        },
+      });
+    }
+    return;
+  }
+
+  for (const action of classification.requiredActions) {
+    await prisma.complianceAction.create({
+      data: {
+        incidentId,
+        actionType: action.type,
+        description: action.description,
+        dueDate: action.dueDate,
+        status: 'pending',
+        deadlineSource: 'model',
+      },
+    });
   }
 }
 
