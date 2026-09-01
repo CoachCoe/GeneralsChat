@@ -1,0 +1,84 @@
+/*
+ * Tailwind WITHOUT preflight.
+ *
+ * globals.css still carries its own reset and 213 hand-written utilities for
+ * the pages that have not been migrated yet. Pulling in Tailwind's preflight
+ * now would restyle all of them at once. Utilities land in the `utilities`
+ * cascade layer, and globals.css is unlayered, so where the two define the
+ * same class the existing one still wins -- migration stays page-by-page.
+ * Classes globals.css never defined (animate-spin, the lg: breakpoints) start
+ * working immediately, which is a strict improvement.
+ *
+ * Pass 3 of the migration swaps this for a plain `@import "tailwindcss"` and
+ * deletes globals.css.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/*
+ * Design tokens from the GeneralsChat redesign (1j).
+ *
+ * The palette is Tailwind's `stone` ramp plus three earned state colours.
+ * "Earned, never decorative" -- colour in this UI means a deadline state and
+ * nothing else, so these are the only accents in the system.
+ */
+@theme {
+  /* Surfaces and text */
+  --color-bg: #0f0f0f;
+  --color-surface: #1c1917;
+  --color-input: #292524;
+  --color-line: #44403c;
+  --color-line-strong: #57534e;
+  --color-text: #fafaf9;
+  --color-text-secondary: #d6d3d1;
+  --color-text-tertiary: #a8a29e;
+  --color-text-muted: #78716c;
+
+  /* State -- a statutory meaning each */
+  --color-overdue: #ef4444;   /* a deadline has passed */
+  --color-attention: #f59e0b; /* due soon, or a coverage gap */
+  --color-met: #22c55e;       /* obligation discharged and recorded */
+
+  /* Type: three families, three jobs */
+  --font-display: var(--font-dm-serif), ui-serif, Georgia, serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --radius-card: 16px;
+  --radius-control: 12px;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 16px;
+    line-height: 1.625;
+  }
+
+  /* Every time, ID and count is tabular mono -- digits must not jitter as a
+     countdown ticks. */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The only uppercase in the UI. */
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-text-muted);
+  }
+}
