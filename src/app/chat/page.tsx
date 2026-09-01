@@ -6,12 +6,21 @@ import { Send, Plus, Paperclip, Menu } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { GuidanceBlock } from '@/components/design/GuidanceBlock';
+import { SourceLadder } from '@/components/design/SourceLadder';
+import { CoverageGapCard } from '@/components/design/CoverageGapCard';
 
 interface Citation {
   policyId: string;
   title: string;
   jurisdiction: string;
   category: string;
+}
+
+interface Coverage {
+  categories: string[];
+  byCategory: Record<string, string[]>;
+  categoriesWithoutLocalPolicy: string[];
 }
 
 interface Message {
@@ -21,6 +30,7 @@ interface Message {
   timestamp: Date;
   /** Policies the guidance was drawn from; empty means none matched. */
   citations?: Citation[];
+  coverage?: Coverage;
 }
 
 interface Chat {
@@ -140,7 +150,8 @@ export default function ChatPage() {
         type: 'general',
         content: data.response,
         timestamp: new Date(),
-        citations: data.citations ?? []
+        citations: data.citations ?? [],
+        coverage: data.coverage
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
@@ -453,44 +464,36 @@ export default function ChatPage() {
                           fontSize: '15px',
                           lineHeight: '1.6',
                           color: 'var(--foreground)',
-                          whiteSpace: 'pre-wrap',
+                          whiteSpace: message.type === 'user' ? 'pre-wrap' : 'normal',
                           wordBreak: 'break-word'
                         }}>
-                          {message.content}
+                          {message.type === 'general' ? (
+                            <GuidanceBlock>{message.content}</GuidanceBlock>
+                          ) : (
+                            message.content
+                          )}
                         </div>
 
                         {message.type === 'general' && message.citations && (
-                          <div data-testid="chat-sources" style={{ marginTop: '10px' }}>
+                          <div data-testid="chat-sources" className="mt-4 flex flex-col gap-4">
                             {message.citations.length > 0 ? (
-                              <>
-                                <div style={{
-                                  fontSize: '12px',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.05em',
-                                  color: 'var(--muted-foreground)',
-                                  marginBottom: '4px'
-                                }}>
-                                  Policies referenced
-                                </div>
-                                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                                  {message.citations.map((citation) => (
-                                    <li
-                                      key={citation.policyId}
-                                      style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}
-                                    >
-                                      <span style={{ textTransform: 'capitalize' }}>
-                                        {citation.jurisdiction}
-                                      </span>
-                                      {' · '}
-                                      {citation.title}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </>
+                              <SourceLadder
+                                sources={message.citations.map((c) => ({
+                                  jurisdiction: c.jurisdiction,
+                                  title: c.title,
+                                }))}
+                                gapCategories={message.coverage?.categoriesWithoutLocalPolicy ?? []}
+                              />
                             ) : (
-                              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
+                              <div className="text-[13px] text-text-muted">
                                 No matching district policy was found for this question.
                               </div>
+                            )}
+
+                            {message.coverage && (
+                              <CoverageGapCard
+                                categories={message.coverage.categoriesWithoutLocalPolicy}
+                              />
                             )}
                           </div>
                         )}

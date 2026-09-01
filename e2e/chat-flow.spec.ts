@@ -135,7 +135,10 @@ test.describe('Policy retrieval across jurisdictions', () => {
     const sources = page.getByTestId('chat-sources');
     await expect(sources).toBeVisible();
     await expect(sources).toContainText('Policy JICK: Bullying Prevention');
-    await expect(sources).toContainText('district');
+    // SourceLadder labels each rung by jurisdiction, highest authority first.
+    await expect(sources).toContainText('Federal');
+    await expect(sources).toContainText('State');
+    await expect(sources).toContainText('District');
   });
 
   test('mandatory reporting policy is retrieved for every incident type', async ({ page }) => {
