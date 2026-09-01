@@ -107,24 +107,6 @@ export async function POST(request: NextRequest) {
       content: conv.message,
     }));
 
-    // Generate AI response using RAG
-    const { response: policyContext, citations } = await ragSystem.generateResponseWithCitations(
-      message,
-      {
-        incidentId: incident.id,
-        incidentType: incident.incidentType,
-        severity: incident.severity,
-        previousMessages: priorMessages,
-      }
-    );
-
-    // Use LLM service with COMPLETE conversation history
-    const { content: response, usage } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
-      message,
-      policyContext,
-      conversationHistory
-    );
-
     // Classify incident if this is the first substantive message
     let classification = null;
     // Previously `conversations.length === 0 && message.length > 50`. Both had
@@ -134,14 +116,12 @@ export async function POST(request: NextRequest) {
     // incidentType, severity, timeline null and zero ComplianceAction rows.
     // (FLOW-18, SPEC-10)
     if (!incident.incidentType) {
-      // Pass policy context to classifier for better accuracy
       classification = await incidentClassifier.classifyIncident(
         message,
         {
           incidentId: incident.id,
           reporterId: userId,
-        },
-        policyContext
+        }
       );
 
       const typeLabel = INCIDENT_TYPE_LABELS[classification.type] || 'Incident';
@@ -181,6 +161,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Retrieval is driven by the classification, so it runs after it. When the
+    // opening turn was retrieved before classifying, incidentType was still
+    // null and the category filter matched nothing -- on the one turn that
+    // matters most. Diagnosing the incident is what tells us which policies
+    // apply, which is the whole point of the tool.
+    const { response: policyContext, citations, coverage } = await ragSystem.generateResponseWithCitations(
+      message,
+      {
+        incidentId: incident.id,
+        incidentType: classification?.type ?? incident.incidentType,
+        severity: classification?.severity ?? incident.severity,
+        previousMessages: priorMessages,
+      }
+    );
+
+    const { content: response, usage } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
+      message,
+      policyContext,
+      conversationHistory,
+      coverage
+    );
+
     // Save AI response
     const aiMessage = await prisma.conversation.create({
       data: {
@@ -202,6 +204,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       response,
       citations,
+      coverage,
       incidentId: incident.id,
       classification,
       messageId: aiMessage.id,

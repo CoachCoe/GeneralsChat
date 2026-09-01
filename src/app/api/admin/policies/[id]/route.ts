@@ -54,14 +54,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     const { id } = await params;
     const body = await request.json();
-    const { title, content, policyType, effectiveDate, isActive, metadata } = body;
+    const { title, content, jurisdiction, category, effectiveDate, isActive, metadata } = body;
 
     const policy = await prisma.policy.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
-        ...(policyType !== undefined && { policyType }),
+        ...(jurisdiction !== undefined && { jurisdiction }),
+        ...(category !== undefined && { category }),
         ...(effectiveDate !== undefined && { effectiveDate: new Date(effectiveDate) }),
         ...(isActive !== undefined && { isActive }),
         ...(metadata !== undefined && { metadata: JSON.stringify(metadata) })
@@ -76,7 +77,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
       await ragSystem.deletePolicyChunks(id);
       await ragSystem.addPolicyDocument(id, content, {
         title: policy.title,
-        policyType: policy.policyType,
+        jurisdiction: policy.jurisdiction,
+        category: policy.category,
         effectiveDate: policy.effectiveDate?.toISOString(),
         ...(metadata && typeof metadata === 'object' ? metadata : {}),
       });

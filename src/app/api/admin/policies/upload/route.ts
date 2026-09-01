@@ -31,14 +31,15 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const url = formData.get('url') as string | null;
     const title = formData.get('title') as string;
-    const policyType = formData.get('policyType') as string;
+    const jurisdiction = (formData.get('jurisdiction') as string) || 'district';
+    const category = (formData.get('category') as string) || 'other';
     const effectiveDate = formData.get('effectiveDate') as string;
     const keywords = formData.get('keywords') as string;
 
     // Validation
-    if (!title || !policyType || !effectiveDate) {
+    if (!title || !effectiveDate) {
       return NextResponse.json(
-        { error: 'Title, policyType, and effectiveDate are required' },
+        { error: 'Title and effectiveDate are required' },
         { status: 400 }
       );
     }
@@ -107,7 +108,8 @@ export async function POST(request: NextRequest) {
         title,
         content,
         filePath,
-        policyType,
+        jurisdiction,
+        category,
         effectiveDate: new Date(effectiveDate),
         metadata: JSON.stringify({
           keywords: keywordsArray,
@@ -131,7 +133,8 @@ export async function POST(request: NextRequest) {
     // (FLOW-22, FLOW-23, SPEC-9, DEAD-11)
     await ragSystem.addPolicyDocument(policy.id, content, {
       title,
-      policyType,
+      jurisdiction: policy.jurisdiction,
+      category: policy.category,
       effectiveDate,
       keywords: keywordsArray,
     });
@@ -145,7 +148,8 @@ export async function POST(request: NextRequest) {
       policy: {
         id: policy.id,
         title: policy.title,
-        policyType: policy.policyType,
+        jurisdiction: policy.jurisdiction,
+        category: policy.category,
         effectiveDate: policy.effectiveDate,
       },
       chunksCreated

@@ -44,27 +44,78 @@ export async function resetDatabase(): Promise<void> {
       where: { email: TEST_USERS.reporter.email },
     });
 
-    // A policy the keyword fallback can actually retrieve.
-    const policy = await prisma.policy.create({
-      data: {
+    // Policies across three jurisdictions in the same category, so retrieval
+    // can be asserted to assemble an answer from all of them -- plus a
+    // category (restraint_seclusion) with only federal/state coverage and no
+    // local policy, so the coverage-gap path is exercised too.
+    const policies = [
+      {
+        title: 'Title IX (34 CFR Part 106)',
+        jurisdiction: 'federal',
+        category: 'bullying',
+        content:
+          'Federal requirement: schools must respond promptly to conduct that ' +
+          'denies a person equal access to an education program. Bullying that ' +
+          'is severe or pervasive triggers a formal response obligation.',
+      },
+      {
+        title: 'RSA 193-F: Pupil Safety and Violence Prevention',
+        jurisdiction: 'state',
+        category: 'bullying',
+        content:
+          'State requirement: the principal must notify the parents of both the ' +
+          'targeted student and the perpetrator within 48 hours of a reported ' +
+          'bullying incident, and complete an investigation within 5 school days.',
+      },
+      {
         title: 'Policy JICK: Bullying Prevention',
+        jurisdiction: 'district',
+        category: 'bullying',
         content:
-          'Bullying is prohibited. Staff must report suspected bullying to the ' +
-          'superintendent within 24 hours and document the incident in PowerSchool.',
-        policyType: 'district',
-        effectiveDate: new Date('2024-01-01'),
-        isActive: true,
-      },
-    });
-    await prisma.policyChunk.create({
-      data: {
-        policyId: policy.id,
-        chunkIndex: 0,
-        content:
-          'Bullying is prohibited. Staff must report suspected bullying to the ' +
+          'District procedure: staff must report suspected bullying to the ' +
           'superintendent within 24 hours and document the incident in PowerSchool.',
       },
-    });
+      {
+        title: 'Policy JLF: Reporting Child Abuse and Neglect',
+        jurisdiction: 'district',
+        category: 'mandatory_reporting',
+        content:
+          'District procedure: any staff member with reason to suspect abuse or ' +
+          'neglect must report to DCYF immediately and notify the superintendent.',
+      },
+      {
+        title: 'Policy JIC: Student Conduct',
+        jurisdiction: 'district',
+        category: 'discipline',
+        content:
+          'District procedure: disciplinary consequences must be applied ' +
+          'consistently and documented in the student information system.',
+      },
+      {
+        title: '34 CFR 300.34: Restraint and Seclusion Guidance',
+        jurisdiction: 'federal',
+        category: 'restraint_seclusion',
+        content:
+          'Federal guidance: physical restraint may be used only when a student ' +
+          'poses an imminent danger of serious physical harm to self or others.',
+      },
+    ];
+
+    for (const p of policies) {
+      const created = await prisma.policy.create({
+        data: {
+          title: p.title,
+          content: p.content,
+          jurisdiction: p.jurisdiction,
+          category: p.category,
+          effectiveDate: new Date('2024-01-01'),
+          isActive: true,
+        },
+      });
+      await prisma.policyChunk.create({
+        data: { policyId: created.id, chunkIndex: 0, content: p.content },
+      });
+    }
 
     // One open incident owned by the reporter, one closed, and one owned by
     // the admin so cross-user access can be asserted.

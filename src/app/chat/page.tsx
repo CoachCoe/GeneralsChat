@@ -7,11 +7,20 @@ import Navbar from '@/components/Navbar';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 
+interface Citation {
+  policyId: string;
+  title: string;
+  jurisdiction: string;
+  category: string;
+}
+
 interface Message {
   id: string;
   type: 'user' | 'general';
   content: string;
   timestamp: Date;
+  /** Policies the guidance was drawn from; empty means none matched. */
+  citations?: Citation[];
 }
 
 interface Chat {
@@ -130,7 +139,8 @@ export default function ChatPage() {
         id: (Date.now() + 1).toString(),
         type: 'general',
         content: data.response,
-        timestamp: new Date()
+        timestamp: new Date(),
+        citations: data.citations ?? []
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
@@ -448,6 +458,42 @@ export default function ChatPage() {
                         }}>
                           {message.content}
                         </div>
+
+                        {message.type === 'general' && message.citations && (
+                          <div data-testid="chat-sources" style={{ marginTop: '10px' }}>
+                            {message.citations.length > 0 ? (
+                              <>
+                                <div style={{
+                                  fontSize: '12px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.05em',
+                                  color: 'var(--muted-foreground)',
+                                  marginBottom: '4px'
+                                }}>
+                                  Policies referenced
+                                </div>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                  {message.citations.map((citation) => (
+                                    <li
+                                      key={citation.policyId}
+                                      style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}
+                                    >
+                                      <span style={{ textTransform: 'capitalize' }}>
+                                        {citation.jurisdiction}
+                                      </span>
+                                      {' · '}
+                                      {citation.title}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            ) : (
+                              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
+                                No matching district policy was found for this question.
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

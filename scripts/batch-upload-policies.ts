@@ -15,10 +15,13 @@ config({ path: resolve(__dirname, '../.env') });
  */
 
 interface PolicyUpload {
-  file: string;                  // Filename in sample-policies/
-  title: string;                 // Policy title (e.g., "JLDBB - Suicide Prevention")
-  type: string;                  // Policy type (see options below)
-  effectiveDate: string;         // YYYY-MM-DD format
+  file: string;          // Filename in sample-policies/
+  title: string;         // e.g. "JLDBB - Suicide Prevention"
+  /** Who issued it: federal | state | district | school */
+  jurisdiction: string;
+  /** What it covers: bullying, title_ix, mandatory_reporting, ... */
+  category: string;
+  effectiveDate: string; // YYYY-MM-DD
 }
 
 /**
@@ -58,16 +61,16 @@ const policies: PolicyUpload[] = [
   //
   // { file: 'student-conduct-school-buses.txt',
   //   title: 'Policy JICC: Student Conduct on School Buses',
-  //   type: 'discipline', effectiveDate: '2024-05-09' },
+  //   jurisdiction: 'district', category: 'discipline', effectiveDate: '2024-05-09' },
   // { file: 'title-ix-policy-update-2025.txt',
   //   title: '2025 NHSBA Special Title IX Policy Update',
-  //   type: 'title_ix', effectiveDate: '2025-01-09' },
+  //   jurisdiction: 'state', category: 'title_ix', effectiveDate: '2025-01-09' },
   // { file: 'sexual-harassment-policy.pdf',
   //   title: 'Policy ACAC: Prohibition of Sexual Harassment Policy and Grievance Procedures',
-  //   type: 'title_ix', effectiveDate: '2024-01-01' },
+  //   jurisdiction: 'district', category: 'title_ix', effectiveDate: '2024-01-01' },
   // { file: 'bullying-prevention-policy.txt',
   //   title: 'School District Bullying Prevention and Intervention Policy',
-  //   type: 'bullying', effectiveDate: '2024-09-01' },
+  //   jurisdiction: 'district', category: 'bullying', effectiveDate: '2024-09-01' },
 
   // ============================================================================
   // PRIORITY 1: IMMEDIATE SAFETY & LEGAL REQUIREMENTS
@@ -212,7 +215,8 @@ async function uploadPolicies() {
     try {
       const form = new FormData();
       form.append('title', policy.title);
-      form.append('policyType', policy.type);
+      form.append('jurisdiction', policy.jurisdiction);
+      form.append('category', policy.category);
       form.append('effectiveDate', policy.effectiveDate);
 
       // Determine content type
@@ -236,7 +240,7 @@ async function uploadPolicies() {
       if (response.ok) {
         const data = await response.json();
         console.log(`\n✅ UPLOADED: ${policy.title}`);
-        console.log(`   Type: ${policy.type}`);
+        console.log(`   ${policy.jurisdiction} / ${policy.category}`);
         console.log(`   File: ${policy.file}`);
         console.log(`   Chunks: ${data.chunksCreated || 'N/A'}`);
         successCount++;

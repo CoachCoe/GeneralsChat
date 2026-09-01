@@ -73,11 +73,33 @@ curl -X POST http://localhost:3000/api/policies \
 
 ---
 
-## 📋 Policy Type Reference
+## 📋 Policy Reference
 
-When uploading, use one of these **exact** policy type strings:
+Every policy has **two** independent fields.
 
-| Policy Type | Example Policies | Priority |
+### Jurisdiction — who issued it
+
+| Value | Meaning |
+|---|---|
+| `federal` | Federal law or regulation (Title IX, FERPA, IDEA) |
+| `state` | State statute or department rule (e.g. NH RSA 193-F) |
+| `district` | SAU / district board policy |
+| `school` | Individual school procedure or handbook |
+
+Federal and state set the floor; district and school implement it. Guidance
+assembles all of them, so an administrator sees both the statutory requirement
+and the local procedure that satisfies it.
+
+**If a category has no district or school policy, the assistant says so**
+rather than presenting a federal or state rule as local procedure. That gap is
+worth knowing about — there should be a local policy for everything.
+
+### Category — what it covers
+
+Incident classification matches on this to decide which policies apply. Use one
+of these **exact** strings:
+
+| Category | Example Policies | Priority |
 |------------|------------------|----------|
 | `suicide_prevention` | JLDBB - Suicide Prevention | 🔴 High |
 | `mandatory_reporting` | JLF - Reporting Child Abuse and Neglect | 🔴 High |

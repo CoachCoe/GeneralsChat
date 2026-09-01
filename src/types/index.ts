@@ -104,7 +104,114 @@ export enum UserRole {
   REPORTER = "reporter"
 }
 
-// Policy Types
+/**
+ * Where a policy comes from.
+ *
+ * Ordered weakest-to-strongest locality. Federal and state set the floor;
+ * district and school implement it. Guidance should surface all of them,
+ * because an administrator needs to know both the statutory requirement and
+ * the local procedure that satisfies it.
+ */
+export const POLICY_JURISDICTIONS = ['federal', 'state', 'district', 'school'] as const;
+export type PolicyJurisdiction = (typeof POLICY_JURISDICTIONS)[number];
+
+export const JURISDICTION_LABELS: Record<PolicyJurisdiction, string> = {
+  federal: 'Federal',
+  state: 'State',
+  district: 'District',
+  school: 'School',
+};
+
+/**
+ * What a policy is about. Independent of jurisdiction: there can be a federal,
+ * a state, a district and a school policy all in the same category.
+ */
+export const POLICY_CATEGORIES = [
+  'suicide_prevention',
+  'mandatory_reporting',
+  'restraint_seclusion',
+  'title_ix',
+  'discrimination',
+  'bullying',
+  'school_safety',
+  'emergency_operations',
+  'discipline',
+  'student_health',
+  'athletic_safety',
+  'student_records',
+  'enrollment',
+  'attendance',
+  'field_trips',
+  'technology',
+  'background_checks',
+  'employee',
+  'parental_rights',
+  'chemical_safety',
+  'other',
+] as const;
+export type PolicyCategory = (typeof POLICY_CATEGORIES)[number];
+
+/**
+ * Indexed by plain string: category values arriving from the database are not
+ * narrowed, and a row written before a category was added should still render
+ * rather than crash.
+ */
+export const CATEGORY_LABELS: Record<string, string> = {
+  suicide_prevention: 'Suicide Prevention',
+  mandatory_reporting: 'Mandatory Reporting',
+  restraint_seclusion: 'Restraint & Seclusion',
+  title_ix: 'Title IX',
+  discrimination: 'Discrimination',
+  bullying: 'Bullying',
+  school_safety: 'School Safety',
+  emergency_operations: 'Emergency Operations',
+  discipline: 'Discipline',
+  student_health: 'Student Health',
+  athletic_safety: 'Athletic Safety',
+  student_records: 'Student Records (FERPA)',
+  enrollment: 'Enrollment',
+  attendance: 'Attendance',
+  field_trips: 'Field Trips',
+  technology: 'Technology & Data',
+  background_checks: 'Background Checks',
+  employee: 'Employee',
+  parental_rights: 'Parental Rights',
+  chemical_safety: 'Chemical Safety',
+  other: 'Other',
+};
+
+/**
+ * Which policy categories an incident type implicates.
+ *
+ * mandatory_reporting is appended to every incident: "must I report this, to
+ * whom, and by when" is the question the tool exists to answer, so those
+ * obligations must be retrievable regardless of how the incident classified.
+ */
+const INCIDENT_TYPE_CATEGORIES: Record<IncidentType, PolicyCategory[]> = {
+  bullying: ['bullying', 'discipline'],
+  title_ix: ['title_ix', 'discrimination'],
+  harassment: ['discrimination', 'title_ix', 'bullying'],
+  violence: ['school_safety', 'discipline', 'emergency_operations'],
+  substance: ['discipline', 'student_health'],
+  other: [],
+};
+
+export function categoriesForIncidentType(
+  incidentType: string | null | undefined
+): PolicyCategory[] {
+  // Unknown or unclassified: return no categories, which callers treat as "no
+  // filter". Narrowing to mandatory_reporting alone would silently exclude
+  // every other policy on any turn where classification has not run.
+  if (!incidentType || !(incidentType in INCIDENT_TYPE_CATEGORIES)) return [];
+
+  const mapped = INCIDENT_TYPE_CATEGORIES[incidentType as IncidentType];
+  // 'other' maps to nothing specific; do not constrain retrieval for it.
+  if (mapped.length === 0) return [];
+
+  return [...new Set([...mapped, 'mandatory_reporting' as PolicyCategory])];
+}
+
+/** @deprecated Use POLICY_JURISDICTIONS. Retained for existing imports. */
 export enum PolicyType {
   FEDERAL = "federal",
   STATE = "state",
@@ -169,7 +276,8 @@ export interface PolicyDocument {
   filePath?: string;
   version: number;
   effectiveDate: Date;
-  policyType: PolicyType;
+  jurisdiction: PolicyJurisdiction;
+  category: PolicyCategory;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -183,4 +291,42 @@ export interface PolicyChunk {
   chunkIndex: number;
   embedding?: number[];
   createdAt: Date;
+  /** Denormalised so retrieval can group and cite without a second query. */
+  policy?: {
+    title: string;
+    jurisdiction: string;
+    category: string;
+  };
 }
+
+/** One policy cited in a response, with enough detail for the UI to show it. */
+export interface PolicyCitation {
+  policyId: string;
+  title: string;
+  jurisdiction: string;
+  category: string;
+}
+
+/**
+ * Which jurisdictions actually produced a policy for the categories an
+ * incident implicates.
+ *
+ * A missing district or school entry is worth surfacing: local policy is
+ * expected to implement the federal and state floor, so its absence is a real
+ * compliance gap rather than a retrieval miss.
+ */
+export interface PolicyCoverage {
+  /** Categories this incident implicates. */
+  categories: string[];
+  /** category -> jurisdictions that produced a policy for it. */
+  byCategory: Record<string, string[]>;
+  /**
+   * Categories with federal or state authority but no district or school
+   * policy implementing it. Local policy is expected to exist for everything,
+   * so these are compliance gaps worth telling the administrator about --
+   * distinct from "we retrieved nothing at all".
+   */
+  categoriesWithoutLocalPolicy: string[];
+}
+
+export const LOCAL_JURISDICTIONS: readonly string[] = ['district', 'school'];

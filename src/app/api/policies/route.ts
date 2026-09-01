@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { processDocument } from '@/lib/utils/documentProcessor';
-import { PolicyType } from '@/types';
+import { POLICY_CATEGORIES, POLICY_JURISDICTIONS } from '@/types';
 import { mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import {
@@ -21,12 +21,18 @@ export async function GET(request: NextRequest) {
     if (!guard.ok) return guard.response;
 
     const { searchParams } = new URL(request.url);
-    const policyType = searchParams.get('type');
+    const jurisdiction = searchParams.get('jurisdiction');
+    const category = searchParams.get('category');
     const isActive = searchParams.get('active');
 
-    const where: any = {};
-    if (policyType) {
-      where.policyType = policyType;
+    // Allowlisted filters rather than `any`: an unknown value is ignored
+    // instead of being passed through to Prisma.
+    const where: { jurisdiction?: string; category?: string; isActive?: boolean } = {};
+    if (jurisdiction && (POLICY_JURISDICTIONS as readonly string[]).includes(jurisdiction)) {
+      where.jurisdiction = jurisdiction;
+    }
+    if (category && (POLICY_CATEGORIES as readonly string[]).includes(category)) {
+      where.category = category;
     }
     if (isActive !== null) {
       where.isActive = isActive === 'true';
@@ -55,11 +61,12 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const title = formData.get('title') as string;
-    const policyType = formData.get('policyType') as PolicyType;
+    const jurisdiction = (formData.get('jurisdiction') as string) || 'district';
+    const category = (formData.get('category') as string) || 'other';
     const effectiveDate = formData.get('effectiveDate') as string;
     const file = formData.get('file') as File;
 
-    if (!title || !policyType) {
+    if (!title) {
       return NextResponse.json(
         { error: 'Title and policy type are required' },
         { status: 400 }
@@ -96,7 +103,8 @@ export async function POST(request: NextRequest) {
         title,
         content,
         filePath,
-        policyType,
+        jurisdiction,
+        category,
         effectiveDate: effectiveDate ? new Date(effectiveDate) : new Date(),
         isActive: true,
       },
@@ -106,7 +114,8 @@ export async function POST(request: NextRequest) {
     if (content) {
       await ragSystem.addPolicyDocument(policy.id, content, {
         title,
-        policyType,
+        jurisdiction,
+        category,
         effectiveDate: effectiveDate || new Date().toISOString(),
       });
     }

@@ -83,10 +83,35 @@ docker run -p 8000:8000 chromadb/chroma
 | `npm run db:verify` | Print row counts per table |
 | `npm run policies:batch-upload` | Bulk-upload policy documents |
 | `npm run user:create` | Create or update a user and set a password |
+| `npm run policies:reindex` | Re-chunk and re-embed every policy |
 
 `scripts/test-*.ts` are **manual demo scripts, not automated tests** — they
 print a transcript and assert nothing. They need a running server and read
 `APP_BASE_URL` (default `http://localhost:3000`).
+
+## How policies are modelled
+
+A policy has two independent facets:
+
+- **jurisdiction** — `federal`, `state`, `district`, or `school`. Who issued it.
+- **category** — what it covers: `bullying`, `title_ix`, `mandatory_reporting`,
+  `restraint_seclusion`, and so on (20 values).
+
+They are orthogonal, because the same subject is usually governed at several
+levels at once: a federal Title IX rule, a state reporting statute, and the
+district policy implementing both. When an administrator describes an incident,
+classification picks the categories it implicates, retrieval pulls the matching
+policies from **every** jurisdiction, and the answer is assembled with the
+federal and state requirements alongside the local procedure.
+
+Mandatory reporting is always retrieved, whatever the incident type — "must I
+report this, to whom, by when" is the question the tool exists to answer, and
+that policy shares almost no vocabulary with how an incident gets described.
+
+If an implicated category has no district or school policy, that is reported as
+a **coverage gap**: the assistant states the federal and state requirements it
+can support and says plainly that it could not find a local policy, instead of
+passing a statute off as district procedure.
 
 ## Loading policy documents
 
@@ -102,9 +127,13 @@ paths exist; see `QUICK_START_POLICY_UPLOAD.md` for detail.
 All three now index through the same chunker (1000 words, 200-word overlap)
 and generate embeddings when configured.
 
-> Policy rows created before this audit were chunked by an older, broken
-> splitter and have no embeddings. They need re-indexing — see
-> `docs/audit/2026-08-31-work-completed.md`.
+> Policy rows created before this branch were chunked by an older, broken
+> splitter, have no embeddings, and predate the `category` field. Re-index them:
+>
+> ```bash
+> npm run policies:reindex              # dry run: report what would change
+> npm run policies:reindex -- --apply   # write
+> ```
 
 ## Testing
 

@@ -1,5 +1,13 @@
 import { prisma } from '@/lib/db';
-import { PolicyChunk } from '@/types';
+import {
+  categoriesForIncidentType,
+  JURISDICTION_LABELS,
+  POLICY_JURISDICTIONS,
+  PolicyChunk,
+  PolicyCitation,
+  PolicyCoverage,
+  LOCAL_JURISDICTIONS,
+} from '@/types';
 import { chromaService } from './chroma';
 import { embeddingsService } from './embeddings';
 import { splitIntoChunks } from '@/lib/utils/documentProcessor';
@@ -113,21 +121,29 @@ export class RAGSystem {
   async searchRelevantPolicies(
     query: string,
     limit: number = 5,
-    filter?: { policyType?: string; isActive?: boolean }
+    filter?: { categories?: string[]; isActive?: boolean }
   ): Promise<PolicyChunk[]> {
     await this.initialize();
 
     try {
-      // Only policyType is mirrored into Chroma chunk metadata, so only that
+      // Only category is mirrored into Chroma chunk metadata, so only that
       // can be filtered vector-side. Passing isActive here would filter on a
       // metadata key no chunk has, which matches nothing and would silently
       // kill vector search entirely. isActive is enforced against the database
       // during enrichment below, where it also covers chunks indexed before
       // that field existed.
+      // Chroma metadata carries `category`, so that much can be filtered
+      // vector-side. isActive is enforced against the database below, where
+      // it also covers chunks indexed before that field existed.
+      const categoryFilter =
+        filter?.categories && filter.categories.length > 0
+          ? { category: { $in: filter.categories } }
+          : undefined;
+
       const vectorResults = await chromaService.searchSimilarChunks(
         query,
         limit,
-        filter?.policyType ? { policyType: filter.policyType } : undefined
+        categoryFilter
       );
 
       // Enrich with database data if needed
@@ -136,7 +152,7 @@ export class RAGSystem {
           // Get full chunk data from database
           const dbChunk = await prisma.policyChunk.findUnique({
             where: { id: result.id },
-            include: { policy: { select: { isActive: true } } },
+            include: { policy: { select: { title: true, jurisdiction: true, category: true, isActive: true } } },
           });
 
           // A vector hit with no surviving DB row is an orphan: the policy was
@@ -152,10 +168,15 @@ export class RAGSystem {
             return null;
           }
 
-          const { policy: _policy, ...chunk } = dbChunk;
+          const { policy, ...chunk } = dbChunk;
           return {
             ...chunk,
             embedding: chunk.embedding ? JSON.parse(chunk.embedding) : undefined,
+            policy: {
+              title: policy.title,
+              jurisdiction: policy.jurisdiction,
+              category: policy.category,
+            },
           };
         })
       );
@@ -186,7 +207,7 @@ export class RAGSystem {
   private async fallbackSearch(
     query: string,
     limit: number,
-    filter?: { policyType?: string; isActive?: boolean }
+    filter?: { categories?: string[]; isActive?: boolean }
   ): Promise<PolicyChunk[]> {
     // Extract keywords from query (simple approach: words 4+ chars, lowercase)
     const keywords = query
@@ -221,9 +242,12 @@ export class RAGSystem {
         })),
         policy: {
           isActive: filter?.isActive ?? true,
-          ...(filter?.policyType ? { policyType: filter.policyType } : {}),
+          ...(filter?.categories && filter.categories.length > 0
+            ? { category: { in: filter.categories } }
+            : {}),
         },
       },
+      include: { policy: { select: { title: true, jurisdiction: true, category: true } } },
       take: limit * 2, // Get more results for scoring
       orderBy: {
         createdAt: 'desc',
@@ -262,7 +286,12 @@ export class RAGSystem {
       // not currently used for retrieval.
       [key: string]: unknown;
     }
-  ): Promise<{ response: string; citations: string[]; chunks: PolicyChunk[] }> {
+  ): Promise<{
+    response: string;
+    citations: PolicyCitation[];
+    chunks: PolicyChunk[];
+    coverage: PolicyCoverage;
+  }> {
     // Retrieval query includes the incident type and the last couple of user
     // turns. Previously the context argument was named `_context` and never
     // read, so a short follow-up ("no, just the one witness") retrieved on
@@ -277,28 +306,188 @@ export class RAGSystem {
       .filter(Boolean)
       .join(' ');
 
-    const relevantChunks = await this.searchRelevantPolicies(retrievalQuery, 5, {
+    // An incident implicates specific policy categories, and mandatory
+    // reporting always. Retrieve more than the display limit so several
+    // jurisdictions have a chance to appear rather than one verbose policy
+    // crowding out the others.
+    const categories = categoriesForIncidentType(context?.incidentType);
+    const matched = await this.searchRelevantPolicies(retrievalQuery, 12, {
+      categories,
       isActive: true,
     });
 
-    // Build context from relevant chunks
-    const policyContext = relevantChunks
-      .map((chunk, idx) => `[${idx + 1}] ${chunk.content}`)
-      .join('\n\n');
+    const relevantChunks = await this.ensureCategoryRepresentation(matched, categories);
 
-    // Get unique policy IDs for citations
-    const citations = [...new Set(relevantChunks.map(chunk => chunk.policyId))];
+    const policyContext = this.buildJurisdictionContext(relevantChunks);
+    const citations = this.buildCitations(relevantChunks);
+    const coverage = await this.assessCoverage(categories);
 
     return {
-      response: policyContext, // Will be processed by LLM in the next phase
+      response: policyContext,
       citations,
       chunks: relevantChunks,
+      coverage,
     };
   }
 
   /**
-   * Delete all chunks for a policy (when policy is updated/deleted)
+   * Guarantees that every category the incident implicates is represented.
+   *
+   * Relevance ranking alone is not enough here. Mandatory-reporting policy is
+   * the clearest case: an administrator describing "a student disclosed
+   * something about their home life" shares almost no vocabulary with "report
+   * to DCYF immediately", so keyword search never surfaces it -- yet "must I
+   * report this, to whom, by when" is the question the tool exists to answer.
+   * Categories are selected from the incident classification, so a category
+   * being implicated is itself the relevance signal; the text match only
+   * decides which chunk within it.
+   *
+   * Bounded to one supplemental chunk per missing category so this cannot
+   * crowd out the directly relevant text.
    */
+  private async ensureCategoryRepresentation(
+    chunks: PolicyChunk[],
+    categories: string[]
+  ): Promise<PolicyChunk[]> {
+    if (categories.length === 0) return chunks;
+
+    const represented = new Set(
+      chunks.map(c => c.policy?.category).filter(Boolean) as string[]
+    );
+    const missing = categories.filter(c => !represented.has(c));
+    if (missing.length === 0) return chunks;
+
+    const supplements = await prisma.policyChunk.findMany({
+      where: {
+        policy: { isActive: true, category: { in: missing } },
+      },
+      include: { policy: { select: { title: true, jurisdiction: true, category: true } } },
+      orderBy: [{ policy: { jurisdiction: 'asc' } }, { chunkIndex: 'asc' }],
+    });
+
+    // One per missing category, preferring the most local authority available.
+    const takenPerCategory = new Map<string, PolicyChunk>();
+    for (const chunk of supplements) {
+      const category = chunk.policy.category;
+      const existing = takenPerCategory.get(category);
+      const rank = (j: string) => POLICY_JURISDICTIONS.indexOf(j as never);
+      if (!existing || rank(chunk.policy.jurisdiction) > rank(existing.policy!.jurisdiction)) {
+        takenPerCategory.set(category, {
+          ...chunk,
+          embedding: undefined,
+          policy: {
+            title: chunk.policy.title,
+            jurisdiction: chunk.policy.jurisdiction,
+            category: chunk.policy.category,
+          },
+        });
+      }
+    }
+
+    return [...chunks, ...takenPerCategory.values()];
+  }
+
+  /**
+   * Groups retrieved text by jurisdiction, strongest authority first.
+   *
+   * The model previously received a flat `[1] ...` list with no indication of
+   * where any of it came from, so it could not distinguish a federal statute
+   * from a school handbook -- and the citations it was asked to produce were
+   * raw cuids nobody could look up.
+   */
+  private buildJurisdictionContext(chunks: PolicyChunk[]): string {
+    if (chunks.length === 0) return '';
+
+    const sections: string[] = [];
+    let n = 0;
+
+    for (const jurisdiction of POLICY_JURISDICTIONS) {
+      const inScope = chunks.filter(c => c.policy?.jurisdiction === jurisdiction);
+      if (inScope.length === 0) continue;
+
+      const lines = inScope.map(chunk => {
+        n += 1;
+        const title = chunk.policy?.title ?? 'Untitled policy';
+        return `[${n}] ${title} — ${chunk.content}`;
+      });
+
+      sections.push(`${JURISDICTION_LABELS[jurisdiction].toUpperCase()} POLICY:\n${lines.join('\n\n')}`);
+    }
+
+    // Chunks whose policy row could not be read fall through ungrouped rather
+    // than being dropped silently.
+    const ungrouped = chunks.filter(c => !c.policy);
+    if (ungrouped.length > 0) {
+      const lines = ungrouped.map(chunk => {
+        n += 1;
+        return `[${n}] ${chunk.content}`;
+      });
+      sections.push(`UNATTRIBUTED POLICY TEXT:\n${lines.join('\n\n')}`);
+    }
+
+    return sections.join('\n\n');
+  }
+
+  private buildCitations(chunks: PolicyChunk[]): PolicyCitation[] {
+    const seen = new Map<string, PolicyCitation>();
+    for (const chunk of chunks) {
+      if (!chunk.policy || seen.has(chunk.policyId)) continue;
+      seen.set(chunk.policyId, {
+        policyId: chunk.policyId,
+        title: chunk.policy.title,
+        jurisdiction: chunk.policy.jurisdiction,
+        category: chunk.policy.category,
+      });
+    }
+    return [...seen.values()];
+  }
+
+  /**
+   * Which jurisdictions produced a policy for this incident's categories.
+   *
+   * Local policy is expected to implement the federal and state floor, so a
+   * missing district or school policy is a real compliance gap worth telling
+   * the administrator about -- not merely a retrieval miss.
+   */
+  /**
+   * Which jurisdictions hold a policy for each category this incident
+   * implicates.
+   *
+   * Queried against the policy library rather than inferred from what
+   * retrieval returned. A category with no policy at all returns nothing from
+   * search, so deriving coverage from the results would report the most
+   * serious gap -- no policy whatsoever -- as no gap.
+   *
+   * The district is expected to have a local policy for everything, so any
+   * implicated category without a district or school policy is a gap, whether
+   * or not federal or state authority exists above it.
+   */
+  private async assessCoverage(categories: string[]): Promise<PolicyCoverage> {
+    if (categories.length === 0) {
+      return { categories, byCategory: {}, categoriesWithoutLocalPolicy: [] };
+    }
+
+    const policies = await prisma.policy.findMany({
+      where: { isActive: true, category: { in: categories } },
+      select: { category: true, jurisdiction: true },
+      distinct: ['category', 'jurisdiction'],
+    });
+
+    const byCategory: Record<string, string[]> = {};
+    for (const category of categories) byCategory[category] = [];
+    for (const { category, jurisdiction } of policies) {
+      if (!byCategory[category].includes(jurisdiction)) {
+        byCategory[category].push(jurisdiction);
+      }
+    }
+
+    const categoriesWithoutLocalPolicy = categories.filter(
+      category => !byCategory[category].some(j => LOCAL_JURISDICTIONS.includes(j))
+    );
+
+    return { categories, byCategory, categoriesWithoutLocalPolicy };
+  }
+
   async deletePolicyChunks(policyId: string): Promise<void> {
     try {
       // Try to delete from Chroma (may fail if not available)

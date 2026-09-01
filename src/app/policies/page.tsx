@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Upload, Eye, Download } from 'lucide-react';
+import { CATEGORY_LABELS } from '@/types';
 
 interface Policy {
   id: string;
@@ -13,7 +14,8 @@ interface Policy {
   filePath?: string;
   version: number;
   effectiveDate: string;
-  policyType: string;
+  jurisdiction: string;
+  category: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -76,7 +78,9 @@ export default function PoliciesPage() {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
-    formData.append('policyType', 'district');
+    // Defaults only; the full form lives at /admin/policies.
+    formData.append('jurisdiction', 'district');
+    formData.append('category', 'other');
     formData.append('effectiveDate', new Date().toISOString().split('T')[0]);
 
     try {
@@ -186,8 +190,8 @@ export default function PoliciesPage() {
                       </CardDescription>
                     </div>
                     <div className="flex gap-2">
-                      <Badge className={`${getPolicyTypeColor(policy.policyType)} text-white`}>
-                        {policy.policyType}
+                      <Badge className={`${getPolicyTypeColor(policy.jurisdiction)} text-white`}>
+                        {policy.jurisdiction} · {CATEGORY_LABELS[policy.category] ?? policy.category}
                       </Badge>
                       <Badge variant={policy.isActive ? 'default' : 'outline'}>
                         {policy.isActive ? 'Active' : 'Inactive'}

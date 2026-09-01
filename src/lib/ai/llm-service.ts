@@ -1,4 +1,5 @@
 import { claudeService, ClaudeMessage } from './claude-service';
+import type { PolicyCoverage } from '@/types';
 
 /**
  * Raised when the upstream model call fails. Callers must surface this as an
@@ -80,7 +81,8 @@ export class LLMService {
   async generateSchoolComplianceResponse(
     userMessage: string,
     policyContext?: string,
-    conversationHistory: ChatMessage[] = []
+    conversationHistory: ChatMessage[] = [],
+    coverage?: PolicyCoverage
   ): Promise<LLMResponse> {
     try {
       // Convert conversation history to Claude format
@@ -95,7 +97,8 @@ export class LLMService {
       const response = await claudeService.generateComplianceResponse(
         userMessage,
         policyContext || '',
-        claudeHistory
+        claudeHistory,
+        coverage
       );
 
       return {

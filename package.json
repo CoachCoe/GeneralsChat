@@ -18,7 +18,8 @@
     "db:seed-prompt": "tsx scripts/seed-prompt.ts",
     "db:verify": "tsx scripts/verify-db.ts",
     "policies:batch-upload": "tsx scripts/batch-upload-policies.ts",
-    "user:create": "tsx scripts/create-user.ts"
+    "user:create": "tsx scripts/create-user.ts",
+    "policies:reindex": "tsx scripts/reindex-policies.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",

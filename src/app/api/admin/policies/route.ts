@@ -42,12 +42,12 @@ export async function POST(request: NextRequest) {
     if (!guard.ok) return guard.response;
 
     const body = await request.json();
-    const { title, content, policyType, effectiveDate, description, keywords } = body;
+    const { title, content, jurisdiction, category, effectiveDate, description, keywords } = body;
 
     // Validation
-    if (!title || !content || !policyType || !effectiveDate) {
+    if (!title || !content || !effectiveDate) {
       return NextResponse.json(
-        { error: 'Title, content, policyType, and effectiveDate are required' },
+        { error: 'Title, content, and effectiveDate are required' },
         { status: 400 }
       );
     }
@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
       data: {
         title,
         content,
-        policyType,
+        jurisdiction: jurisdiction || 'district',
+        category: category || 'other',
         effectiveDate: new Date(effectiveDate),
         metadata: JSON.stringify({
           keywords: keywords || [],
@@ -80,7 +81,8 @@ export async function POST(request: NextRequest) {
     // (FLOW-22, FLOW-23, SPEC-9, DEAD-11)
     await ragSystem.addPolicyDocument(policy.id, content, {
       title,
-      policyType,
+      jurisdiction: policy.jurisdiction,
+      category: policy.category,
       effectiveDate,
       keywords: keywords || [],
     });

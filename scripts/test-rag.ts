@@ -111,7 +111,8 @@ The school will implement:
       data: {
         title: 'School Bullying Prevention Policy',
         content: samplePolicyContent,
-        policyType: 'district',
+        jurisdiction: 'district',
+        category: 'bullying',
         effectiveDate: new Date(),
         isActive: true,
       },
@@ -123,7 +124,8 @@ The school will implement:
     console.log('6️⃣  Adding policy to RAG system...');
     await ragSystem.addPolicyDocument(policy.id, samplePolicyContent, {
       title: policy.title,
-      policyType: policy.policyType,
+      jurisdiction: policy.jurisdiction,
+      category: policy.category,
     });
     console.log('   ✅ Policy added to RAG system with embeddings\n');
 

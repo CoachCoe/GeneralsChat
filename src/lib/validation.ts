@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { INCIDENT_STATUSES, INCIDENT_TYPES, SEVERITIES } from '@/types';
+import {
+  INCIDENT_STATUSES,
+  INCIDENT_TYPES,
+  POLICY_CATEGORIES,
+  POLICY_JURISDICTIONS,
+  SEVERITIES,
+} from '@/types';
+
+const jurisdictionEnum = z.enum(POLICY_JURISDICTIONS);
+const categoryEnum = z.enum(POLICY_CATEGORIES);
 
 const incidentTypeEnum = z.enum(INCIDENT_TYPES);
 const severityEnum = z.enum(SEVERITIES);
@@ -53,7 +62,8 @@ export const createPolicySchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   content: z.string().optional(),
   filePath: z.string().optional(),
-  policyType: z.enum(['federal', 'state', 'district', 'school']),
+  jurisdiction: jurisdictionEnum,
+  category: categoryEnum,
   effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
   version: z.number().int().positive().default(1),
   isActive: z.boolean().default(true),
@@ -64,7 +74,8 @@ export type CreatePolicyInput = z.infer<typeof createPolicySchema>;
 export const updatePolicySchema = z.object({
   title: z.string().min(1).max(200).optional(),
   content: z.string().optional(),
-  policyType: z.enum(['federal', 'state', 'district', 'school']).optional(),
+  jurisdiction: jurisdictionEnum.optional(),
+  category: categoryEnum.optional(),
   effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   version: z.number().int().positive().optional(),
   isActive: z.boolean().optional(),

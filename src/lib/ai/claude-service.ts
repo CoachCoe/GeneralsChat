@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logAIOperation, logError, logExternalAPI } from '@/lib/logger';
-import { INCIDENT_TYPES, SEVERITIES } from '@/types';
+import { INCIDENT_TYPES, PolicyCoverage, SEVERITIES } from '@/types';
 
 /**
  * The model's classification JSON, validated rather than trusted.
@@ -189,7 +189,8 @@ class ClaudeService {
   async generateComplianceResponse(
     userQuery: string,
     policyContext: string,
-    conversationHistory: ClaudeMessage[] = []
+    conversationHistory: ClaudeMessage[] = [],
+    coverage?: PolicyCoverage
   ): Promise<ClaudeResponse> {
     // Try to get active system prompt from database first
     let systemPromptContent = await this.getActiveSystemPrompt();
@@ -276,11 +277,25 @@ Remember: You're here to help them navigate this successfully. Be their trusted 
     // Given FLOW-4/FLOW-5/FLOW-22 that is the common path, not an edge case.
     // (FLOW-3, SPEC-3)
     const hasPolicyContext = policyContext.trim().length > 0;
+
+    // Local policy is expected to implement the federal and state floor, so
+    // its absence is a compliance gap the administrator should hear about --
+    // not something to paper over by citing the statute as if it were the
+    // district's own procedure.
+    const gaps = coverage?.categoriesWithoutLocalPolicy ?? [];
+    const coverageNote = gaps.length > 0
+      ? `
+
+POLICY COVERAGE GAP:
+This incident implicates the following areas, and the policy library holds NO district or school policy for them: ${gaps.join(', ')}.
+State whatever federal or state requirements you can support from the text above, then tell them plainly that you could not find a district or school policy covering this and that they should confirm the local procedure with their compliance officer. Do not present a federal or state requirement as if it were district procedure, and do not invent a local policy code.`
+      : '';
+
     const finalSystemPrompt = hasPolicyContext
       ? `${systemPromptContent}
 
 Available Policy Context:
-${policyContext}`
+${policyContext}${coverageNote}`
       : `${systemPromptContent}
 
 Available Policy Context:

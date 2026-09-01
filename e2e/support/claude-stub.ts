@@ -15,11 +15,15 @@ import { createServer, type Server } from 'http';
 export const STUB_REPLY =
   'Thank you for reporting this. Based on district policy, notify the superintendent within 24 hours and document the incident in PowerSchool.';
 
-function classificationJson() {
+/** Classifies from the incident text so tests can steer the category set. */
+function classificationJson(userText: string) {
+  const type = /fight|altercation|punch|assault|weapon/i.test(userText)
+    ? 'violence'
+    : 'bullying';
   return JSON.stringify({
-    type: 'bullying',
+    type,
     severity: 'high',
-    reasoning: 'Repeated targeting of a student by a peer.',
+    reasoning: 'Deterministic stub classification.',
     requiredActions: [
       { description: 'Notify the superintendent', dueInHours: 24 },
       { description: 'Complete the investigation report', dueInHours: 240 },
@@ -29,12 +33,31 @@ function classificationJson() {
   });
 }
 
-function replyFor(body: { system?: string; max_tokens?: number }): string {
+interface StubRequest {
+  system?: string;
+  max_tokens?: number;
+  messages?: { role: string; content: string }[];
+}
+
+function replyFor(body: StubRequest): string {
   const system = body.system ?? '';
-  if (system.includes('classification expert')) return classificationJson();
+  const userText = (body.messages ?? [])
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .join(' ');
+
+  if (system.includes('classification expert')) return classificationJson(userText);
   // generateIncidentTitle asks for a short title and nothing else.
   if (system.includes('title')) return 'Playground Bullying Report';
-  return STUB_REPLY;
+
+  // Echo which jurisdictions appeared in the injected policy context, and
+  // whether the coverage-gap instruction was present, so tests can assert on
+  // what the server actually put in the system prompt rather than guessing.
+  const seen = ['FEDERAL', 'STATE', 'DISTRICT', 'SCHOOL'].filter((j) =>
+    system.includes(`${j} POLICY:`)
+  );
+  const gap = system.includes('POLICY COVERAGE GAP') ? ' GAP' : '';
+  return `${STUB_REPLY} [context: ${seen.join(',') || 'none'}${gap}]`;
 }
 
 export function startClaudeStub(port: number): Promise<Server> {
@@ -48,7 +71,7 @@ export function startClaudeStub(port: number): Promise<Server> {
       } catch {
         /* fall through to the default reply */
       }
-      const text = replyFor(body as { system?: string; max_tokens?: number });
+      const text = replyFor(body as StubRequest);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
