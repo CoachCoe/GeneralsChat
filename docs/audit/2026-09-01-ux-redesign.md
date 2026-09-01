@@ -140,3 +140,68 @@ that safe to do incrementally; it was not safe before.
 `Reopen Incident` / `Generate Summary`; login `Email` / `Password` / `Sign in`;
 `Sign out`. Route gating and role-scoped visibility unchanged — a reporter
 still gets 404 on another user's incident and is redirected away from `/admin`.
+
+---
+
+# Addendum — pilot enablement, 2026-09-01
+
+## Production is live
+
+Applied in order, each verified before the next:
+
+1. **`prisma migrate deploy`** — the two pending migrations
+   (`add_user_password_hash`, `split_policy_jurisdiction_and_category`) had
+   never been run, so production was on the pre-audit schema. Anything deployed
+   against it was broken, and no account could sign in.
+2. **Backfill verified** — jurisdictions preserved (`district` ×2, `federal`
+   ×1), all three landing in `category: 'other'` as designed. A snapshot of the
+   pre-migration `policyType` values was recorded first, since the migration
+   drops that column.
+3. **Categories set** — bullying / discipline / title_ix. This mattered more
+   than it sounds: retrieval matches on category, so left as `other` none of the
+   three policies would have been found for any incident.
+4. **Re-indexed** — **377 chunks → 7**. The old per-line regex splitter had
+   produced 208 chunks from 17K of Title IX text, roughly 83 characters each,
+   none of them large enough to carry a citable requirement.
+5. **Admin password set** on `demo@example.com`, whose id (`demo-user`) owns all
+   six existing incidents — so attribution is preserved rather than orphaned by
+   a fresh account.
+
+**Retrieval verified against real production data**, which it could not do
+before: a bullying description returns the district bullying policy, a sexual
+harassment description returns the federal Title IX policy, a school bus
+incident returns the bus conduct policy.
+
+No embeddings were generated — `OPENAI_API_KEY` is not configured, so retrieval
+runs on the keyword fallback. That now works (it was case-sensitive against
+Postgres before), but recall is lower than vector search.
+
+## CI
+
+`ci.yml` replaces the two workflows that verified nothing: `backend.yml`
+installed a `requirements.txt` and `deploy.yml` built a `frontend/` directory,
+neither of which exists in this repo. Every push to `main` had been running two
+jobs that failed for reasons unrelated to the code.
+
+The new job runs typecheck, lint, build and the full e2e suite against a
+`postgres:16` service container, on push to main/dev and on every PR.
+**Green on its first run.**
+
+Two deliberate choices: the CI database is named `generalschat_test` because
+`global-setup` refuses to reset any database whose name lacks "test", so a
+mistyped secret cannot wipe real data; and `ANTHROPIC_API_KEY` is a stub string
+rather than a secret, because the suite serves model calls from a local stub and
+makes no billed calls.
+
+## Two things to be aware of
+
+**32 obligations exist on the six pre-existing incidents.** They were created by
+the old classifier, which paired each action with an unrelated timeline entry by
+array index (FLOW-17), so their deadlines are unreliable — many will have fallen
+through to the hardcoded three-day default. The home queue will show them. They
+are test data from before the fix; clearing those six incidents would give the
+pilot a clean queue.
+
+**The generated admin password appears in the session transcript.** It should be
+rotated before the pilot: `npm run user:create -- --email demo@example.com
+--name "..." --role admin --password "..."`.
