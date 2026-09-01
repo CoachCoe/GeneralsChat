@@ -151,7 +151,7 @@ blind risks designing for attribution that does not hold up.
 | Rate limiting (SEC-11) | Irrelevant at one user; one signed-in account can still run up the Anthropic bill |
 | Upload OOM (SEC-10, partial) | Size limits reject oversized files, but `request.formData()` buffers the body first, so a large POST still lands in memory |
 | DNS rebinding (SEC-4, partial) | Needs a hostname allowlist, which is a decision about permitted policy sources |
-| Unit tests | No runner exists. The pure functions — `describeDeadline`, `splitIntoChunks`, `assessCoverage`, `handlePrismaError`, the zod schemas — have no coverage, and this is where a silent regression would **misstate a statutory deadline** |
+| ~~Unit tests~~ | **Done 2026-09-01.** Vitest, 79 tests over the pure logic: `describeDeadline`, `splitIntoChunks`, `cleanText`, `buildCoverageReport`, the upload path guards, the zod schemas, and the incident→category mapping. `npm run test:unit` runs in under a second; `npm test` runs unit then e2e, and CI runs unit before installing a browser. Writing them found three real bugs — see the audit record |
 
 ---
 

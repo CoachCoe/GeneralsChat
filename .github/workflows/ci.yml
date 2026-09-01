@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   verify:
-    name: typecheck · lint · build · e2e
+    name: typecheck · lint · build · unit · e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -66,11 +66,16 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Before the browser download: these are the fast checks, and failing
+      # them should not cost a Playwright install first.
+      - name: Unit tests
+        run: npm run test:unit
+
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
       - name: End-to-end tests
-        run: npm test
+        run: npm run test:e2e
 
       - name: Upload test report
         if: failure()
