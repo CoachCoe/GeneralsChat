@@ -61,11 +61,8 @@ export async function POST(request: NextRequest) {
         name,
         content,
         description,
-        // From the session, never the body. This row governs mandated-reporting
-        // advice and `createdBy` is the only provenance it carries, so an
-        // attacker-chosen value is attacker-chosen attribution. CLAUDE.md:
-        // "No route may read a user id from a body or query string; that was a
-        // real vulnerability." This was the last such route. (SEC-21)
+        // From the session, never the body: this is the only provenance the
+        // row carries, and the row governs mandated-reporting advice. (SEC-21)
         createdBy: guard.user.id,
         isActive: false // New prompts start as inactive
       }

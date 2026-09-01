@@ -79,11 +79,9 @@ export interface ClaudeResponse {
 /**
  * The instruction that stands in for policy the system could not find.
  *
- * Shared rather than inlined because it was inlined once, in the guidance path
- * only, and the summary path -- whose output is persisted to the incident file
- * -- went without it while still naming "JICK, ACAC, JLF" as examples for the
- * model to reach for. A guard protecting one of two callers is the shape of
- * that bug, so both now read from here. (B4)
+ * Shared because both callers need it: with nothing retrieved, the "JICK,
+ * ACAC, JLF" examples in each prompt are the only codes the model has to
+ * reach for. (B4)
  */
 const NO_POLICY_RETRIEVED_GUARD = `IMPORTANT - NO POLICY RETRIEVED FOR THIS QUERY:
 No district policy text was retrieved for this question. For this response you must:
@@ -97,11 +95,8 @@ No district policy text was retrieved for this question. For this response you m
 /**
  * What to say when the library has no local policy for an implicated area.
  *
- * Distinguishes "federal or state authority exists above it" from "nothing at
- * any level". Both the prompt and the coverage card used to assert the guidance
- * rested soundly on federal or state text without checking that any had been
- * retrieved -- so with an empty library they vouched for a deadline nothing in
- * the system supported. (FLOW-34)
+ * "No local policy" and "nothing at any level" need different wording: the
+ * second cannot claim the guidance rests on federal or state text. (FLOW-34)
  */
 function buildCoverageNote(coverage?: PolicyCoverage): string {
   const gaps = coverage?.categoriesWithoutLocalPolicy ?? [];

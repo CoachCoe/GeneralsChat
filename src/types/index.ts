@@ -223,15 +223,10 @@ export function categoriesForIncidentType(
  * The categories that must be represented in the retrieved set and assessed for
  * coverage, whatever classification returned.
  *
- * Deliberately distinct from the search *filter* above. An unclassified or
- * `other` incident must not constrain the search -- narrowing to one category
- * would exclude every other policy -- but it must still be guaranteed
- * mandatory-reporting text, and it must still have its coverage assessed.
- *
- * Collapsing the two is how an `other` incident came to retrieve no reporting
- * policy while suppressing every gap warning at once. `other` is also the
- * classifier's failure default, so that was the state an incident landed in
- * precisely when the system knew least about it. (B3)
+ * Distinct from the search *filter* above, which must stay empty for an
+ * unclassified or `other` incident so it does not exclude every other policy.
+ * Collapsing the two left `other` -- the classifier's failure default -- with
+ * no reporting policy and no gap warning. (B3)
  */
 export function guaranteedCategoriesFor(
   incidentType: string | null | undefined

@@ -48,12 +48,10 @@ function replyFor(body: StubRequest): string {
     .map(m => m.content)
     .join(' ');
 
-  // Dispatch on wording unique to each prompt, not on common words. Matching
-  // the bare substring 'title' mis-routed a live test: the coverage-gap
-  // instruction interpolates the category list, which contains 'title_ix', so
-  // the compliance branch returned a *title* string and the test asserting on
-  // it never noticed. Any prompt that reaches neither branch is now loud
-  // instead of silently answering as something else. (TEST-32)
+  // Unique wording, not common words: 'title' also appears in the coverage-gap
+  // instruction via 'title_ix', which routed a compliance call to the title
+  // branch. An unmatched prompt throws rather than answering as something
+  // else. (TEST-32)
   if (system.includes('school incident classification expert')) {
     return classificationJson(userText);
   }

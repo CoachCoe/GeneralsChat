@@ -497,13 +497,9 @@ export class RAGSystem {
     }
 
     const policies = await prisma.policy.findMany({
-      // A policy only counts as coverage if retrieval can actually return it.
-      // A row with chunks deleted -- which production has reached, when a
-      // re-index deleted them and failed to write replacements -- is invisible
-      // to search, so counting it would suppress the very gap warning that
-      // says the library is empty. `policy-coverage.ts` states this rule for
-      // the offline report; the live path that decides what the administrator
-      // is told must not be more permissive than it. (B2)
+      // Coverage means retrievable. A row with no chunks is invisible to
+      // search, so counting it suppresses the gap warning that says the
+      // library is empty -- the rule policy-coverage.ts already states. (B2)
       where: { isActive: true, category: { in: categories }, chunks: { some: {} } },
       select: { category: true, jurisdiction: true },
       distinct: ['category', 'jurisdiction'],

@@ -91,16 +91,9 @@ export async function POST(request: NextRequest) {
       .reverse()
       .filter(c => c.sender !== SUMMARY_SENDER);
 
-    // The window is a fixed row count taken from the end, so its first entry is
-    // an assistant turn whenever an odd number of rows was dropped -- which
-    // happens as soon as the transcript holds an unpaired row. Two are created
-    // deliberately: a user message is persisted before a model call that then
-    // fails, and every summary row sits inside the take-20 window but is
-    // filtered out above. The Anthropic API rejects a leading assistant
-    // message, so the turn 503'd as "technical difficulties"; the user's
-    // message was then persisted, flipping the parity, so the next send worked
-    // and the one after failed again. Intermittent, mid-incident, and reported
-    // as nothing more specific than "it keeps erroring". (FLOW-36)
+    // The API rejects a leading assistant message. The window is a fixed row
+    // count, so it starts on one whenever an odd number of rows was dropped --
+    // which an unpaired user turn or a filtered summary row both cause. (FLOW-36)
     while (priorMessages.length > 0 && priorMessages[0].sender !== 'user') {
       priorMessages.shift();
     }
