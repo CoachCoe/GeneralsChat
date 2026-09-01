@@ -1,6 +1,11 @@
 import { config } from 'dotenv';
-import { resolve } from 'path';
+import { resolve, relative, extname, sep } from 'path';
+import { existsSync, mkdirSync, copyFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { prisma } from '../src/lib/db';
+import { processDocument } from '../src/lib/utils/documentProcessor';
+
+const policyUploadsDir = resolve(process.env.UPLOADS_DIR ?? './uploads', 'policies');
 import { ragSystem } from '../src/lib/ai/rag';
 
 config({ path: resolve(__dirname, '../.env') });
@@ -21,7 +26,35 @@ config({ path: resolve(__dirname, '../.env') });
  */
 const APPLY = process.argv.includes('--apply');
 
+/**
+ * Refuse to run against a database the schema has outrun.
+ *
+ * Re-indexing deletes a policy's chunks before writing their replacements, so
+ * a write that fails halfway leaves that policy with none and retrieval
+ * silently returns nothing. That is exactly what a missing column does, and it
+ * is cheaper to detect it once up front than to recover afterwards: probe the
+ * newest column before anything is destroyed.
+ */
+async function assertSchemaCurrent() {
+  try {
+    await prisma.policyChunk.findFirst({ select: { id: true, sectionLabel: true } });
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code !== 'P2022') throw error;
+    console.error(
+      'This database is missing columns the current schema expects.\n' +
+        'Re-indexing would delete existing chunks and fail to replace them.\n' +
+        'Run `npx prisma migrate deploy` first, then re-run this script.'
+    );
+    process.exitCode = 1;
+    return false;
+  }
+  return true;
+}
+
 async function main() {
+  if (!(await assertSchemaCurrent())) return;
+
   const policies = await prisma.policy.findMany({
     select: {
       id: true,
@@ -30,6 +63,7 @@ async function main() {
       category: true,
       effectiveDate: true,
       content: true,
+      filePath: true,
       _count: { select: { chunks: true } },
     },
     orderBy: { createdAt: 'asc' },
@@ -69,9 +103,41 @@ async function main() {
     // policies untouched, and it must not pass silently leaving this one with
     // no chunks at all -- a policy with zero chunks is invisible to retrieval,
     // which is worse than one chunked badly.
+    // Prefer re-extracting from the source. Content stored before the
+    // whitespace fix has no newlines, so section structure is unrecoverable
+    // from it -- a policy re-indexed from stored text keeps citing at policy
+    // level, which is correct but less useful.
+    let content = policy.content;
+    let source = 'stored content';
+    if (policy.filePath && existsSync(policy.filePath)) {
+      try {
+        content = (await processDocument(policy.filePath)).content;
+        source = 'source file';
+
+        // Adopt the source into the uploads directory if it still lives
+        // wherever the operator happened to have it. Otherwise the next
+        // re-index silently falls back to stored content and drops every
+        // section label, with nothing in the output saying why.
+        let filePath = policy.filePath;
+        if (!resolve(filePath).startsWith(policyUploadsDir + sep)) {
+          const adopted = resolve(policyUploadsDir, `${randomUUID()}${extname(filePath).toLowerCase()}`);
+          mkdirSync(policyUploadsDir, { recursive: true });
+          copyFileSync(filePath, adopted);
+          filePath = adopted;
+          console.log(`         adopted source into ${relative(process.cwd(), adopted)}`);
+        }
+
+        await prisma.policy.update({ where: { id: policy.id }, data: { content, filePath } });
+      } catch (error) {
+        console.warn(`  note   ${label}\n         could not re-extract (${(error as Error).message}); using stored content`);
+      }
+    } else if (policy.filePath) {
+      console.warn(`  note   ${label}\n         source file is gone (${policy.filePath}); re-indexing from stored content`);
+    }
+
     try {
       await ragSystem.deletePolicyChunks(policy.id);
-      await ragSystem.addPolicyDocument(policy.id, policy.content, {
+      await ragSystem.addPolicyDocument(policy.id, content, {
         title: policy.title,
         jurisdiction: policy.jurisdiction,
         category: policy.category,
@@ -87,6 +153,9 @@ async function main() {
     const embedded = await prisma.policyChunk.count({
       where: { policyId: policy.id, embedding: { not: null } },
     });
+    const sectioned = await prisma.policyChunk.count({
+      where: { policyId: policy.id, sectionLabel: { not: null } },
+    });
 
     if (after === 0) {
       console.error(`  EMPTY ${label}\n        left with no chunks — this policy is now unretrievable`);
@@ -94,7 +163,9 @@ async function main() {
       continue;
     }
 
-    console.log(`  OK    ${label}\n        ${policy._count.chunks} -> ${after} chunk(s), ${embedded} with embeddings`);
+    console.log(
+      `  OK    ${label}\n        ${policy._count.chunks} -> ${after} chunk(s), ${embedded} embedded, ${sectioned} section-labelled (from ${source})`
+    );
     reindexed++;
   }
 
