@@ -103,7 +103,10 @@ obligation-queue`, `aria-label="Send message"`, `nav[aria-label="Main"]`, the
   unlayered stylesheet beat every Tailwind utility; layering it was the fix, not
   working around each collapsed element.
 
-## Where the history is
+## Where things are written down
 
-`docs/audit/` — what was found and fixed, with reasoning.
-`docs/history/` — dated snapshots that no longer describe the system.
+`docs/roadmap.md` — **the living to-do list.** Priority order, ownership, and an
+explicit list of what is deliberately *not* being built. Edit it in place.
+`docs/audit/` — what was found and fixed, with reasoning. Dated; do not rewrite.
+`docs/history/` — snapshots that no longer describe the system. Dated; do not
+rewrite.

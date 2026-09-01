@@ -261,6 +261,11 @@ Still open, and worth knowing before you deploy:
 Full detail: `docs/audit/2026-08-31-findings.md` and
 `docs/audit/2026-08-31-work-completed.md`.
 
+## What's next
+
+[`docs/roadmap.md`](docs/roadmap.md) — the current priority order, what is
+deliberately not being built, and why.
+
 ## License
 
 See [LICENSE](LICENSE).
