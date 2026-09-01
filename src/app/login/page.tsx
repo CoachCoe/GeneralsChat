@@ -39,7 +39,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center px-6">
+    <div className="flex min-h-screen items-center justify-center bg-bg px-6">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <Image

@@ -164,7 +164,8 @@ test.describe('Obligation queue', () => {
   test('rejects an invalid obligation status', async ({ page }) => {
     const list = await page.request.get('/api/obligations');
     const { obligations } = await list.json();
-    test.skip(obligations.length === 0, 'needs at least one obligation');
+    // Seeded, so this does not depend on an earlier test having run.
+    expect(obligations.length).toBeGreaterThan(0);
 
     const response = await page.request.patch(`/api/obligations/${obligations[0].id}`, {
       data: { status: 'banana' },
