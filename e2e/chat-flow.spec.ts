@@ -197,7 +197,13 @@ test.describe('Local policy coverage', () => {
     // school_safety and emergency_operations have no policy at all in the
     // fixture set; discipline and mandatory_reporting do, and must not be
     // reported as gaps.
+    //
+    // school_safety carries a second job: the fixture seeds an active district
+    // school_safety policy with NO chunks. Retrieval can never return it, so it
+    // must not cancel this gap. Drop the `chunks: { some: {} }` predicate from
+    // assessCoverage and this assertion fails -- which is the point. (B2)
     expect(body.coverage.categoriesWithoutLocalPolicy).toContain('school_safety');
+    expect(body.coverage.byCategory.school_safety).toEqual([]);
     expect(body.coverage.categoriesWithoutLocalPolicy).toContain('emergency_operations');
     expect(body.coverage.categoriesWithoutLocalPolicy).not.toContain('discipline');
 

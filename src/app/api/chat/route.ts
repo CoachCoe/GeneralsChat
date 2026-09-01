@@ -91,6 +91,13 @@ export async function POST(request: NextRequest) {
       .reverse()
       .filter(c => c.sender !== SUMMARY_SENDER);
 
+    // The API rejects a leading assistant message. The window is a fixed row
+    // count, so it starts on one whenever an odd number of rows was dropped --
+    // which an unpaired user turn or a filtered summary row both cause. (FLOW-36)
+    while (priorMessages.length > 0 && priorMessages[0].sender !== 'user') {
+      priorMessages.shift();
+    }
+
     // Save user message
     await prisma.conversation.create({
       data: {

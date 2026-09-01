@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  policyFacetsSchema,
   chatMessageSchema,
   createIncidentSchema,
   paginationSchema,
@@ -100,5 +101,46 @@ describe('incident schemas', () => {
   it('does not accept a caller-supplied reporterId', () => {
     const r = createIncidentSchema.parse({ title: 't', description: 'd', reporterId: 'x' });
     expect(r).not.toHaveProperty('reporterId');
+  });
+});
+
+describe('policyFacetsSchema', () => {
+  // Every policy write path used to take these from the request and default the
+  // misses. A category retrieval does not match makes the policy unfindable AND
+  // -- since assessCoverage queries the same field -- makes the system report a
+  // coverage gap for an area the district has in fact loaded. (B5)
+
+  it('accepts the known facets', () => {
+    expect(
+      policyFacetsSchema.safeParse({ jurisdiction: 'district', category: 'bullying' }).success
+    ).toBe(true);
+  });
+
+  it('rejects a mis-cased jurisdiction rather than storing it', () => {
+    // 'District' is not 'district'. buildJurisdictionContext groups only over
+    // the known four, so this text is dropped from the model's context while
+    // buildCitations still lists it as a source.
+    expect(
+      policyFacetsSchema.safeParse({ jurisdiction: 'District', category: 'bullying' }).success
+    ).toBe(false);
+  });
+
+  it('rejects a mistyped category rather than defaulting it to `other`', () => {
+    const result = policyFacetsSchema.safeParse({
+      jurisdiction: 'district',
+      category: 'bullyng',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a missing facet rather than guessing one', () => {
+    expect(policyFacetsSchema.safeParse({ jurisdiction: 'district' }).success).toBe(false);
+    expect(policyFacetsSchema.safeParse({ category: 'bullying' }).success).toBe(false);
+  });
+
+  it('allows a partial update to omit a facet, but not to set a bad one', () => {
+    expect(policyFacetsSchema.partial().safeParse({ category: 'bullying' }).success).toBe(true);
+    expect(policyFacetsSchema.partial().safeParse({}).success).toBe(true);
+    expect(policyFacetsSchema.partial().safeParse({ category: 'nope' }).success).toBe(false);
   });
 });

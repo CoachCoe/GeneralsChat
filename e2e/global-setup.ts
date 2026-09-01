@@ -1,3 +1,4 @@
+import { writeFileSync, mkdirSync } from 'fs';
 import type { Server } from 'http';
 import { resetDatabase } from './support/seed';
 import { startClaudeStub } from './support/claude-stub';
@@ -23,6 +24,12 @@ export default async function globalSetup() {
     );
   }
 
-  await resetDatabase();
+  const seeded = await resetDatabase();
+
+  // Handed to the specs on disk rather than through a global: Playwright runs
+  // them in separate processes, so a module-level value would not survive.
+  mkdirSync('e2e/.auth', { recursive: true });
+  writeFileSync('e2e/.auth/seed.json', JSON.stringify(seeded, null, 2));
+
   globalThis.__claudeStub = await startClaudeStub(CLAUDE_STUB_PORT);
 }

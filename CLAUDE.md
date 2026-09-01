@@ -37,8 +37,10 @@ access` while `psql -l` on the same database works fine.
 `DATABASE_URL` in `.env` is the hosted Postgres the pilot runs on. Any script
 run without an explicit override writes to real data. `npm test` is safe by
 construction (its setup refuses a database whose name lacks `test`), but the
-`policies:*` and `prisma` commands are not: they take whatever `.env` gives
-them. Re-indexing against production with an unmigrated schema is what once
+`policies:*` and `prisma` commands are not, and neither are
+`scripts/test-phase3.ts` and `scripts/test-rag.ts`, which create and delete
+`User`, `Incident`, `Conversation` and `Policy` rows despite the `test-`
+prefix. They take whatever `.env` gives them. Re-indexing against production with an unmigrated schema is what once
 left every policy with zero chunks and retrieval silently returning nothing.
 Prefer `npm run policies:reindex` with no flag — it is a dry run — and read what
 it says it would do before passing `--apply`.

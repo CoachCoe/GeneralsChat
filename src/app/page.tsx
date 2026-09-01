@@ -131,7 +131,7 @@ export default function HomePage() {
         {!loading && !error && open.length === 0 && (
           <StateBlock
             title="Nothing outstanding"
-            body="Obligations appear here as soon as an incident is classified, with the deadline the policy sets."
+            body="Obligations appear here as soon as an incident is classified. Check each deadline against the cited policy before you rely on it."
           />
         )}
 

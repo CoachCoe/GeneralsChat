@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { requireRole } from '@/lib/session';
+import { policyFacetsSchema } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit';
 
 type Params = {
   params: Promise<{
@@ -56,17 +59,55 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const body = await request.json();
     const { title, content, jurisdiction, category, effectiveDate, isActive, metadata } = body;
 
+    // A partial update may omit either facet, but must not set a bad one.
+    const facets = policyFacetsSchema.partial().safeParse({ jurisdiction, category });
+    if (!facets.success) {
+      return validationError(
+        'Jurisdiction and category must each be one of the known values',
+        facets.error.flatten().fieldErrors
+      );
+    }
+
+    // An unparseable date reaches Prisma as `Invalid Date` and comes back a
+    // 500. The neighbouring fields are validated; this one was not.
+    let parsedEffectiveDate: Date | undefined;
+    if (effectiveDate !== undefined) {
+      parsedEffectiveDate = new Date(effectiveDate);
+      if (Number.isNaN(parsedEffectiveDate.getTime())) {
+        return validationError('effectiveDate is not a valid date', {
+          effectiveDate: ['Expected a date the runtime can parse, e.g. 2026-09-01.'],
+        });
+      }
+    }
+
     const policy = await prisma.policy.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
-        ...(jurisdiction !== undefined && { jurisdiction }),
-        ...(category !== undefined && { category }),
-        ...(effectiveDate !== undefined && { effectiveDate: new Date(effectiveDate) }),
+        // The parsed values, not the raw body: validation that is thrown away
+        // stops being validation the moment the schema gains a transform.
+        ...(facets.data.jurisdiction !== undefined && {
+          jurisdiction: facets.data.jurisdiction,
+        }),
+        ...(facets.data.category !== undefined && { category: facets.data.category }),
+        ...(parsedEffectiveDate !== undefined && { effectiveDate: parsedEffectiveDate }),
         ...(isActive !== undefined && { isActive }),
         ...(metadata !== undefined && { metadata: JSON.stringify(metadata) })
       }
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'updated',
+      entity: 'policy',
+      entityId: id,
+      details: {
+        title: policy.title,
+        jurisdiction: policy.jurisdiction,
+        category: policy.category,
+        isActive: policy.isActive,
+        contentChanged: content !== undefined,
+      },
     });
 
     // If content was updated, re-index. Purges the vector store as well as the
@@ -113,6 +154,12 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     // Remaining chunks (if any) are removed by CASCADE.
     await prisma.policy.delete({
       where: { id }
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'deleted',
+      entity: 'policy',
+      entityId: id,
     });
 
     return NextResponse.json({ success: true });

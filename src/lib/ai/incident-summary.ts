@@ -54,7 +54,10 @@ export async function generateIncidentSummary(
 
   // Retrieve with the incident's own classification, so the summary rests on
   // the same policies the guidance did rather than a different set.
-  const { response: policyContext } = await ragSystem.generateResponseWithCitations(
+  // Coverage travels with the context: the summary is the one artefact that
+  // goes into the file, and it was the only output that never said a local
+  // policy was missing. (SPEC-41)
+  const { response: policyContext, coverage } = await ragSystem.generateResponseWithCitations(
     `${incident.title} ${incident.description ?? ''}`,
     {
       incidentId: incident.id,
@@ -63,7 +66,11 @@ export async function generateIncidentSummary(
     }
   );
 
-  const summary = await claudeService.generateChatSummary(conversationHistory, policyContext);
+  const summary = await claudeService.generateChatSummary(
+    conversationHistory,
+    policyContext,
+    coverage
+  );
 
   const message = await prisma.conversation.create({
     data: {

@@ -50,12 +50,19 @@ function formatAbsolute(due: Date, now: Date): string {
 
 function formatInterval(ms: number): string {
   const abs = Math.abs(ms);
-  if (abs < HOUR) return `${Math.max(1, Math.round(abs / MINUTE))}m`;
-  if (abs < DAY) {
-    const hours = Math.floor(abs / HOUR);
-    const minutes = Math.round((abs % HOUR) / MINUTE);
+
+  // Round to whole minutes once, then carry. Rounding each unit independently
+  // let Math.round return 60: 59m30s rendered "in 60m" and 23h59m30s rendered
+  // "in 23h 60m". On a countdown in tabular mono, the last thirty seconds of
+  // every hour displayed a time that does not exist. (TEST-36)
+  const totalMinutes = Math.round(abs / MINUTE);
+  if (totalMinutes < 60) return `${Math.max(1, totalMinutes)}m`;
+
+  const totalHours = Math.floor(totalMinutes / 60);
+  if (totalHours < 24) {
+    const minutes = totalMinutes % 60;
     // Minute precision only inside the day, where it changes what you do next.
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    return minutes > 0 ? `${totalHours}h ${minutes}m` : `${totalHours}h`;
   }
   return `${Math.round(abs / DAY)}d`;
 }

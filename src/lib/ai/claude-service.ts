@@ -76,6 +76,50 @@ export interface ClaudeResponse {
   stopReason: string;
 }
 
+/**
+ * The instruction that stands in for policy the system could not find.
+ *
+ * Shared because both callers need it: with nothing retrieved, the "JICK,
+ * ACAC, JLF" examples in each prompt are the only codes the model has to
+ * reach for. (B4)
+ */
+const NO_POLICY_RETRIEVED_GUARD = `IMPORTANT - NO POLICY RETRIEVED FOR THIS QUERY:
+No district policy text was retrieved for this question. For this response you must:
+- NOT cite or invent any policy code (JICK, ACAC, JLF or otherwise)
+- NOT state district-specific deadlines or requirements as established fact
+- Say plainly that you could not locate the applicable district policy
+- Limit yourself to general best practice and statutory obligations you are
+  confident about, labelled as such
+- Recommend they confirm with their compliance officer or legal counsel`;
+
+/**
+ * What to say when the library has no local policy for an implicated area.
+ *
+ * "No local policy" and "nothing at any level" need different wording: the
+ * second cannot claim the guidance rests on federal or state text. (FLOW-34)
+ */
+function buildCoverageNote(coverage?: PolicyCoverage): string {
+  const gaps = coverage?.categoriesWithoutLocalPolicy ?? [];
+  if (gaps.length === 0) return '';
+
+  const byCategory = coverage?.byCategory ?? {};
+  const nothingAnywhere = gaps.filter(c => (byCategory[c] ?? []).length === 0);
+  const localOnly = gaps.filter(c => (byCategory[c] ?? []).length > 0);
+
+  let note = '\n\nPOLICY COVERAGE GAP:';
+  if (localOnly.length > 0) {
+    note += `
+This incident implicates the following areas, and the policy library holds NO district or school policy for them: ${localOnly.join(', ')}.
+State whatever federal or state requirements you can support from the text above, then tell them plainly that you could not find a district or school policy covering this and that they should confirm the local procedure with their compliance officer. Do not present a federal or state requirement as if it were district procedure, and do not invent a local policy code.`;
+  }
+  if (nothingAnywhere.length > 0) {
+    note += `
+The library holds NO policy at ANY level -- federal, state, district or school -- for: ${nothingAnywhere.join(', ')}.
+For these areas do not state a deadline, a requirement or a citation as established fact. Say plainly that the library holds nothing covering them and that they must confirm the obligation with their compliance officer or legal counsel.`;
+  }
+  return note;
+}
+
 class ClaudeService {
   private client: Anthropic | null = null;
   private model: string;
@@ -282,14 +326,7 @@ Remember: You're here to help them navigate this successfully. Be their trusted 
     // its absence is a compliance gap the administrator should hear about --
     // not something to paper over by citing the statute as if it were the
     // district's own procedure.
-    const gaps = coverage?.categoriesWithoutLocalPolicy ?? [];
-    const coverageNote = gaps.length > 0
-      ? `
-
-POLICY COVERAGE GAP:
-This incident implicates the following areas, and the policy library holds NO district or school policy for them: ${gaps.join(', ')}.
-State whatever federal or state requirements you can support from the text above, then tell them plainly that you could not find a district or school policy covering this and that they should confirm the local procedure with their compliance officer. Do not present a federal or state requirement as if it were district procedure, and do not invent a local policy code.`
-      : '';
+    const coverageNote = buildCoverageNote(coverage);
 
     const finalSystemPrompt = hasPolicyContext
       ? `${systemPromptContent}
@@ -307,14 +344,7 @@ ${policyContext}${coverageNote}`
 Available Policy Context:
 (none)
 
-IMPORTANT - NO POLICY RETRIEVED FOR THIS QUERY:
-No district policy text was retrieved for this question. For this response you must:
-- NOT cite or invent any policy code (JICK, ACAC, JLF or otherwise)
-- NOT state district-specific deadlines or requirements as established fact
-- Say plainly that you could not locate the applicable district policy
-- Limit yourself to general best practice and statutory obligations you are
-  confident about, labelled as such
-- Recommend they confirm with their compliance officer or legal counsel`;
+${NO_POLICY_RETRIEVED_GUARD}`;
 
     const messages: ClaudeMessage[] = [
       ...conversationHistory,
@@ -460,8 +490,13 @@ Example: ["Question 1?", "Question 2?", "Question 3?"]`;
    */
   async generateChatSummary(
     conversationHistory: ClaudeMessage[],
-    policyContext: string
+    policyContext: string,
+    coverage?: PolicyCoverage
   ): Promise<ClaudeResponse> {
+    // The summary is persisted and rendered in the incident timeline, so it is
+    // the artefact most likely to be printed and filed. It therefore gets the
+    // same retrieval guard the guidance path has, not a weaker one. (B4)
+    const hasPolicyContext = policyContext.trim().length > 0;
     const systemPrompt = `You are a school district attorney reviewing an incident consultation session. Generate a comprehensive summary report for the administrator's records.
 
 Your summary MUST include these sections:
@@ -472,7 +507,7 @@ Your summary MUST include these sections:
 - Incident classification and severity assessment
 
 ## POLICY ANALYSIS
-- List each policy referenced during the consultation with specific codes (e.g., "JICK", "ACAC", "JLF")
+- List each policy referenced during the consultation, citing it exactly as it appears in the excerpts below
 - For each policy, explain how it applies to this incident
 - Cite specific sections or requirements from the policies
 - Identify any policy gaps or areas where guidance was limited
@@ -504,7 +539,7 @@ Your summary MUST include these sections:
 - Suggest any additional risk mitigation steps
 - Provide guidance on documentation and evidence preservation
 
-Format the summary professionally, as it may become part of the incident file. Be specific, cite policies by code, and use exact timelines when mentioned in the conversation.`;
+Format the summary professionally, as it may become part of the incident file. Be specific, cite only policies that appear in the excerpts below, and use exact timelines only where the conversation or an excerpt states them.`;
 
     const conversationText = conversationHistory
       .map(msg => `${msg.role === 'user' ? 'Administrator' : 'Counsel'}: ${msg.content}`)
@@ -516,13 +551,22 @@ CONVERSATION TRANSCRIPT:
 ${conversationText}
 
 POLICIES REFERENCED DURING CONSULTATION:
-${policyContext}
+${hasPolicyContext ? policyContext : '(none retrieved)'}
 
 Generate the summary following the required format above.`;
 
+    const finalSystemPrompt = hasPolicyContext
+      ? `${systemPrompt}${buildCoverageNote(coverage)}`
+      : `${systemPrompt}
+
+${NO_POLICY_RETRIEVED_GUARD}
+
+This applies to the POLICY ANALYSIS section too: leave it empty rather than
+naming a policy, and say that none could be retrieved for this incident.${buildCoverageNote(coverage)}`;
+
     const response = await this.generateResponse(
       [{ role: 'user', content: summaryRequest }],
-      systemPrompt,
+      finalSystemPrompt,
       { temperature: 0.3, maxTokens: 2048 }
     );
 

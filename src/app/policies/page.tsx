@@ -102,8 +102,9 @@ export default function PoliciesPage() {
                 ? 'No district or school policies are loaded.'
                 : `Only ${localCount} district or school ${localCount === 1 ? 'policy is' : 'policies are'} loaded.`}
             </span>{' '}
-            Guidance will lean on state and federal law until more are added. Deadlines are still
-            correct, but there will be more coverage gaps than there should be.
+            Guidance will lean on state and federal law until more are added, and there will be
+            more coverage gaps than there should be. Deadlines shown on obligations are not yet
+            derived from the cited policy — confirm each one before acting on it.
           </div>
         )}
 

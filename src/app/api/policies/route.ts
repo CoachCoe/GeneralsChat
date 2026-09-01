@@ -10,8 +10,12 @@ import {
   assertWithinSizeLimit,
   safeUploadPath,
   UploadError,
+  assertIndexablePolicyText,
 } from '@/lib/uploads';
 import { requireRole, requireUser } from '@/lib/session';
+import { policyFacetsSchema } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit';
 
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
 
@@ -61,8 +65,17 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const title = formData.get('title') as string;
-    const jurisdiction = (formData.get('jurisdiction') as string) || 'district';
-    const category = (formData.get('category') as string) || 'other';
+    const facets = policyFacetsSchema.safeParse({
+      jurisdiction: formData.get('jurisdiction'),
+      category: formData.get('category'),
+    });
+    if (!facets.success) {
+      return validationError(
+        'Jurisdiction and category must each be one of the known values',
+        facets.error.flatten().fieldErrors
+      );
+    }
+    const { jurisdiction, category } = facets.data;
     const effectiveDate = formData.get('effectiveDate') as string;
     const file = formData.get('file') as File;
 
@@ -97,6 +110,8 @@ export async function POST(request: NextRequest) {
       content = processed.content;
     }
 
+    assertIndexablePolicyText(content);
+
     // Create policy record
     const policy = await prisma.policy.create({
       data: {
@@ -108,6 +123,13 @@ export async function POST(request: NextRequest) {
         effectiveDate: effectiveDate ? new Date(effectiveDate) : new Date(),
         isActive: true,
       },
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'policy',
+      entityId: policy.id,
+      details: { title: policy.title, jurisdiction: policy.jurisdiction, category: policy.category },
     });
 
     // Add to RAG system for search with metadata

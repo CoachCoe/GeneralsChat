@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { extname, join, resolve, sep } from 'path';
+import { countWords } from './utils/documentProcessor';
 
 /**
  * Shared upload safety helpers.
@@ -83,6 +84,26 @@ export function safeUploadPath(uploadsDir: string, ext: string): string {
 }
 
 /** Maps an UploadError to its status; anything else is a 500. */
+/**
+ * A policy whose text could not be read must not become an active policy.
+ *
+ * Retrieval works from chunks, and chunks come from this text. A row with none
+ * is invisible to search while still counting as a loaded policy to anyone
+ * reading the library -- and it takes a scanned PDF, not a malformed one, to
+ * get here.
+ *
+ * Lives here, with the other upload rules, because there are three ingestion
+ * routes and a guard on one of them is not a guard.
+ */
+export function assertIndexablePolicyText(content: string): void {
+  if (countWords(content) === 0) {
+    throw new UploadError(
+      'No text could be extracted from this document. If it is a scan, run it through OCR first.',
+      422
+    );
+  }
+}
+
 export function uploadErrorStatus(error: unknown): number {
   return error instanceof UploadError ? error.status : 500;
 }

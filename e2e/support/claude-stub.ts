@@ -48,9 +48,22 @@ function replyFor(body: StubRequest): string {
     .map(m => m.content)
     .join(' ');
 
-  if (system.includes('classification expert')) return classificationJson(userText);
-  // generateIncidentTitle asks for a short title and nothing else.
-  if (system.includes('title')) return 'Playground Bullying Report';
+  // Unique wording, not common words: 'title' also appears in the coverage-gap
+  // instruction via 'title_ix', which routed a compliance call to the title
+  // branch. An unmatched prompt throws rather than answering as something
+  // else. (TEST-32)
+  if (system.includes('school incident classification expert')) {
+    return classificationJson(userText);
+  }
+  if (system.includes('concise, descriptive titles for school incident reports')) {
+    return 'Playground Bullying Report';
+  }
+  if (system.includes('school district attorney reviewing an incident consultation')) {
+    return 'SUMMARY: consultation summary for the incident file.';
+  }
+  if (!system.includes('Available Policy Context:')) {
+    throw new Error(`claude-stub: unrecognised system prompt: ${system.slice(0, 160)}`);
+  }
 
   // Echo which jurisdictions appeared in the injected policy context, and
   // whether the coverage-gap instruction was present, so tests can assert on
