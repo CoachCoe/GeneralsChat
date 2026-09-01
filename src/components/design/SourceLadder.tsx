@@ -4,6 +4,8 @@ export interface SourceRung {
   jurisdiction: string;
   title: string;
   note?: string;
+  /** Provisions relied on, e.g. "JICK §F — Investigative Procedures (RSA …)". */
+  sections?: string[];
 }
 
 /**
@@ -76,12 +78,28 @@ export function SourceLadder({
             {rungs.length > 0 ? (
               <div className="flex flex-1 flex-col gap-1">
                 {rungs.map(rung => (
-                  <div key={rung.title} className="flex items-baseline gap-3">
-                    <span className={`flex-1 text-[14px] leading-[1.4] ${tone.title}`}>
-                      {rung.title}
-                    </span>
-                    {rung.note && (
-                      <span className="flex-none text-[12px] text-text-muted">{rung.note}</span>
+                  <div key={rung.title} className="flex flex-col gap-0.5">
+                    <div className="flex items-baseline gap-3">
+                      <span className={`flex-1 text-[14px] leading-[1.4] ${tone.title}`}>
+                        {rung.title}
+                      </span>
+                      {rung.note && (
+                        <span className="flex-none text-[12px] text-text-muted">{rung.note}</span>
+                      )}
+                    </div>
+                    {/* The provisions actually relied on, so a reader can go
+                        to the paragraph rather than the document. */}
+                    {rung.sections && rung.sections.length > 0 && (
+                      <ul className="mt-0.5 flex flex-col gap-0.5">
+                        {rung.sections.map(section => (
+                          <li
+                            key={section}
+                            className="text-[12px] leading-[1.45] text-text-muted"
+                          >
+                            {section}
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 ))}

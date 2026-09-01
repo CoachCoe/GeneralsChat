@@ -305,6 +305,10 @@ export interface PolicyChunk {
     jurisdiction: string;
     category: string;
   };
+  /** The provision this chunk came from, when the document had structure. */
+  sectionLabel?: string | null;
+  sectionTitle?: string | null;
+  sectionStatute?: string | null;
 }
 
 /** One policy cited in a response, with enough detail for the UI to show it. */
@@ -313,6 +317,13 @@ export interface PolicyCitation {
   title: string;
   jurisdiction: string;
   category: string;
+  /**
+   * Provisions of this policy the guidance actually rests on, formatted for
+   * reading: "JICK §F — Investigative Procedures (RSA 193-F:4, II(k))".
+   * Empty when the document has no parseable structure, in which case the
+   * policy is cited whole.
+   */
+  sections?: string[];
 }
 
 /**

@@ -178,3 +178,59 @@ export function extractKeywords(text: string): string[] {
     .slice(0, 20)
     .map(([word]) => word);
 }
+
+export interface SectionedChunk {
+  content: string;
+  sectionLabel?: string;
+  sectionTitle?: string;
+  sectionStatute?: string;
+}
+
+/**
+ * Chunk a policy along its own section boundaries.
+ *
+ * Chunking blindly across a document produces chunks that straddle two
+ * provisions, which cannot be cited: "somewhere between §E and §F" is not a
+ * reference an administrator can act on. Splitting within sections means every
+ * chunk belongs to exactly one, so it can carry that section's label and
+ * statute.
+ *
+ * A section longer than `chunkSize` is still split, with overlap, inside
+ * itself. Text before the first section -- title pages, adoption dates -- is
+ * kept as unlabelled chunks rather than dropped, and a document with no
+ * parseable structure falls back to plain chunking.
+ */
+export function splitPolicyIntoSectionedChunks(
+  content: string,
+  sections: { label: string; title: string; statute?: string; text: string }[],
+  chunkSize = 1000,
+  overlap = 200
+): SectionedChunk[] {
+  if (sections.length === 0) {
+    return splitIntoChunks(content, chunkSize, overlap).map(c => ({ content: c }));
+  }
+
+  const out: SectionedChunk[] = [];
+
+  // Front matter: everything before the first section still carries the policy
+  // code and adoption dates, so it is worth retrieving even though unlabelled.
+  const firstStart = content.indexOf(sections[0].text);
+  if (firstStart > 0) {
+    for (const c of splitIntoChunks(content.slice(0, firstStart), chunkSize, overlap)) {
+      out.push({ content: c });
+    }
+  }
+
+  for (const section of sections) {
+    for (const c of splitIntoChunks(section.text, chunkSize, overlap)) {
+      out.push({
+        content: c,
+        sectionLabel: section.label,
+        sectionTitle: section.title,
+        ...(section.statute ? { sectionStatute: section.statute } : {}),
+      });
+    }
+  }
+
+  return out;
+}

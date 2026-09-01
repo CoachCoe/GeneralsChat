@@ -141,6 +141,24 @@ test.describe('Policy retrieval across jurisdictions', () => {
     await expect(sources).toContainText('District');
   });
 
+  test('cites the specific provision a policy rests on, not just the policy', async ({ page }) => {
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill(
+      'A student is being bullied repeatedly by a classmate during recess.'
+    );
+    await page.getByRole('button', { name: 'Send message' }).click();
+
+    // Citing the whole policy tells an administrator where to start reading;
+    // citing the provision tells them what they are relying on. The seeded
+    // JICK policy is written with lettered sections and is chunked through the
+    // production parser, so this asserts the section survives retrieval and is
+    // rendered -- including the statute the section implements.
+    const sources = page.getByTestId('chat-sources');
+    await expect(sources).toContainText('JICK §D');
+    await expect(sources).toContainText('Procedures for Reporting Bullying');
+    await expect(sources).toContainText('RSA 193-F:4, II(f) - (h)');
+  });
+
   test('mandatory reporting policy is retrieved for every incident type', async ({ page }) => {
     await page.goto('/chat');
     await page.getByTestId('chat-input').fill(

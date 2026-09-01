@@ -193,6 +193,16 @@ model PolicyChunk {
   content    String   // Chunk text content
   chunkIndex Int      // Order within the policy
 
+  /// The document's own section label for this chunk, e.g. "F". Null when the
+  /// policy has no parseable structure, in which case it is cited at policy
+  /// level -- a wrong section reference on a statutory obligation is worse
+  /// than none.
+  sectionLabel   String?
+  /// The section heading, e.g. "Investigative Procedures".
+  sectionTitle   String?
+  /// The statute the section header names, e.g. "RSA 193-F:4, II(k)".
+  sectionStatute String?
+
   // Vector embedding (stored as JSON array of floats)
   embedding String?
 

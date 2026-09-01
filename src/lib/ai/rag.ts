@@ -10,7 +10,8 @@ import {
 } from '@/types';
 import { chromaService } from './chroma';
 import { embeddingsService } from './embeddings';
-import { splitIntoChunks } from '@/lib/utils/documentProcessor';
+import { splitPolicyIntoSectionedChunks } from '@/lib/utils/documentProcessor';
+import { formatSectionCitation, parsePolicySections } from '@/lib/policy-sections';
 
 /**
  * Enhanced RAG System with Vector Search
@@ -51,8 +52,10 @@ export class RAGSystem {
     await this.initialize();
 
     try {
-      // Split content into chunks with overlap
-      const chunks = splitIntoChunks(content, 1000, 200);
+      // Chunk along the document's own sections, so every chunk can be cited
+      // by the provision it came from rather than by policy alone.
+      const sections = parsePolicySections(content);
+      const chunks = splitPolicyIntoSectionedChunks(content, sections, 1000, 200);
 
       // Check if embeddings are available
       const hasEmbeddings = process.env.OPENAI_API_KEY &&
@@ -62,7 +65,8 @@ export class RAGSystem {
       const chunkRecords = [];
 
       for (let i = 0; i < chunks.length; i++) {
-        const chunkContent = chunks[i];
+        const chunk = chunks[i];
+        const chunkContent = chunk.content;
 
         let embeddingJson: string | null = null;
 
@@ -83,6 +87,9 @@ export class RAGSystem {
             content: chunkContent,
             chunkIndex: i,
             embedding: embeddingJson,
+            sectionLabel: chunk.sectionLabel ?? null,
+            sectionTitle: chunk.sectionTitle ?? null,
+            sectionStatute: chunk.sectionStatute ?? null,
             metadata: metadata ? JSON.stringify(metadata) : null,
           },
         });
@@ -408,7 +415,15 @@ export class RAGSystem {
       const lines = inScope.map(chunk => {
         n += 1;
         const title = chunk.policy?.title ?? 'Untitled policy';
-        return `[${n}] ${title} — ${chunk.content}`;
+        // The reference the model should reproduce if it relies on this text.
+        const source = chunk.sectionLabel
+          ? formatSectionCitation(title, {
+              label: chunk.sectionLabel,
+              title: chunk.sectionTitle ?? '',
+              statute: chunk.sectionStatute ?? undefined,
+            })
+          : title;
+        return `[${n}] ${source}\n${chunk.content}`;
       });
 
       sections.push(`${JURISDICTION_LABELS[jurisdiction].toUpperCase()} POLICY:\n${lines.join('\n\n')}`);
@@ -431,24 +446,33 @@ export class RAGSystem {
   private buildCitations(chunks: PolicyChunk[]): PolicyCitation[] {
     const seen = new Map<string, PolicyCitation>();
     for (const chunk of chunks) {
-      if (!chunk.policy || seen.has(chunk.policyId)) continue;
-      seen.set(chunk.policyId, {
-        policyId: chunk.policyId,
-        title: chunk.policy.title,
-        jurisdiction: chunk.policy.jurisdiction,
-        category: chunk.policy.category,
-      });
+      if (!chunk.policy) continue;
+
+      let citation = seen.get(chunk.policyId);
+      if (!citation) {
+        citation = {
+          policyId: chunk.policyId,
+          title: chunk.policy.title,
+          jurisdiction: chunk.policy.jurisdiction,
+          category: chunk.policy.category,
+          sections: [],
+        };
+        seen.set(chunk.policyId, citation);
+      }
+
+      // One entry per provision the guidance rests on, in document order.
+      if (chunk.sectionLabel) {
+        const formatted = formatSectionCitation(chunk.policy.title, {
+          label: chunk.sectionLabel,
+          title: chunk.sectionTitle ?? '',
+          statute: chunk.sectionStatute ?? undefined,
+        });
+        if (!citation.sections!.includes(formatted)) citation.sections!.push(formatted);
+      }
     }
     return [...seen.values()];
   }
 
-  /**
-   * Which jurisdictions produced a policy for this incident's categories.
-   *
-   * Local policy is expected to implement the federal and state floor, so a
-   * missing district or school policy is a real compliance gap worth telling
-   * the administrator about -- not merely a retrieval miss.
-   */
   /**
    * Which jurisdictions hold a policy for each category this incident
    * implicates.

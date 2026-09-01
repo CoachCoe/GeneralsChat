@@ -18,6 +18,8 @@ interface Citation {
   title: string;
   jurisdiction: string;
   category: string;
+  /** Provisions relied on, when the document had parseable structure. */
+  sections?: string[];
 }
 
 interface Coverage {
@@ -529,6 +531,7 @@ export default function ChatPage() {
                                 sources={message.citations.map((c) => ({
                                   jurisdiction: c.jurisdiction,
                                   title: c.title,
+                                  sections: c.sections,
                                 }))}
                                 gapCategories={message.coverage?.categoriesWithoutLocalPolicy ?? []}
                               />
