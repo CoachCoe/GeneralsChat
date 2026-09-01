@@ -196,6 +196,14 @@ const INCIDENT_TYPE_CATEGORIES: Record<IncidentType, PolicyCategory[]> = {
   other: [],
 };
 
+/**
+ * Appended to every incident's category set, so its obligations are always
+ * retrievable. Callers judging whether a *subject* is in the library must
+ * exclude it -- it is nearly always covered locally, so including it would make
+ * "nothing local for this subject" unreachable.
+ */
+export const ALWAYS_RETRIEVED_CATEGORY: PolicyCategory = 'mandatory_reporting';
+
 export function categoriesForIncidentType(
   incidentType: string | null | undefined
 ): PolicyCategory[] {

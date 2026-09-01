@@ -19,7 +19,8 @@
     "db:verify": "tsx scripts/verify-db.ts",
     "policies:batch-upload": "tsx scripts/batch-upload-policies.ts",
     "user:create": "tsx scripts/create-user.ts",
-    "policies:reindex": "tsx scripts/reindex-policies.ts"
+    "policies:reindex": "tsx scripts/reindex-policies.ts",
+    "policies:load": "tsx scripts/load-policy.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",

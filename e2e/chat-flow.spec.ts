@@ -207,3 +207,80 @@ test.describe('Local policy coverage', () => {
     expect(body.response).not.toContain('GAP');
   });
 });
+
+/**
+ * The classification is the determination everything else follows from --
+ * which policies apply and which clocks start -- so it has to be visible.
+ * During a pilot with a deliberately narrow library it also answers the
+ * question the maintainer actually asked: is this a bullying incident or not.
+ */
+test.describe('Classification and library scope', () => {
+  test('shows what the incident was classified as', async ({ page }) => {
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill(
+      'A student is being bullied repeatedly by a classmate during recess.'
+    );
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    await expect(page.getByText('Classified as')).toBeVisible();
+    await expect(page.getByText('Bullying', { exact: true })).toBeVisible();
+  });
+
+  test('says plainly when no local policy is loaded for the subject', async ({ page }) => {
+    await page.goto('/chat');
+    // Classifies as violence, whose categories have no district or school
+    // policy in the fixture set at all.
+    await page.getByTestId('chat-input').fill(
+      'Two students got into a physical fight in the cafeteria this morning.'
+    );
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    const body = await response.json();
+
+    // Violence implicates school_safety, discipline, emergency_operations and
+    // mandatory_reporting. The fixture covers the last two locally, so this is
+    // a partial gap -- which is the honest answer, and the card that belongs.
+    expect(body.coverage.categoriesWithoutLocalPolicy).toContain('school_safety');
+    expect(body.coverage.categoriesWithoutLocalPolicy).toContain('emergency_operations');
+    expect(body.coverage.categoriesWithoutLocalPolicy).not.toContain('discipline');
+
+    await expect(page.getByTestId('chat-sources')).toContainText(
+      'No district or school policy covers'
+    );
+  });
+
+  test('flags the whole subject as outside the library when nothing local covers it', async ({ page }) => {
+    await page.goto('/chat');
+    // Classifies as title_ix. The fixture has a FEDERAL Title IX policy but no
+    // district or school one, and nothing at all for discrimination -- so every
+    // category the subject is about lacks local cover. This is the pilot's
+    // real shape: bullying loaded locally, other subjects not.
+    await page.getByTestId('chat-input').fill(
+      'A student reported unwanted sexual comments from a classmate in the corridor.'
+    );
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    const body = await response.json();
+    const subject = body.coverage.categories.filter((c: string) => c !== 'mandatory_reporting');
+    expect(subject.length).toBeGreaterThan(0);
+    expect(
+      subject.every((c: string) => body.coverage.categoriesWithoutLocalPolicy.includes(c))
+    ).toBe(true);
+
+    // The note, not the partial-gap card.
+    const note = page.getByRole('note');
+    await expect(note).toContainText('no district or school policy is loaded');
+    await expect(note).toContainText('confirm the district procedure');
+    // And it names what it thinks the incident is, so the reader can disagree.
+    await expect(note).toContainText('title ix');
+  });
+});

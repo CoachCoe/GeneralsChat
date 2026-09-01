@@ -36,21 +36,48 @@ a session transcript.
 npm run user:create -- --email demo@example.com --name "..." --role admin --password "..."
 ```
 
-### 3. Load the real district policies — *maintainer, in flight*
+### 3. Load the real district policies — *in progress*
+
+**Loaded 2026-09-01 (bullying, the first test subject):**
+
+| Policy | Jurisdiction / category | Chunks |
+|---|---|---|
+| Policy JICK: Bullying Prevention — Pupil Safety and Violence Prevention | district / bullying | 8 |
+| SAU 24 School Bullying Investigation Form (July 2026) | district / bullying | 3 |
+
+Two judgement calls worth knowing:
+
+- **`District Procedure bully form.docx` was not loaded.** It is a superseded
+  revision of the same SAU 24 form: it cites "RSA 193**:**F" (the statute is RSA
+  193**-**F) and lacks HB108, the cross-district reporting requirement, and the
+  July 2026 JICK revision. Loading it would put a superseded form with a wrong
+  statutory citation into retrieval — the exact SPEC-5 failure mode.
+- **The old "School District Bullying Prevention and Intervention Policy" was
+  deactivated.** Its own text calls it `Policy Number: DISC-001`, a code that
+  does not exist — it was synthetic sample data, and it would have competed with
+  the real JICK for every bullying query.
+
+Still to load, in the order that gates guidance:
 
 Guidance quality is entirely a function of this library. Each policy needs a
 **jurisdiction** (who issued it) and a **category** (what it covers) — retrieval
 matches on category, so anything loaded as `other` will never be found.
 
-Load order by what actually gates guidance:
-
 1. `mandatory_reporting` — retrieved for **every** incident regardless of type
 2. `suicide_prevention` — shortest statutory clocks
-3. `restraint_seclusion`, `title_ix`, `bullying`, `discrimination`
+3. `restraint_seclusion`, `title_ix` (district-level; only a federal one is
+   loaded), `discrimination`
 4. the rest
 
-Currently nothing is loaded in the first two, so every incident reports a
-coverage gap on them.
+Load one with:
+
+```bash
+npm run policies:load -- --file <path> --title "..." \
+  --jurisdiction district --category mandatory_reporting --effective YYYY-MM-DD
+```
+
+Dry run by default; `--apply` writes, `--replace` supersedes an existing policy
+of the same title and purges its old chunks from the vector store.
 
 ### 4. Policy-coverage report — *~30 min*
 

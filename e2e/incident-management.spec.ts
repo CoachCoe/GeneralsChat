@@ -60,10 +60,12 @@ test.describe('Incident management', () => {
   });
 
   test('opens an incident and shows its detail', async ({ page }) => {
-    const list = await page.request.get('/api/incidents?status=open');
+    // limit=100: earlier specs create incidents, and the seeded one must not
+    // depend on landing inside the default page of ten.
+    const list = await page.request.get('/api/incidents?status=open&limit=100');
     const { incidents } = await list.json();
     const target = incidents.find((i: { title: string }) => i.title === SEEDED_OPEN);
-    expect(target).toBeTruthy();
+    expect(target, `seeded incident "${SEEDED_OPEN}" not found`).toBeTruthy();
 
     await page.goto(`/incidents/${target.id}`);
 
@@ -72,9 +74,10 @@ test.describe('Incident management', () => {
   });
 
   test('closing an incident persists across a reload and stamps closedAt', async ({ page }) => {
-    const list = await page.request.get('/api/incidents?status=open');
+    const list = await page.request.get('/api/incidents?status=open&limit=100');
     const { incidents } = await list.json();
     const target = incidents.find((i: { title: string }) => i.title === SEEDED_OPEN);
+    expect(target, `seeded incident "${SEEDED_OPEN}" not found`).toBeTruthy();
 
     await page.goto(`/incidents/${target.id}`);
     await page.getByRole('button', { name: /Close Incident/i }).click();
