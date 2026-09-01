@@ -382,3 +382,72 @@ suite now covers the primary journeys and access control, but the pure
 functions — `cosineSimilarity`, `splitIntoChunks`, `cleanText`,
 `handlePrismaError`, the zod schemas — still have no tests and need no
 database, network, or server to get them.
+
+---
+
+# Addendum 2 — policy model (SPEC-33 resolved)
+
+**Answer: both.** Jurisdiction and category are independent facets, now two
+columns.
+
+The maintainer described the domain: policies come from federal government,
+state government, the district, and the individual school; they are not meant
+to be at odds, with local policy supporting the federal and state floor; and
+the workflow is that an administrator describes an incident and the system
+diagnoses which policies apply and what the response and reporting
+requirements are.
+
+That makes the single `policyType` column untenable — a bullying incident
+implicates a federal rule, a state statute and a district policy
+simultaneously, and each of those is a different jurisdiction *and* the same
+category.
+
+## What changed
+
+- Migration `20260901010000` adds `jurisdiction` and `category`, backfills each
+  existing row by which vocabulary its old value belonged to, drops
+  `policyType`. No drift.
+- Retrieval filters by the categories the incident classification implicates,
+  always including `mandatory_reporting`.
+- **Classification moved before retrieval.** It ran after, so the opening turn
+  always retrieved with `incidentType` null and the category filter matched
+  nothing.
+- Context is grouped by jurisdiction in the prompt so the model can tell a
+  statute from a handbook.
+- `ensureCategoryRepresentation` guarantees each implicated category appears,
+  because relevance ranking alone cannot surface a mandatory-reporting policy
+  for a disclosure that shares no vocabulary with it.
+- Coverage gaps are computed **per category, from the policy library**, not
+  from retrieval results. Any implicated category without a district or school
+  policy is flagged, and the prompt tells the model to say so rather than pass
+  a statute off as local procedure.
+
+## Two design errors caught during this round
+
+Recorded because both were mine, and both were the silent kind:
+
+1. **Category filtering killed first-turn retrieval.** Classification ran after
+   retrieval, so `categoriesForIncidentType(null)` narrowed every opening turn
+   to `mandatory_reporting` and nothing matched. Fixed by reordering, and
+   `categoriesForIncidentType` now returns `[]` (no filter) for an unknown type
+   as a safety net.
+
+2. **Gap detection reported the worst case as no gap.** Deriving coverage from
+   retrieved chunks meant a category with *no policy at all* produced no
+   chunks, hence no evidence of absence. Coverage is now queried from the
+   policy library directly.
+
+## Closed
+
+FLOW-8 — citations carry title, jurisdiction and category and are rendered in
+the chat UI, with an explicit "no matching district policy was found" when
+empty.
+
+The `PolicyChunk` re-index item is now actionable rather than a note:
+`npm run policies:reindex` (dry run) / `-- --apply`. Still not run against the
+remote production database — that is the maintainer's call.
+
+## Verification
+
+typecheck PASS · lint PASS (0 errors, 2 warnings) · build PASS ·
+**`npm test` 23/23, exit 0**.
