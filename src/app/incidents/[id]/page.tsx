@@ -192,7 +192,12 @@ export default function IncidentDetailPage() {
     ...incident.conversations.map(c => ({
       at: new Date(c.timestamp),
       kind: 'exchange' as const,
-      title: c.sender === 'user' ? 'Added by the reporter' : 'Guidance given',
+      title:
+        c.sender === 'user'
+          ? 'Added by the reporter'
+          : c.sender === 'summary'
+            ? 'Summary generated'
+            : 'Guidance given',
       body: c.message,
       meta: c.sender,
     })),

@@ -8,6 +8,7 @@ import { recordAudit } from '@/lib/audit';
 import { createErrorResponse, validationError, notFoundError } from '@/lib/errors';
 import { chatMessageSchema, validateRequest, formatValidationErrors } from '@/lib/validation';
 import { LLMUnavailableError } from '@/lib/ai/llm-service';
+import { SUMMARY_SENDER } from '@/lib/ai/incident-summary';
 import { incidentScope, requireUser } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
@@ -83,8 +84,12 @@ export async function POST(request: NextRequest) {
       return notFoundError('Incident');
     }
 
-    // Oldest-to-newest, the order the model expects.
-    const priorMessages = [...incident.conversations].reverse();
+    // Oldest-to-newest, the order the model expects. Summaries are excluded:
+    // they are a restatement of this same transcript, so replaying one would
+    // pay for the model's own previous output and crowd the context.
+    const priorMessages = [...incident.conversations]
+      .reverse()
+      .filter(c => c.sender !== SUMMARY_SENDER);
 
     // Save user message
     await prisma.conversation.create({

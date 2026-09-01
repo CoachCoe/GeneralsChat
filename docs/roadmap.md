@@ -100,12 +100,20 @@ next.
 Current state: 4 retrievable policies, 16 chunks, 0 embedded. 2 of 20 categories
 have a local policy. Bullying is fully covered; Title IX has federal only.
 
-### 5. Persist the incident-page summary — *~20 min, SPEC-35*
+### ~~5. Persist the incident-page summary~~ — **done 2026-09-01**
 
-`POST /api/incidents/[id]/summary` generates a summary and writes nothing. A
-user generates one, refreshes, and loses it — after paying for a
-multi-thousand-token call. `/api/chat/summary` already does this correctly; copy
-that behaviour.
+SPEC-35 and DEAD-12 closed together. Both summary endpoints are now thin
+adapters over `generateIncidentSummary` in `src/lib/ai/incident-summary.ts`;
+they were two implementations of one feature that had drifted apart, with only
+one of them storing its result.
+
+Doing it surfaced a second problem worth more than the first. Summaries were
+being stored as `sender: 'assistant'`, so every later chat turn **replayed the
+summary back to the model as conversation history** — paying for its own
+previous output and crowding the context with a restatement of what was already
+there. Summaries now have their own sender: excluded when building LLM context,
+included when rendering the record, and labelled "Summary generated" in the
+incident timeline.
 
 ---
 
