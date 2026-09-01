@@ -3,6 +3,8 @@ import { createErrorResponse, notFoundError, validationError } from '@/lib/error
 import { requireUser } from '@/lib/session';
 import { generateIncidentSummary } from '@/lib/ai/incident-summary';
 import { recordAudit } from '@/lib/audit';
+import { enforceRateLimit } from '@/lib/errors';
+import { RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * POST /api/chat/summary — end-of-chat summary.
@@ -17,6 +19,9 @@ export async function POST(request: NextRequest) {
   try {
     const guard = await requireUser();
     if (!guard.ok) return guard.response;
+
+    const limited = enforceRateLimit(`summary:${guard.user.id}`, RATE_LIMITS.CHAT);
+    if (limited) return limited;
 
     const { incidentId } = await request.json();
     if (!incidentId || typeof incidentId !== 'string') {

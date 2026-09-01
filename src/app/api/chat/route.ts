@@ -13,6 +13,8 @@ import { incidentScope, requireUser } from '@/lib/session';
 import { actionTypeFor, ClassificationUnavailableError } from '@/lib/ai/classifier';
 import { resolveProvenance } from '@/lib/obligation-provenance';
 import { claudeService } from '@/lib/ai/claude-service';
+import { enforceRateLimit } from '@/lib/errors';
+import { RATE_LIMITS } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -23,6 +25,12 @@ export async function POST(request: NextRequest) {
 
     const guard = await requireUser();
     if (!guard.ok) return guard.response;
+
+    // One turn can trigger classification, obligation derivation and the
+    // guidance call, so this bounds billed spend as well as load. Keyed by
+    // user: the limit is on what an account can spend. (SEC-23)
+    const limited = enforceRateLimit(`chat:${guard.user.id}`, RATE_LIMITS.CHAT);
+    if (limited) return limited;
     userId = guard.user.id;
 
     const body = await request.json();

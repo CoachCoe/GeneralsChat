@@ -302,6 +302,38 @@ the role it exists for.
 
 ---
 
+### ~~Rate limiting (SEC-11 / SEC-23)~~ — **done 2026-09-02**
+
+`/api/auth/*` is public, and `src/auth.ts` runs `bcrypt.compare` at cost 12
+deliberately even for an address with no account — so every attempt cost
+roughly a quarter-second of *blocking* CPU on a single event loop. A few
+hundred a minute made the app unavailable to every administrator while also
+giving unbounded password guessing. `rateLimitError()` had been exported since
+the first audit and imported by nothing.
+
+Sign-in is limited by client address in `middleware.ts` (10 per 5 minutes),
+because it is NextAuth's own route and there is no handler of ours to put it
+in. Chat, summaries and uploads are limited by user id in their handlers — the
+bound there is on what one account can spend, and keying by address would put
+every administrator behind a school's NAT on one counter.
+
+**The counters are in this process's memory.** That is exact at one replica,
+which is what the Container Apps config pins, and wrong at more than one: with
+N replicas the effective limit becomes N times what is configured. It degrades
+quietly rather than failing, so it must move to a shared store *before*
+`maxReplicas` is raised.
+
+`src/lib/rate-limit.ts` deliberately imports nothing. `middleware.ts` runs on
+the Edge runtime, and an early version had it import `errors.ts`, which pulled
+Prisma into that bundle and failed the build. The counter is pure; the response
+helper lives with the other response helpers.
+
+Seven unit tests, and an e2e that floods the sign-in endpoint and asserts a 429
+with a `Retry-After` that leaks nothing about whether the account exists —
+verified to fail when the limiter is removed.
+
+---
+
 ## Next — gated on real use
 
 ### 6. Run a real incident end to end, and watch it — *maintainer*
