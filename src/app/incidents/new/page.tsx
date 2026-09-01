@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Brain, Send, ArrowLeft, MessageCircle, FileText, Clock, CheckCircle } from 'lucide-react';
@@ -26,6 +27,9 @@ export default function NewIncidentPage() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<'description' | 'classification' | 'compliance' | 'complete'>('description');
+  const [incidentId, setIncidentId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -38,52 +42,61 @@ export default function NewIncidentPage() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue('');
     setIsLoading(true);
+    setError(null);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
+    try {
+      // Real intake. This page previously never called the API at all: it ran
+      // a setTimeout and picked a canned reply at random, asserting things like
+      // "Level 2 incident ... parent notification within 24 hours" with no
+      // classification, no policy retrieval and nothing persisted.
+      // (FLOW-14, SPEC-4)
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentInput,
+          incidentId: incidentId ?? undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `Request failed (${response.status})`);
+      }
+
+      const data = await response.json();
+
+      if (data.incidentId && !incidentId) {
+        setIncidentId(data.incidentId);
+      }
+
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: getAIResponse(inputValue, currentStep),
+        content: data.response,
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, aiResponse]);
-      setIsLoading(false);
-      
-      // Update step based on conversation
-      if (currentStep === 'description' && inputValue.length > 50) {
+      }]);
+
+      // Step reflects what the server actually did, not message length.
+      if (data.classification) {
+        setCurrentStep('compliance');
+      } else if (data.incidentId) {
         setCurrentStep('classification');
       }
-    }, 1500);
-  };
-
-  const getAIResponse = (input: string, step: string) => {
-    const responses = {
-      description: [
-        "Thank you for that information. I can see this involves a student incident. Let me ask a few follow-up questions to better understand the situation: What was the approximate time and location of this incident?",
-        "I understand. To properly classify this incident, could you tell me more about the individuals involved? Were there any witnesses present?",
-        "Thank you for those details. Based on what you've described, I'm analyzing this against our school policies. Can you provide any additional context about the severity or impact of this incident?"
-      ],
-      classification: [
-        "Based on your description, I'm classifying this as a Level 2 incident requiring immediate attention. This appears to involve bullying behavior that violates our student conduct policy.",
-        "I've identified this as a potential Title IX matter based on the nature of the incident. I'll need to gather some additional information to ensure proper compliance procedures.",
-        "This incident has been classified as a disciplinary matter requiring parent notification within 24 hours according to our policy guidelines."
-      ],
-      compliance: [
-        "Perfect! I've completed the initial classification. Here are the required next steps: 1) Notify parents within 24 hours, 2) Complete investigation report within 5 days, 3) Schedule follow-up meeting. Would you like me to help you with any of these steps?",
-        "I've identified the compliance requirements for this incident. The system will automatically track deadlines and send reminders. Is there anything specific you'd like me to clarify about the process?",
-        "Great! I've documented everything and created a compliance timeline. The incident has been properly classified and all required actions have been identified. You can now proceed with the formal reporting process."
-      ],
-      complete: [
-        "Excellent! Your incident report has been successfully processed. All compliance requirements have been identified and documented. You can now submit this report or continue with the formal documentation process.",
-        "Perfect! The AI has completed the incident classification and compliance analysis. Your report is ready for submission with all necessary details properly documented."
-      ]
-    };
-
-    const stepResponses = responses[step as keyof typeof responses] || responses.description;
-    return stepResponses[Math.floor(Math.random() * stepResponses.length)];
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        content: "I couldn't process that just now. Nothing has been recorded for this message — please try again, and contact your compliance officer directly if this is urgent.",
+        timestamp: new Date()
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getStepIcon = (step: string) => {
@@ -215,6 +228,12 @@ export default function NewIncidentPage() {
                 )}
               </div>
 
+              {error && (
+                <p role="alert" className="text-sm text-red-400 mb-3">
+                  {error}
+                </p>
+              )}
+
               {/* Input Area */}
               <div className="flex gap-3">
                 <input
@@ -234,6 +253,24 @@ export default function NewIncidentPage() {
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+
+              {incidentId && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700">
+                  <p className="text-sm text-gray-400">
+                    Recorded as incident{' '}
+                    <span className="font-mono text-gray-300">{incidentId.slice(0, 8)}</span>
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setCurrentStep('complete');
+                      router.push(`/incidents/${incidentId}`);
+                    }}
+                    className="btn-primary"
+                  >
+                    View incident report
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
