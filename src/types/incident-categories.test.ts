@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ALWAYS_RETRIEVED_CATEGORY,
   categoriesForIncidentType,
+  guaranteedCategoriesFor,
   INCIDENT_TYPES,
   POLICY_CATEGORIES,
 } from './index';
@@ -60,5 +61,41 @@ describe('categoriesForIncidentType', () => {
     expect(categoriesForIncidentType('title_ix')).toEqual(
       expect.arrayContaining(['title_ix', 'discrimination'])
     );
+  });
+});
+
+describe('guaranteedCategoriesFor', () => {
+  // The search filter and the guaranteed set were once the same function, and
+  // an `other` incident -- the classifier's own failure default -- therefore
+  // retrieved no mandatory-reporting policy AND had its coverage assessment
+  // skipped, so every gap warning was suppressed at the same time. These two
+  // callers must never collapse back into one. (B3)
+
+  it('always includes mandatory reporting, whatever the classification', () => {
+    for (const type of [...INCIDENT_TYPES, 'other']) {
+      expect(guaranteedCategoriesFor(type)).toContain(ALWAYS_RETRIEVED_CATEGORY);
+    }
+  });
+
+  it('includes mandatory reporting for an unclassified incident', () => {
+    expect(guaranteedCategoriesFor(null)).toEqual([ALWAYS_RETRIEVED_CATEGORY]);
+    expect(guaranteedCategoriesFor(undefined)).toEqual([ALWAYS_RETRIEVED_CATEGORY]);
+    expect(guaranteedCategoriesFor('not-a-type')).toEqual([ALWAYS_RETRIEVED_CATEGORY]);
+  });
+
+  it('includes mandatory reporting for `other`, where the search filter is empty', () => {
+    // The empty filter is deliberate: narrowing an unclassified incident to one
+    // category would exclude every other policy. The guarantee is not.
+    expect(categoriesForIncidentType('other')).toEqual([]);
+    expect(guaranteedCategoriesFor('other')).toEqual([ALWAYS_RETRIEVED_CATEGORY]);
+  });
+
+  it('is a superset of the search filter, without duplicates', () => {
+    for (const type of INCIDENT_TYPES) {
+      const filter = categoriesForIncidentType(type);
+      const guaranteed = guaranteedCategoriesFor(type);
+      for (const c of filter) expect(guaranteed).toContain(c);
+      expect(new Set(guaranteed).size).toBe(guaranteed.length);
+    }
   });
 });

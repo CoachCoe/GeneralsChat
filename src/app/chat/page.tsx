@@ -555,6 +555,7 @@ export default function ChatPage() {
                               ) : (
                                 <CoverageGapCard
                                   categories={message.coverage.categoriesWithoutLocalPolicy}
+                                  byCategory={message.coverage.byCategory}
                                 />
                               ))}
                           </div>

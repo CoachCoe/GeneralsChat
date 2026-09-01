@@ -114,6 +114,17 @@ export async function resetDatabase(): Promise<void> {
       },
     ];
 
+    // Active, district, school_safety -- and deliberately given NO chunks below.
+    // Retrieval can never return it, so it must not count as coverage. This is
+    // the production state a failed re-index leaves behind, and counting it
+    // suppressed the gap warning that says the library is empty. (B2)
+    const unchunked = {
+      title: 'Policy EBCA: Crisis Response (indexing incomplete)',
+      jurisdiction: 'district',
+      category: 'school_safety',
+      content: 'District procedure: unavailable -- this policy has not been indexed.',
+    };
+
     for (const p of policies) {
       const created = await prisma.policy.create({
         data: {
@@ -138,6 +149,17 @@ export async function resetDatabase(): Promise<void> {
         })),
       });
     }
+
+    await prisma.policy.create({
+      data: {
+        title: unchunked.title,
+        content: unchunked.content,
+        jurisdiction: unchunked.jurisdiction,
+        category: unchunked.category,
+        effectiveDate: new Date('2024-01-01'),
+        isActive: true,
+      },
+    });
 
     // One open incident owned by the reporter, one closed, and one owned by
     // the admin so cross-user access can be asserted.

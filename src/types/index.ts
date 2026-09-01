@@ -219,6 +219,28 @@ export function categoriesForIncidentType(
   return [...new Set([...mapped, 'mandatory_reporting' as PolicyCategory])];
 }
 
+/**
+ * The categories that must be represented in the retrieved set and assessed for
+ * coverage, whatever classification returned.
+ *
+ * Deliberately distinct from the search *filter* above. An unclassified or
+ * `other` incident must not constrain the search -- narrowing to one category
+ * would exclude every other policy -- but it must still be guaranteed
+ * mandatory-reporting text, and it must still have its coverage assessed.
+ *
+ * Collapsing the two is how an `other` incident came to retrieve no reporting
+ * policy while suppressing every gap warning at once. `other` is also the
+ * classifier's failure default, so that was the state an incident landed in
+ * precisely when the system knew least about it. (B3)
+ */
+export function guaranteedCategoriesFor(
+  incidentType: string | null | undefined
+): PolicyCategory[] {
+  return [
+    ...new Set([...categoriesForIncidentType(incidentType), ALWAYS_RETRIEVED_CATEGORY]),
+  ];
+}
+
 /** @deprecated Use POLICY_JURISDICTIONS. Retained for existing imports. */
 export enum PolicyType {
   FEDERAL = "federal",

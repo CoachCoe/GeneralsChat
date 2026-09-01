@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import {
   categoriesForIncidentType,
+  guaranteedCategoriesFor,
   JURISDICTION_LABELS,
   POLICY_JURISDICTIONS,
   PolicyChunk,
@@ -317,17 +318,21 @@ export class RAGSystem {
     // reporting always. Retrieve more than the display limit so several
     // jurisdictions have a chance to appear rather than one verbose policy
     // crowding out the others.
+    // The filter may be empty (unclassified, or `other`); the guaranteed set
+    // never is. Search stays unconstrained in that case, but representation and
+    // coverage still run -- see guaranteedCategoriesFor. (B3)
     const categories = categoriesForIncidentType(context?.incidentType);
+    const guaranteed = guaranteedCategoriesFor(context?.incidentType);
     const matched = await this.searchRelevantPolicies(retrievalQuery, 12, {
       categories,
       isActive: true,
     });
 
-    const relevantChunks = await this.ensureCategoryRepresentation(matched, categories);
+    const relevantChunks = await this.ensureCategoryRepresentation(matched, guaranteed);
 
     const policyContext = this.buildJurisdictionContext(relevantChunks);
     const citations = this.buildCitations(relevantChunks);
-    const coverage = await this.assessCoverage(categories);
+    const coverage = await this.assessCoverage(guaranteed);
 
     return {
       response: policyContext,
@@ -492,7 +497,14 @@ export class RAGSystem {
     }
 
     const policies = await prisma.policy.findMany({
-      where: { isActive: true, category: { in: categories } },
+      // A policy only counts as coverage if retrieval can actually return it.
+      // A row with chunks deleted -- which production has reached, when a
+      // re-index deleted them and failed to write replacements -- is invisible
+      // to search, so counting it would suppress the very gap warning that
+      // says the library is empty. `policy-coverage.ts` states this rule for
+      // the offline report; the live path that decides what the administrator
+      // is told must not be more permissive than it. (B2)
+      where: { isActive: true, category: { in: categories }, chunks: { some: {} } },
       select: { category: true, jurisdiction: true },
       distinct: ['category', 'jurisdiction'],
     });
