@@ -9,6 +9,7 @@ import {
   safeUploadPath,
   UploadError,
 } from '@/lib/uploads';
+import { incidentScope, requireUser } from '@/lib/session';
 
 /**
  * Deliberately excludes .html/.svg/.xhtml: these files are served from
@@ -22,6 +23,9 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
 
 export async function POST(request: NextRequest) {
   try {
+    const guard = await requireUser();
+    if (!guard.ok) return guard.response;
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const incidentId = formData.get('incidentId') as string;
@@ -33,9 +37,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify incident exists
-    const incident = await prisma.incident.findUnique({
-      where: { id: incidentId },
+    // Verify the incident exists AND that this user may attach to it. (SEC-7)
+    const incident = await prisma.incident.findFirst({
+      where: { id: incidentId, ...incidentScope(guard.user) },
     });
 
     if (!incident) {
@@ -49,28 +53,38 @@ export async function POST(request: NextRequest) {
     const ext = assertAllowedExtension(file.name, ALLOWED_ATTACHMENT_EXTENSIONS);
     assertWithinSizeLimit(file);
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads');
+    // Deliberately NOT public/. Attachments are student-record material --
+    // witness statements, medical notes, photographs on a Title IX file. Under
+    // public/ they were served as static assets with no access check, so the
+    // path handed out by GET /api/incidents/[id] was a direct download link for
+    // anyone. They are now written outside the served tree and read back only
+    // through GET /api/attachments/[id], which re-checks the session. (SEC-5)
+    const uploadsDir = join(
+      process.cwd(),
+      process.env.UPLOADS_DIR || './uploads',
+      'attachments'
+    );
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
 
     const filePath = safeUploadPath(uploadsDir, ext);
-    const uniqueFileName = filePath.slice(uploadsDir.length + 1);
+    const storedName = filePath.slice(uploadsDir.length + 1);
 
     // Write file to disk
     await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
 
     // Save attachment record to database
-    // Using demo-user as default uploader for now
     const attachment = await prisma.attachment.create({
       data: {
         incidentId,
         filename: file.name,
-        filePath: `/uploads/${uniqueFileName}`,
+        // Stored name only. The download URL is derived from the row id, so
+        // the on-disk layout is never exposed to the client.
+        filePath: storedName,
         fileType: file.type || 'application/octet-stream',
         fileSize: file.size,
-        uploadedBy: 'demo-user', // TODO: Get from authenticated user session
+        uploadedBy: guard.user.id,
       },
     });
 

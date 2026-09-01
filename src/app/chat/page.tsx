@@ -32,7 +32,6 @@ export default function ChatPage() {
   const [loadingHistories, setLoadingHistories] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const userId = 'demo-user'; // In production, get from auth session
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,7 +49,8 @@ export default function ChatPage() {
   const fetchChatHistories = async () => {
     setLoadingHistories(true);
     try {
-      const response = await fetch(`/api/chat/history?userId=${userId}`);
+      // No userId param: the endpoint always scopes to the session user. (SEC-8)
+      const response = await fetch('/api/chat/history');
       if (!response.ok) throw new Error('Failed to fetch histories');
 
       const data = await response.json();
@@ -110,7 +110,6 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: currentInput,
-          userId,
           incidentId,
         }),
       });

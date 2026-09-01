@@ -1,5 +1,7 @@
 'use client';
 
+import { signOut, useSession } from 'next-auth/react';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -7,6 +9,7 @@ import { Settings, Menu, X } from 'lucide-react';
 
 export default function Navbar() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const { data: session } = useSession();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -76,6 +79,13 @@ export default function Navbar() {
 
                 {/* Menu */}
                 <div className="navbar-dropdown z-50">
+                  {session?.user && (
+                    <div className="navbar-dropdown-item" style={{ opacity: 0.7, cursor: 'default' }}>
+                      {session.user.email}
+                      <br />
+                      <span style={{ fontSize: '0.75rem' }}>{session.user.role}</span>
+                    </div>
+                  )}
                   <Link
                     href="/about"
                     onClick={() => setIsAdminOpen(false)}
@@ -83,6 +93,19 @@ export default function Navbar() {
                   >
                     About
                   </Link>
+                  {session?.user && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAdminOpen(false);
+                        signOut({ callbackUrl: '/login' });
+                      }}
+                      className="navbar-dropdown-item"
+                      style={{ width: '100%', textAlign: 'left' }}
+                    >
+                      Sign out
+                    </button>
+                  )}
                 </div>
               </>
             )}

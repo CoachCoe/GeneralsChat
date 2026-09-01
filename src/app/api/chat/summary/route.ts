@@ -3,6 +3,7 @@ import { claudeService } from '@/lib/ai/claude-service';
 import { ragSystem } from '@/lib/ai/rag';
 import { prisma } from '@/lib/db';
 import { createErrorResponse } from '@/lib/errors';
+import { incidentScope, requireUser } from '@/lib/session';
 
 /**
  * POST /api/chat/summary
@@ -17,6 +18,9 @@ import { createErrorResponse } from '@/lib/errors';
  */
 export async function POST(request: NextRequest) {
   try {
+    const guard = await requireUser();
+    if (!guard.ok) return guard.response;
+
     const { incidentId } = await request.json();
 
     if (!incidentId) {
@@ -27,8 +31,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the incident and all conversation history
-    const incident = await prisma.incident.findUnique({
-      where: { id: incidentId },
+    const incident = await prisma.incident.findFirst({
+      where: { id: incidentId, ...incidentScope(guard.user) },
       include: {
         conversations: {
           orderBy: { timestamp: 'asc' },

@@ -30,6 +30,9 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/generalschat?schema=public
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY must be set}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set - generate with: openssl rand -base64 32}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
       # Optional: enables vector search instead of the keyword fallback.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CHROMA_URL: ${CHROMA_URL:-}

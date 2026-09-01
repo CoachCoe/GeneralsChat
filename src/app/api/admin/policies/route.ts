@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
+import { requireRole } from '@/lib/session';
 
 // GET /api/admin/policies - List all policies
 export async function GET() {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const policies = await prisma.policy.findMany({
       orderBy: [
         { isActive: 'desc' }, // Active policies first
@@ -30,6 +36,11 @@ export async function GET() {
 // POST /api/admin/policies - Create new policy
 export async function POST(request: NextRequest) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const body = await request.json();
     const { title, content, policyType, effectiveDate, description, keywords } = body;
 

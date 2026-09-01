@@ -7,6 +7,16 @@ config({ path: resolve(__dirname, '../.env') });
 const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 /**
+ * The API now requires authentication. Sign in through the UI, copy the
+ * `authjs.session-token` cookie, and export it as APP_SESSION_COOKIE.
+ * Without it every request below returns 401.
+ */
+const SESSION_COOKIE = process.env.APP_SESSION_COOKIE ?? '';
+const AUTH_HEADERS: Record<string, string> = SESSION_COOKIE
+  ? { Cookie: `authjs.session-token=${SESSION_COOKIE}` }
+  : {};
+
+/**
  * Test Script: Verify Enhanced Chat Behavior
  *
  * This tests that the chatbot:
@@ -26,10 +36,9 @@ async function testChatBehavior() {
   try {
     const response1 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
       body: JSON.stringify({
         message: 'A student was bullied today',
-        userId: 'demo-user',
       }),
     });
 
@@ -65,10 +74,9 @@ async function testChatBehavior() {
   try {
     const response2 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
       body: JSON.stringify({
         message: 'Two 7th grade students got into a physical fight in the cafeteria at lunch today. Student A punched Student B in the face. There were about 30 witnesses. Parents have not been notified yet. No serious injuries but Student B has a bloody nose.',
-        userId: 'demo-user',
       }),
     });
 
@@ -123,10 +131,9 @@ async function testChatBehavior() {
   try {
     const response3 = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
       body: JSON.stringify({
         message: 'A female student reported that a male student touched her inappropriately in the hallway yesterday',
-        userId: 'demo-user',
       }),
     });
 

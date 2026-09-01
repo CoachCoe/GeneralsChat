@@ -435,9 +435,18 @@ export default function IncidentDetailPage() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-apple-caption2" style={{ color: 'var(--muted-foreground)' }}>
-                      {formatDate(attachment.createdAt)}
-                    </span>
+                    <div className="flex items-center gap-4">
+                      <a
+                        href={`/api/attachments/${attachment.id}`}
+                        className="text-apple-caption2 underline"
+                        style={{ color: 'var(--foreground)' }}
+                      >
+                        Download
+                      </a>
+                      <span className="text-apple-caption2" style={{ color: 'var(--muted-foreground)' }}>
+                        {formatDate(attachment.createdAt)}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

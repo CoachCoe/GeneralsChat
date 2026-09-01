@@ -21,7 +21,11 @@ model User {
   name      String
   role      String   @default("reporter") // admin, investigator, reporter
 
-  // Authentication fields (for NextAuth)
+  // Authentication. Credentials provider with JWT sessions, so no Account /
+  // Session / VerificationToken models are needed. Nullable because rows
+  // created before authentication existed have no password; those users
+  // cannot sign in until one is set.
+  passwordHash  String?
   emailVerified DateTime?
   image         String?
 

@@ -8,6 +8,16 @@ config({ path: resolve(__dirname, '../.env') });
 const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 /**
+ * The API now requires authentication. Sign in through the UI, copy the
+ * `authjs.session-token` cookie, and export it as APP_SESSION_COOKIE.
+ * Without it every request below returns 401.
+ */
+const SESSION_COOKIE = process.env.APP_SESSION_COOKIE ?? '';
+const AUTH_HEADERS: Record<string, string> = SESSION_COOKIE
+  ? { Cookie: `authjs.session-token=${SESSION_COOKIE}` }
+  : {};
+
+/**
  * Complete End-to-End RAG Test
  *
  * Tests the full flow: user query → RAG retrieval → Claude response with policy context
@@ -27,12 +37,9 @@ async function testCompleteRAG() {
 
     const response = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
       body: JSON.stringify({
         message: testQuery,
-        userId: 'demo-user',
       }),
     });
 

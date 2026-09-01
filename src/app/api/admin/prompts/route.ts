@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireRole } from '@/lib/session';
 
 // GET /api/admin/prompts - List all prompts
 export async function GET() {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const prompts = await prisma.systemPrompt.findMany({
       orderBy: [
         { isActive: 'desc' }, // Active prompts first
@@ -33,6 +39,11 @@ export async function GET() {
 // POST /api/admin/prompts - Create new prompt
 export async function POST(request: NextRequest) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const body = await request.json();
     const { name, content, description, createdBy } = body;
 

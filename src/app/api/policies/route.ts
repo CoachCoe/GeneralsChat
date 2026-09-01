@@ -11,11 +11,15 @@ import {
   safeUploadPath,
   UploadError,
 } from '@/lib/uploads';
+import { requireRole, requireUser } from '@/lib/session';
 
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
 
 export async function GET(request: NextRequest) {
   try {
+    const guard = await requireUser();
+    if (!guard.ok) return guard.response;
+
     const { searchParams } = new URL(request.url);
     const policyType = searchParams.get('type');
     const isActive = searchParams.get('active');
@@ -45,6 +49,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Policy ingestion is an admin action. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const formData = await request.formData();
     const title = formData.get('title') as string;
     const policyType = formData.get('policyType') as PolicyType;

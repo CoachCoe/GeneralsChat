@@ -15,14 +15,15 @@ const incidentStatusEnum = z.enum(INCIDENT_STATUSES);
 export const chatMessageSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty').max(5000, 'Message is too long'),
   incidentId: z.string().optional(),
-  userId: z.string().min(1, 'User ID is required'),
+  // No userId: identity comes from the session. Accepting it from the client
+  // meant an attacker could forge reports as any named user. (SEC-8)
 });
 
 export type ChatMessageInput = z.infer<typeof chatMessageSchema>;
 
 // Incident schemas
 export const createIncidentSchema = z.object({
-  reporterId: z.string().min(1, 'Reporter ID is required'),
+  // reporterId is taken from the session, not the request body. (SEC-8)
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   description: z.string().min(1, 'Description is required').max(10000, 'Description is too long'),
   incidentType: incidentTypeEnum.optional(),
@@ -102,9 +103,19 @@ export type FileUploadInput = z.infer<typeof fileUploadSchema>;
  * ?limit=1000000 to dump an entire table in one request, and ?limit=abc to
  * reach Prisma as `take: NaN`. (SEC-12)
  */
+export const MAX_PAGE_SIZE = 100;
+
 export const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).max(100_000).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(10),
+  // Garbage ("abc", 0, -1, 1.5) is rejected; an over-large but well-formed
+  // limit is clamped rather than refused, so a caller asking for more than the
+  // page cap gets the cap instead of a 400.
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10)
+    .transform((n) => Math.min(n, MAX_PAGE_SIZE)),
 });
 
 export type PaginationInput = z.infer<typeof paginationSchema>;

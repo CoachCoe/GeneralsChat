@@ -3,10 +3,12 @@ import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { incidentClassifier } from '@/lib/ai/classifier';
 import { DataSensitivity, INCIDENT_TYPE_LABELS } from '@/types';
-import { logRequest, logResponse, logError, logAudit } from '@/lib/logger';
+import { logRequest, logResponse, logError } from '@/lib/logger';
+import { recordAudit } from '@/lib/audit';
 import { createErrorResponse, validationError, notFoundError } from '@/lib/errors';
 import { chatMessageSchema, validateRequest, formatValidationErrors } from '@/lib/validation';
 import { LLMUnavailableError } from '@/lib/ai/llm-service';
+import { incidentScope, requireUser } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -14,6 +16,10 @@ export async function POST(request: NextRequest) {
 
   try {
     logRequest('POST', '/api/chat');
+
+    const guard = await requireUser();
+    if (!guard.ok) return guard.response;
+    userId = guard.user.id;
 
     const body = await request.json();
 
@@ -27,14 +33,14 @@ export async function POST(request: NextRequest) {
       return validationError('Invalid request data', formatValidationErrors(validation.errors));
     }
 
-    const { message, incidentId, userId: reqUserId } = validation.data;
-    userId = reqUserId;
+    // userId comes from the session, never from the body. (SEC-8)
+    const { message, incidentId } = validation.data;
 
     // Get or create incident
     let incident;
     if (incidentId) {
-      incident = await prisma.incident.findUnique({
-        where: { id: incidentId },
+      incident = await prisma.incident.findFirst({
+        where: { id: incidentId, ...incidentScope(guard.user) },
         include: {
           conversations: {
             // Newest-first with a take, then reversed below. `asc` + `take`
@@ -64,10 +70,12 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Log audit event for incident creation
-      logAudit(userId, 'create', 'incident', incident.id, {
-        title,
-        via: 'chat',
+      await recordAudit({
+        userId,
+        action: 'created',
+        entity: 'incident',
+        entityId: incident.id,
+        details: { title, via: 'chat' },
       });
     }
 

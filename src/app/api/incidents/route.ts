@@ -7,9 +7,14 @@ import {
   validateRequest,
   formatValidationErrors,
 } from '@/lib/validation';
+import { canReadAllIncidents, incidentScope, requireUser } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 
 export async function GET(request: NextRequest) {
   try {
+    const guard = await requireUser();
+    if (!guard.ok) return guard.response;
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const reporterId = searchParams.get('reporterId');
@@ -28,11 +33,15 @@ export async function GET(request: NextRequest) {
     }
     const { page, limit } = pagination.data;
 
-    const where: any = {};
+    // Reporters see only what they filed; investigators and admins see all.
+    // The reporterId query param can narrow that but never widen it. (SEC-7)
+    const where: { status?: string; reporterId?: string } = {
+      ...incidentScope(guard.user),
+    };
     if (status) {
       where.status = status;
     }
-    if (reporterId) {
+    if (reporterId && canReadAllIncidents(guard.user)) {
       where.reporterId = reporterId;
     }
 
@@ -88,6 +97,9 @@ export async function POST(request: NextRequest) {
     // createIncidentSchema existed but was imported nowhere, so incidentType,
     // severity and status reached Prisma unvalidated -- an out-of-vocabulary
     // status silently hides an incident from every list view. (SEC-13)
+    const guard = await requireUser();
+    if (!guard.ok) return guard.response;
+
     const parsed = validateRequest(createIncidentSchema, await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -95,13 +107,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { title, description, reporterId, incidentType, severity } = parsed.data;
+    const { title, description, incidentType, severity } = parsed.data;
 
     const incident = await prisma.incident.create({
       data: {
         title,
         description,
-        reporterId,
+        reporterId: guard.user.id,
         incidentType,
         severity,
         status: IncidentStatus.OPEN,
@@ -115,6 +127,14 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+    });
+
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'incident',
+      entityId: incident.id,
+      details: { title, via: 'api' },
     });
 
     return NextResponse.json({ incident });

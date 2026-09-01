@@ -14,6 +14,7 @@ import {
   UploadError,
   uploadErrorStatus,
 } from '@/lib/uploads';
+import { requireRole } from '@/lib/session';
 
 /** Formats the documentProcessor can actually parse. */
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
@@ -21,6 +22,11 @@ const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as co
 // POST /api/admin/policies/upload - Upload policy file or fetch from URL
 export async function POST(request: NextRequest) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const url = formData.get('url') as string | null;

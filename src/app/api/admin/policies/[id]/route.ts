@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
+import { requireRole } from '@/lib/session';
 
 type Params = {
   params: Promise<{
@@ -11,6 +12,11 @@ type Params = {
 // GET /api/admin/policies/[id] - Get single policy with chunks
 export async function GET(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
     const policy = await prisma.policy.findUnique({
       where: { id },
@@ -41,6 +47,11 @@ export async function GET(request: NextRequest, { params }: Params) {
 // PUT /api/admin/policies/[id] - Update policy
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
     const body = await request.json();
     const { title, content, policyType, effectiveDate, isActive, metadata } = body;
@@ -84,6 +95,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
 // DELETE /api/admin/policies/[id] - Delete policy and its chunks
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
 
     // Purge the vector store first. The DB cascade removes PolicyChunk rows,
