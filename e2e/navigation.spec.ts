@@ -48,7 +48,6 @@ test.describe('Navigation', () => {
       ['post', '/api/admin/prompts'],
       ['put', '/api/admin/prompts/any-id'],
       ['delete', '/api/admin/prompts/any-id'],
-      ['post', '/api/policies'],
     ];
 
     for (const [method, url] of attempts) {
@@ -60,6 +59,13 @@ test.describe('Navigation', () => {
         `${method.toUpperCase()} ${url} should be refused for a reporter`
       ).toBe(403);
     }
+
+    // The third ingestion route is gone: called by nothing, and outside the
+    // /api/admin prefix the middleware gates, so its handler guard was the only
+    // thing holding. Reading the library is still allowed. (OQ-2)
+    const removed = await page.request.post('/api/policies', { data: {} });
+    expect(removed.status()).toBe(405);
+    expect((await page.request.get('/api/policies?active=true')).status()).toBe(200);
   });
 
   test('the health probe is reachable without a session and says nothing else', async ({

@@ -242,14 +242,29 @@ that excerpt does not contain still produces a policy-backed row. Closing that
 needs the deadline parsed out of the provision text, which is a bigger piece of
 work and wants real incidents to calibrate against — step 6.
 
-**OQ-2 — canonical ingestion: `/api/admin/policies/upload`.** *(Queued.)*
+**OQ-2 — canonical ingestion: `/api/admin/policies/upload`. Done 2026-09-02.**
 Delete `POST /api/policies`; keep `POST /api/admin/policies` for the paste-text
 path the admin UI uses. The deleted route is called by no client, sits outside
 the `/api/admin` prefix so `isAdminPath` does not cover it, and is the route
 SEC-3 exploited. It is documented in README, so this needs a doc change — that
-is the decision, not an obstacle. Standardise the uploads directory on one
-resolution at the same time (DEAD-62): there are four, and one makes
-`policies:reindex` re-copy the source file on every run.
+is the decision, not an obstacle. Standardised the uploads directory at the same time
+(DEAD-62). There were four resolutions across six call sites, and two were
+wrong in ways only a deployment shows:
+
+- `join(cwd, UPLOADS_DIR, 'attachments')` prefixes the working directory to an
+  absolute path, so `UPLOADS_DIR=/app/uploads` resolved to
+  `/app/app/uploads/attachments` — **outside the Azure Files mount**. Upload and
+  download shared the same wrong expression, so the app worked perfectly until
+  the first redeploy, at which point every attachment was gone with no error.
+  This would have shipped with the Azure work.
+- `join(cwd, 'uploads', 'policies')` ignored `UPLOADS_DIR` entirely, so
+  `policies:reindex`'s containment check never matched and it re-copied every
+  source file on every run.
+
+All six now go through `uploadsRoot()` / `policyUploadsDir()` /
+`attachmentUploadsDir()` in `src/lib/uploads.ts`, with tests covering the
+absolute case. SEC-27 closed alongside: `GET /api/policies` returned whole
+rows, including absolute server paths, to any authenticated user.
 
 **OQ-4 — the admin-editable system prompt: invert it, but not yet.** *(Queued,
 lowest priority.)* The row replaces the in-code prompt for the chat path only —

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { canReadAllIncidents, requireUser } from '@/lib/session';
 import { createErrorResponse, notFoundError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
+import { attachmentUploadsDir } from '@/lib/uploads';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -41,11 +42,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     // not read it.
     if (!permitted) return notFoundError('Attachment');
 
-    const uploadsDir = join(
-      process.cwd(),
-      process.env.UPLOADS_DIR || './uploads',
-      'attachments'
-    );
+    const uploadsDir = attachmentUploadsDir();
     const filePath = join(uploadsDir, attachment.filePath);
 
     // filePath is a server-generated basename, but assert containment anyway

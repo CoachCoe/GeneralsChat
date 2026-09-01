@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { writeFile, mkdir, unlink } from 'fs/promises';
-import { join } from 'path';
 import { existsSync } from 'fs';
 import { processDocument } from '@/lib/utils/documentProcessor';
 import { safeFetchText, UnsafeUrlError } from '@/lib/safe-fetch';
@@ -14,6 +13,7 @@ import {
   safeUploadPath,
   UploadError,
   uploadErrorStatus,
+  policyUploadsDir,
 } from '@/lib/uploads';
 import { requireRole } from '@/lib/session';
 import { policyFacetsSchema } from '@/lib/validation';
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       const ext = assertAllowedExtension(file.name, ALLOWED_POLICY_EXTENSIONS);
       assertWithinSizeLimit(file);
 
-      const uploadsDir = join(process.cwd(), 'uploads', 'policies');
+      const uploadsDir = policyUploadsDir();
       if (!existsSync(uploadsDir)) {
         await mkdir(uploadsDir, { recursive: true });
       }

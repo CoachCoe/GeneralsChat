@@ -6,6 +6,7 @@ import { prisma } from '../src/lib/db';
 import { ragSystem } from '../src/lib/ai/rag';
 import { processDocument } from '../src/lib/utils/documentProcessor';
 import { POLICY_CATEGORIES, POLICY_JURISDICTIONS } from '../src/types';
+import { policyUploadsDir } from '../src/lib/uploads';
 
 config({ path: resolve(__dirname, '../.env') });
 
@@ -101,7 +102,7 @@ async function main() {
 
   // Keep a copy of the source. Re-indexing re-extracts from it, so the
   // provenance cannot depend on the operator's download folder still existing.
-  const uploadsDir = resolve(process.env.UPLOADS_DIR ?? './uploads', 'policies');
+  const uploadsDir = policyUploadsDir();
   mkdirSync(uploadsDir, { recursive: true });
   const stored = resolve(uploadsDir, `${randomUUID()}${extname(file).toLowerCase()}`);
   copyFileSync(file, stored);

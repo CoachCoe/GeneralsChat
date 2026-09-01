@@ -32,28 +32,37 @@
 
 ### Method 2: Single Policy Upload (Command Line)
 
-**Best for:** Quick testing or single policy upload
+**Best for:** loading one policy, and the path that actually works today.
 
-`POST /api/policies` requires an **admin session** — it is not open. Sign in
-through the UI, copy the `authjs.session-token` cookie from your browser, and
-pass it as shown. Without it the request returns 401.
+Use `npm run policies:load`. It writes through Prisma, so it needs no running
+server and no session cookie, it accepts `.pdf` and `.docx` as well as text,
+and it **dry-runs by default** — you see what it would create before it writes.
 
 ```bash
-curl -X POST http://localhost:3000/api/policies \
-  -H "Cookie: authjs.session-token=$SESSION_TOKEN" \
-  -F "title=JLDBB - Suicide Prevention" \
-  -F "jurisdiction=district" \
-  -F "category=suicide_prevention" \
-  -F "effectiveDate=2024-01-01" \
-  -F "file=@sample-policies/jldbb-suicide-prevention.pdf"
+npm run policies:load -- \
+  --file sample-policies/jldbb-suicide-prevention.pdf \
+  --title "JLDBB - Suicide Prevention" \
+  --jurisdiction district \
+  --category suicide_prevention \
+  --effective 2024-01-01
+# then repeat with --apply to write
 ```
 
 **Replace:**
-- `title` → Your policy title
-- `jurisdiction` → `federal`, `state`, `district` or `school` (see below)
-- `category` → one of the 20 categories (see below)
-- `effectiveDate` → YYYY-MM-DD format
-- `file=@...` → Path to your policy file
+- `--title` → Your policy title
+- `--jurisdiction` → `federal`, `state`, `district` or `school` (see below)
+- `--category` → one of the 20 categories (see below); it is validated, and a
+  typo is rejected rather than stored as `other`
+- `--effective` → YYYY-MM-DD format
+- `--file` → Path to your policy file
+
+It refuses a document from which fewer than 50 words could be extracted, which
+is what a scanned PDF looks like.
+
+`POST /api/policies` used to be documented here. It is gone: it was the third
+of three ingestion routes, called by nothing, and it sat outside the
+`/api/admin` prefix that the middleware gates. The HTTP path is now
+`POST /api/admin/policies/upload`, which the admin UI uses.
 
 ---
 
