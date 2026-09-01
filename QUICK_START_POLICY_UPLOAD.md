@@ -21,12 +21,12 @@
 
 3. **Run the script:**
    ```bash
-   npx tsx scripts/batch-upload-policies.ts
+   npm run policies:batch-upload
    ```
 
 4. **Verify upload:**
    - Check the console output for success messages
-   - Visit http://localhost:3002/policies to see uploaded policies
+   - Visit http://localhost:3000/policies to see uploaded policies
 
 ---
 
@@ -35,7 +35,7 @@
 **Best for:** Quick testing or single policy upload
 
 ```bash
-curl -X POST http://localhost:3002/api/policies \
+curl -X POST http://localhost:3000/api/policies \
   -F "title=JLDBB - Suicide Prevention" \
   -F "policyType=suicide_prevention" \
   -F "effectiveDate=2024-01-01" \
@@ -59,7 +59,7 @@ curl -X POST http://localhost:3002/api/policies \
    npm run dev
    ```
 
-2. Navigate to: http://localhost:3002/policies
+2. Navigate to: http://localhost:3000/policies
 
 3. Click **"Upload Policy"** button
 
@@ -73,11 +73,33 @@ curl -X POST http://localhost:3002/api/policies \
 
 ---
 
-## 📋 Policy Type Reference
+## 📋 Policy Reference
 
-When uploading, use one of these **exact** policy type strings:
+Every policy has **two** independent fields.
 
-| Policy Type | Example Policies | Priority |
+### Jurisdiction — who issued it
+
+| Value | Meaning |
+|---|---|
+| `federal` | Federal law or regulation (Title IX, FERPA, IDEA) |
+| `state` | State statute or department rule (e.g. NH RSA 193-F) |
+| `district` | SAU / district board policy |
+| `school` | Individual school procedure or handbook |
+
+Federal and state set the floor; district and school implement it. Guidance
+assembles all of them, so an administrator sees both the statutory requirement
+and the local procedure that satisfies it.
+
+**If a category has no district or school policy, the assistant says so**
+rather than presenting a federal or state rule as local procedure. That gap is
+worth knowing about — there should be a local policy for everything.
+
+### Category — what it covers
+
+Incident classification matches on this to decide which policies apply. Use one
+of these **exact** strings:
+
+| Category | Example Policies | Priority |
 |------------|------------------|----------|
 | `suicide_prevention` | JLDBB - Suicide Prevention | 🔴 High |
 | `mandatory_reporting` | JLF - Reporting Child Abuse and Neglect | 🔴 High |
@@ -116,7 +138,7 @@ When uploading, use one of these **exact** policy type strings:
 
 ### Option 1: Check Database
 ```bash
-npx tsx scripts/verify-db.ts
+npm run db:verify
 ```
 
 Look for:
@@ -126,12 +148,12 @@ Look for:
 ```
 
 ### Option 2: Test in Chat
-1. Go to http://localhost:3002/chat
+1. Go to http://localhost:3000/chat
 2. Ask: "What does our policy say about [topic]?"
 3. The chatbot should reference the uploaded policy
 
 ### Option 3: Prisma Studio
-1. Open http://localhost:5555
+1. Run `npm run db:studio`, then open http://localhost:5555
 2. Click "Policy" table
 3. View all uploaded policies and their chunks
 
@@ -187,7 +209,7 @@ Look for:
 
 ### "API error" or "Network error"
 - Verify dev server is running: `npm run dev`
-- Check server is on correct port (3002 by default)
+- Check server is on correct port (3000 by default)
 - Ensure .env file has required API keys
 
 ### Policy uploaded but not appearing in chat

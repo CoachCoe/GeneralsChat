@@ -21,7 +21,10 @@ interface Incident {
     name: string;
     email: string;
   };
-  actions: Array<{
+  // The API returns this relation as `complianceActions`
+  // (api/incidents/route.ts:32); reading `actions` made the whole block
+  // below unreachable in both copies of this page. (DEAD-8)
+  complianceActions: Array<{
     id: string;
     actionType: string;
     description?: string;
@@ -194,11 +197,11 @@ export default function ClosedIncidentsPage() {
                     </div>
                   </div>
                   
-                  {incident.actions.length > 0 && (
+                  {incident.complianceActions.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <h4 className="text-sm font-medium text-white mb-2">Completed Actions</h4>
                       <div className="space-y-2">
-                        {incident.actions.slice(0, 2).map((action) => (
+                        {incident.complianceActions.slice(0, 2).map((action) => (
                           <div key={action.id} className="flex items-center justify-between text-sm">
                             <span className="text-gray-300">{action.description || action.actionType}</span>
                             <Badge variant="outline" className="text-xs border-white/20 text-gray-300">
@@ -206,9 +209,9 @@ export default function ClosedIncidentsPage() {
                             </Badge>
                           </div>
                         ))}
-                        {incident.actions.length > 2 && (
+                        {incident.complianceActions.length > 2 && (
                           <p className="text-xs text-gray-500">
-                            +{incident.actions.length - 2} more actions
+                            +{incident.complianceActions.length - 2} more actions
                           </p>
                         )}
                       </div>

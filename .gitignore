@@ -8,6 +8,7 @@ yarn-error.log*
 .next/
 out/
 build/
+*.tsbuildinfo
 
 # Environment variables
 .env
@@ -37,9 +38,16 @@ Thumbs.db
 # Logs
 *.log
 
+# Playwright output (failure screenshots and reports were committed as if
+# they were source; upload them as CI artifacts instead)
+test-results/
+playwright-report/
+blob-report/
+
 # Prisma
 src/generated/
 
 # Temporary files
 *.tmp
 *.temp
+e2e/.auth/

@@ -7,11 +7,20 @@ import Navbar from '@/components/Navbar';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 
+interface Citation {
+  policyId: string;
+  title: string;
+  jurisdiction: string;
+  category: string;
+}
+
 interface Message {
   id: string;
   type: 'user' | 'general';
   content: string;
   timestamp: Date;
+  /** Policies the guidance was drawn from; empty means none matched. */
+  citations?: Citation[];
 }
 
 interface Chat {
@@ -32,7 +41,6 @@ export default function ChatPage() {
   const [loadingHistories, setLoadingHistories] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const userId = 'demo-user'; // In production, get from auth session
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,7 +58,8 @@ export default function ChatPage() {
   const fetchChatHistories = async () => {
     setLoadingHistories(true);
     try {
-      const response = await fetch(`/api/chat/history?userId=${userId}`);
+      // No userId param: the endpoint always scopes to the session user. (SEC-8)
+      const response = await fetch('/api/chat/history');
       if (!response.ok) throw new Error('Failed to fetch histories');
 
       const data = await response.json();
@@ -110,7 +119,6 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: currentInput,
-          userId,
           incidentId,
         }),
       });
@@ -131,7 +139,8 @@ export default function ChatPage() {
         id: (Date.now() + 1).toString(),
         type: 'general',
         content: data.response,
-        timestamp: new Date()
+        timestamp: new Date(),
+        citations: data.citations ?? []
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
@@ -449,12 +458,48 @@ export default function ChatPage() {
                         }}>
                           {message.content}
                         </div>
+
+                        {message.type === 'general' && message.citations && (
+                          <div data-testid="chat-sources" style={{ marginTop: '10px' }}>
+                            {message.citations.length > 0 ? (
+                              <>
+                                <div style={{
+                                  fontSize: '12px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.05em',
+                                  color: 'var(--muted-foreground)',
+                                  marginBottom: '4px'
+                                }}>
+                                  Policies referenced
+                                </div>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                  {message.citations.map((citation) => (
+                                    <li
+                                      key={citation.policyId}
+                                      style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}
+                                    >
+                                      <span style={{ textTransform: 'capitalize' }}>
+                                        {citation.jurisdiction}
+                                      </span>
+                                      {' · '}
+                                      {citation.title}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            ) : (
+                              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
+                                No matching district policy was found for this question.
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
 
                   {isLoading && (
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div data-testid="chat-loading" role="status" aria-live="polite" style={{ display: 'flex', gap: '12px' }}>
                       <div style={{
                         width: '32px',
                         height: '32px',
@@ -547,6 +592,8 @@ export default function ChatPage() {
                 </button>
 
                 <textarea
+                  data-testid="chat-input"
+                  aria-label="Message"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -574,6 +621,9 @@ export default function ChatPage() {
                 />
 
                 <button
+                  data-testid="chat-send"
+                  type="button"
+                  aria-label="Send message"
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isLoading}
                   style={{

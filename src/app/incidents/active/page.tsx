@@ -4,15 +4,19 @@ import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { AlertTriangle, User, Calendar } from 'lucide-react';
 
+/**
+ * Mirrors what GET /api/incidents actually returns. The previous interface
+ * declared priority / reportedBy / reportedAt / assignedTo, none of which
+ * exist on the model -- every one rendered as undefined. (FLOW-13, DEAD-31)
+ */
 interface Incident {
   id: string;
   title: string;
-  description: string;
-  status: 'active' | 'pending' | 'closed';
-  priority: 'low' | 'medium' | 'high';
-  reportedBy: string;
-  reportedAt: string;
-  assignedTo?: string;
+  description: string | null;
+  status: string;
+  severity: string | null;
+  createdAt: string;
+  reporter?: { id: string; name: string; email: string } | null;
 }
 
 export default function ActiveIncidentsPage() {
@@ -25,10 +29,17 @@ export default function ActiveIncidentsPage() {
 
   const fetchIncidents = async () => {
     try {
-      const response = await fetch('/api/incidents?status=active');
+      // `?status=active` matched nothing: no code path ever writes "active".
+      // The homepage card for this page reads "Currently open disciplinary
+      // cases", and `open` is the status both writers actually set.
+      // (FLOW-12, SPEC-12, DEAD-10)
+      const response = await fetch('/api/incidents?status=open');
       if (response.ok) {
         const data = await response.json();
-        setIncidents(data);
+        // The endpoint returns { incidents, pagination }, not an array. Storing
+        // the envelope made incidents.length undefined, so the empty-state
+        // branch was skipped and incidents.map threw. (FLOW-13)
+        setIncidents(Array.isArray(data.incidents) ? data.incidents : []);
       } else {
         setIncidents([]);
       }
@@ -40,8 +51,9 @@ export default function ActiveIncidentsPage() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
+  const getSeverityColor = (severity: string | null) => {
+    switch (severity) {
+      case 'critical': return 'text-red-500';
       case 'high': return 'text-red-400';
       case 'medium': return 'text-yellow-400';
       case 'low': return 'text-green-400';
@@ -49,14 +61,7 @@ export default function ActiveIncidentsPage() {
     }
   };
 
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case 'high': return <AlertTriangle className="w-4 h-4" />;
-      case 'medium': return <AlertTriangle className="w-4 h-4" />;
-      case 'low': return <AlertTriangle className="w-4 h-4" />;
-      default: return <AlertTriangle className="w-4 h-4" />;
-    }
-  };
+  const getSeverityIcon = () => <AlertTriangle className="w-4 h-4" />;
 
   if (loading) {
     return (
@@ -96,11 +101,11 @@ export default function ActiveIncidentsPage() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <div className={`${getPriorityColor(incident.priority)}`}>
-                        {getPriorityIcon(incident.priority)}
+                      <div className={`${getSeverityColor(incident.severity)}`}>
+                        {getSeverityIcon()}
                       </div>
-                      <span className={`text-sm font-medium uppercase tracking-wide ${getPriorityColor(incident.priority)}`}>
-                        {incident.priority}
+                      <span className={`text-sm font-medium uppercase tracking-wide ${getSeverityColor(incident.severity)}`}>
+                        {incident.severity ?? 'unclassified'}
                       </span>
                     </div>
                     <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
@@ -119,13 +124,13 @@ export default function ActiveIncidentsPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2 text-gray-400">
                       <User className="w-4 h-4" />
-                      <span>Reported by: {incident.reportedBy}</span>
+                      <span>Reported by: {incident.reporter?.name ?? 'Unknown'}</span>
                     </div>
                     
                     <div className="flex items-center gap-2 text-gray-400">
                       <Calendar className="w-4 h-4" />
                       <span>
-                        {new Date(incident.reportedAt).toLocaleDateString('en-US', {
+                        {new Date(incident.createdAt).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',
@@ -135,12 +140,6 @@ export default function ActiveIncidentsPage() {
                       </span>
                     </div>
 
-                    {incident.assignedTo && (
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <User className="w-4 h-4" />
-                        <span>Assigned to: {incident.assignedTo}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}

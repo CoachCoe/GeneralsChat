@@ -15,24 +15,27 @@ export class IncidentClassifier {
       );
 
       // Convert Claude's response to our format with proper Action objects
+      // Each action's deadline comes from the action itself. Pairing
+      // requiredActions[idx] with timeline[idx] silently mis-dated every
+      // action whenever the two arrays differed in length or order -- the
+      // common case -- and unmatched entries fell through calculateDueDate('')
+      // to a hardcoded 3-day default, which is wrong for a 24-hour mandatory
+      // reporting obligation. (FLOW-17)
       const requiredActions: Action[] = classification.requiredActions.map(
-        (desc, idx) => ({
+        (action, idx) => ({
           id: `action_${idx + 1}`,
-          type: this.determineActionType(desc),
-          description: desc,
-          dueDate: this.calculateDueDate(classification.timeline[idx] || ''),
+          type: this.determineActionType(action.description),
+          description: action.description,
+          dueDate: new Date(Date.now() + action.dueInHours * 60 * 60 * 1000),
           status: 'pending' as const,
         })
       );
 
-      const timeline = this.buildTimeline(
-        classification.timeline,
-        requiredActions
-      );
+      const timeline = this.buildTimeline(requiredActions);
 
       return {
-        type: classification.type as any,
-        severity: classification.severity as any,
+        type: classification.type,
+        severity: classification.severity,
         requiredActions,
         timeline,
         stakeholders: classification.stakeholders,
@@ -60,31 +63,9 @@ export class IncidentClassifier {
   }
 
   /**
-   * Calculate due date from timeline string
-   */
-  private calculateDueDate(timelineStr: string): Date {
-    const now = new Date();
-    const lower = timelineStr.toLowerCase();
-
-    // Extract hours, days, etc. from timeline
-    if (lower.includes('immediate') || lower.includes('0-24'))
-      return new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    if (lower.includes('1-5 days') || lower.includes('within 5'))
-      return new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
-    if (lower.includes('10 days')) return new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
-    if (lower.includes('30 days')) return new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    // Default to 3 days if unclear
-    return new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-  }
-
-  /**
    * Build compliance timeline from Claude's timeline array
    */
-  private buildTimeline(
-    timelineStrs: string[],
-    actions: Action[]
-  ): ComplianceTimeline {
+  private buildTimeline(actions: Action[]): ComplianceTimeline {
     const now = new Date();
 
     // Categorize actions by timeline

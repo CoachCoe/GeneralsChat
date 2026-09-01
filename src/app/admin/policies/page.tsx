@@ -2,13 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
+import {
+  CATEGORY_LABELS,
+  JURISDICTION_LABELS,
+  POLICY_CATEGORIES,
+  POLICY_JURISDICTIONS,
+} from '@/types';
 import { Button } from '@/components/ui/button';
 import { Upload, Link as LinkIcon, FileText, Trash2, Calendar, Tag } from 'lucide-react';
 
 interface Policy {
   id: string;
   title: string;
-  policyType: string;
+  jurisdiction: string;
+  category: string;
   effectiveDate: string;
   isActive: boolean;
   version: number;
@@ -28,7 +35,8 @@ export default function PoliciesPage() {
   // Form state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [policyType, setPolicyType] = useState('district');
+  const [jurisdiction, setJurisdiction] = useState('district');
+  const [category, setCategory] = useState('bullying');
   const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
   const [keywords, setKeywords] = useState('');
   const [url, setUrl] = useState('');
@@ -53,7 +61,7 @@ export default function PoliciesPage() {
   };
 
   const handleUpload = async () => {
-    if (!title.trim() || !policyType || !effectiveDate) {
+    if (!title.trim() || !jurisdiction || !category || !effectiveDate) {
       alert('Title, policy type, and effective date are required');
       return;
     }
@@ -73,7 +81,8 @@ export default function PoliciesPage() {
           body: JSON.stringify({
             title,
             content,
-            policyType,
+            jurisdiction,
+            category,
             effectiveDate,
             keywords: keywords.split(',').map(k => k.trim()).filter(Boolean)
           })
@@ -95,7 +104,8 @@ export default function PoliciesPage() {
         const formData = new FormData();
         formData.append('url', url);
         formData.append('title', title);
-        formData.append('policyType', policyType);
+        formData.append('jurisdiction', jurisdiction);
+        formData.append('category', category);
         formData.append('effectiveDate', effectiveDate);
         formData.append('keywords', keywords);
 
@@ -120,7 +130,8 @@ export default function PoliciesPage() {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('title', title);
-        formData.append('policyType', policyType);
+        formData.append('jurisdiction', jurisdiction);
+        formData.append('category', category);
         formData.append('effectiveDate', effectiveDate);
         formData.append('keywords', keywords);
 
@@ -240,7 +251,9 @@ export default function PoliciesPage() {
                         <div className="flex flex-wrap gap-4 text-apple-footnote" style={{ color: 'var(--muted-foreground)' }}>
                           <div className="flex items-center gap-1">
                             <Tag size={14} />
-                            <span className="capitalize">{policy.policyType}</span>
+                            <span className="capitalize">{policy.jurisdiction}</span>
+                            <span>·</span>
+                            <span>{CATEGORY_LABELS[policy.category] ?? policy.category}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <Calendar size={14} />
@@ -353,21 +366,48 @@ export default function PoliciesPage() {
                   />
                 </div>
 
-                {/* Policy Type */}
+                {/* Jurisdiction: where the policy comes from */}
                 <div className="mb-4">
-                  <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
-                    Policy Type *
+                  <label htmlFor="jurisdiction" className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    Jurisdiction *
                   </label>
                   <select
-                    value={policyType}
-                    onChange={(e) => setPolicyType(e.target.value)}
+                    id="jurisdiction"
+                    value={jurisdiction}
+                    onChange={(e) => setJurisdiction(e.target.value)}
                     className="input-apple text-apple-body"
                   >
-                    <option value="federal">Federal</option>
-                    <option value="state">State</option>
-                    <option value="district">District</option>
-                    <option value="school">School</option>
+                    {POLICY_JURISDICTIONS.map((value) => (
+                      <option key={value} value={value}>
+                        {JURISDICTION_LABELS[value]}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-apple-caption2 mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                    Who issued it. District and school policies should implement the federal and state requirements.
+                  </p>
+                </div>
+
+                {/* Category: what the policy is about */}
+                <div className="mb-4">
+                  <label htmlFor="category" className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    Category *
+                  </label>
+                  <select
+                    id="category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="input-apple text-apple-body"
+                  >
+                    {POLICY_CATEGORIES.map((value) => (
+                      <option key={value} value={value}>
+                        {CATEGORY_LABELS[value] ?? value}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-apple-caption2 mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                    What it covers. Incident classification matches on this to decide which policies apply.
+                  </p>
                 </div>
 
                 {/* Effective Date */}

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { ragSystem } from '@/lib/ai/rag';
+import { requireRole } from '@/lib/session';
 
 type Params = {
   params: Promise<{
@@ -10,6 +12,11 @@ type Params = {
 // GET /api/admin/policies/[id] - Get single policy with chunks
 export async function GET(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
     const policy = await prisma.policy.findUnique({
       where: { id },
@@ -40,43 +47,41 @@ export async function GET(request: NextRequest, { params }: Params) {
 // PUT /api/admin/policies/[id] - Update policy
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
     const body = await request.json();
-    const { title, content, policyType, effectiveDate, isActive, metadata } = body;
+    const { title, content, jurisdiction, category, effectiveDate, isActive, metadata } = body;
 
     const policy = await prisma.policy.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
-        ...(policyType !== undefined && { policyType }),
+        ...(jurisdiction !== undefined && { jurisdiction }),
+        ...(category !== undefined && { category }),
         ...(effectiveDate !== undefined && { effectiveDate: new Date(effectiveDate) }),
         ...(isActive !== undefined && { isActive }),
         ...(metadata !== undefined && { metadata: JSON.stringify(metadata) })
       }
     });
 
-    // If content was updated, recreate chunks
+    // If content was updated, re-index. Purges the vector store as well as the
+    // DB rows -- deleteMany alone left stale Chroma entries behind (SPEC-15) --
+    // and re-chunks through the RAG system so granularity matches every other
+    // ingestion path. (FLOW-23, SPEC-9, DEAD-11)
     if (content !== undefined) {
-      // Delete old chunks
-      await prisma.policyChunk.deleteMany({
-        where: { policyId: id }
+      await ragSystem.deletePolicyChunks(id);
+      await ragSystem.addPolicyDocument(id, content, {
+        title: policy.title,
+        jurisdiction: policy.jurisdiction,
+        category: policy.category,
+        effectiveDate: policy.effectiveDate?.toISOString(),
+        ...(metadata && typeof metadata === 'object' ? metadata : {}),
       });
-
-      // Create new chunks
-      const chunkSize = 500;
-      const chunks = content.match(new RegExp(`.{1,${chunkSize}}`, 'g')) || [];
-
-      for (let i = 0; i < chunks.length; i++) {
-        await prisma.policyChunk.create({
-          data: {
-            policyId: id,
-            content: chunks[i],
-            chunkIndex: i,
-            metadata: metadata ? JSON.stringify(metadata) : undefined,
-          }
-        });
-      }
     }
 
     return NextResponse.json({ policy });
@@ -92,8 +97,20 @@ export async function PUT(request: NextRequest, { params }: Params) {
 // DELETE /api/admin/policies/[id] - Delete policy and its chunks
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
-    // Chunks will be deleted automatically via CASCADE
+
+    // Purge the vector store first. The DB cascade removes PolicyChunk rows,
+    // but Chroma entries survived it -- and vector hits whose DB row is gone
+    // were being returned to the model as authoritative policy context, so a
+    // deleted policy kept being cited indefinitely. (SPEC-15)
+    await ragSystem.deletePolicyChunks(id);
+
+    // Remaining chunks (if any) are removed by CASCADE.
     await prisma.policy.delete({
       where: { id }
     });

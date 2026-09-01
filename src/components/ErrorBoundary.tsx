@@ -44,10 +44,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       errorInfo,
     });
 
-    // TODO: Send to error tracking service (e.g., Sentry)
-    // if (typeof window !== 'undefined' && window.Sentry) {
-    //   window.Sentry.captureException(error, { extra: errorInfo });
-    // }
   }
 
   handleReset = () => {

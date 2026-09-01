@@ -1,9 +1,21 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import fetch from 'node-fetch';
 
 // Load environment variables
 config({ path: resolve(__dirname, '../.env') });
+
+// Was hardcoded to a port nothing serves. (REPO-8, SPEC-22)
+const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
+
+/**
+ * The API now requires authentication. Sign in through the UI, copy the
+ * `authjs.session-token` cookie, and export it as APP_SESSION_COOKIE.
+ * Without it every request below returns 401.
+ */
+const SESSION_COOKIE = process.env.APP_SESSION_COOKIE ?? '';
+const AUTH_HEADERS: Record<string, string> = SESSION_COOKIE
+  ? { Cookie: `authjs.session-token=${SESSION_COOKIE}` }
+  : {};
 
 /**
  * Complete End-to-End RAG Test
@@ -23,14 +35,11 @@ async function testCompleteRAG() {
 
     console.log('2️⃣  Sending to chat API (which uses RAG + Claude)...\n');
 
-    const response = await fetch('http://localhost:3001/api/chat', {
+    const response = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
       body: JSON.stringify({
         message: testQuery,
-        userId: 'demo-user',
       }),
     });
 
@@ -75,7 +84,7 @@ async function testCompleteRAG() {
     console.log('   ✓ Chat API fully functional\n');
 
     console.log('💡 Try it yourself:');
-    console.log('   1. Open http://localhost:3001/chat');
+    console.log(`   1. Open ${BASE_URL}/chat`);
     console.log('   2. Ask about bullying policies');
     console.log('   3. Claude will reference the uploaded policy!\n');
 

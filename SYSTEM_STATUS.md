@@ -193,7 +193,7 @@ Based on your comprehensive policy framework, these categories still need to be 
 ## 🚀 Next Steps: Batch Policy Upload
 
 ### Option 1: Manual Upload via UI (Recommended for MVP)
-1. Navigate to http://localhost:3002/policies
+1. Navigate to http://localhost:3000/policies
 2. Click "Upload Policy"
 3. Fill in:
    - **Title:** Policy code and name (e.g., "JLDBB - Suicide Prevention")
@@ -209,11 +209,11 @@ Use the template in `POLICY_MAPPING.md` (lines 117-188) to upload multiple polic
 1. Save all policy documents as `.txt`, `.pdf`, or `.docx` files in `sample-policies/`
 2. Name consistently: `policy-code-description.pdf` (e.g., `jlf-mandatory-reporting.pdf`)
 3. Create batch upload script with policy details
-4. Run: `npx tsx scripts/upload-policy-batch.ts`
+4. Run: `npm run policies:batch-upload`
 
 ### Option 3: Direct API Upload (for testing)
 ```bash
-curl -X POST http://localhost:3002/api/policies \
+curl -X POST http://localhost:3000/api/policies \
   -F "title=JLDBB - Suicide Prevention" \
   -F "policyType=suicide_prevention" \
   -F "effectiveDate=2024-01-01" \
@@ -286,7 +286,7 @@ curl -X POST http://localhost:3002/api/policies \
 
 **What's Ready:**
 - ✓ Full RAG infrastructure
-- ✓ Claude 3.5 Sonnet integration
+- ✓ Claude Sonnet 4 integration
 - ✓ Database schema with all relationships
 - ✓ API endpoints for chat and policy upload
 - ✓ Clean production build

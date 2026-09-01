@@ -1,3 +1,9 @@
+> **SUPERSEDED IN PART — 2026-08-31.** This file is a point-in-time snapshot
+> from November 2025. An audit on 2026-08-31 found several of its quantitative
+> claims had drifted from the code; the ones below have been corrected in
+> place, and the authoritative current state is
+> `docs/audit/2026-08-31-findings.md` plus the README.
+
 # Build, Lint & Test Status Report
 
 **Date:** November 2, 2025
@@ -18,7 +24,7 @@
 
 **Build Output:**
 - 18 routes successfully built
-- 4 API endpoints (including new `/api/chat/summary`)
+- 14 API route handlers (including new `/api/chat/summary`)
 - All TypeScript types valid
 - Production bundle optimized
 - **Total bundle size:** ~120kB first load
@@ -28,7 +34,6 @@
 - ✅ /chat (main chat interface with End Chat button)
 - ✅ /incidents (all variants: new, active, pending, closed)
 - ✅ /policies
-- ✅ /todos
 - ✅ /admin/policies
 - ✅ /admin/prompt
 - ✅ /api/chat (main chat endpoint)
@@ -42,11 +47,11 @@
 
 ## ⚠️ LINT STATUS: MINOR ISSUES (Non-blocking)
 
-**Command:** `npx eslint src/ --ext .ts,.tsx`
+**Command:** `npm run lint`
 
 ### Summary
-- **Errors:** 8 (mostly apostrophes + 4 `any` types)
-- **Warnings:** 12 (unused imports)
+- **Errors:** 0 (measured 2026-08-31)
+- **Warnings:** 7 (unused vars in scripts and e2e helpers)
 - **Blocking:** NO - All errors are stylistic
 
 ### Breakdown by Category
@@ -85,7 +90,7 @@ error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`
 **Examples:**
 - `'Button' is defined but never used`
 - `'Link' is defined but never used`
-- `'aiRouter' is defined but never used`
+- ~~`'aiRouter' is defined but never used`~~ — `src/lib/ai/ollama.ts` was deleted as dead code (DEAD-1)
 
 **Status:** Non-critical cleanup items
 
@@ -99,10 +104,10 @@ error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`
 
 ---
 
-## ❌ TEST STATUS: NO FORMAL TESTS
+## ⚠️ TEST STATUS: PLAYWRIGHT E2E CONFIGURED, QUALITY POOR
 
-**Test Framework:** Not configured
-**Test Scripts:** None in `package.json`
+**Test Framework:** Playwright (`@playwright/test`), config at `playwright.config.ts`
+**Test Scripts:** `test:e2e`, `test:e2e:ui`, `test:e2e:headed`. Three specs in `e2e/`. Several tests cannot fail as written — see TEST-1..TEST-23 in the audit findings.
 
 ### Functional Tests Available
 
@@ -112,7 +117,7 @@ While there's no Jest/Vitest framework, we have comprehensive functional test sc
 ```bash
 npx tsx scripts/verify-db.ts
 ```
-**Tests:** Schema, relationships, indexes, 8 models
+**Tests:** Schema, relationships, indexes, 9 models
 
 #### 2. ✅ RAG System Test
 ```bash
@@ -150,7 +155,7 @@ npx tsx scripts/test-lawyer-persona.ts
 ### All Functional Tests: PASSING ✅
 
 ```bash
-✓ Database: 8 models, 10 policy chunks
+✓ Database: 9 models, 10 policy chunks
 ✓ RAG: Policy retrieval working (keyword fallback)
 ✓ Claude API: Responses generating correctly
 ✓ Chat: Asking clarifying questions
@@ -169,7 +174,7 @@ npx tsx scripts/test-lawyer-persona.ts
 | **TypeScript** | ✅ Valid | All types compile |
 | **Core Features** | ✅ Working | Chat, RAG, Classification |
 | **NEW Features** | ✅ Working | Lawyer persona, Summary (UI complete) |
-| **Database** | ✅ Stable | 8 models, migrations applied |
+| **Database** | ✅ Stable | 9 models, migrations applied |
 | **API Endpoints** | ✅ Functional | 4 endpoints tested |
 | **Error Handling** | ✅ Present | Try-catch in all APIs |
 | **Security** | ✅ Good | API keys server-side only |
@@ -187,7 +192,7 @@ npx tsx scripts/test-lawyer-persona.ts
 1. Add authentication (Next-Auth ready)
 2. Add rate limiting on API routes
 3. Add database connection pooling
-4. Configure production database (currently SQLite)
+4. ~~Configure production database (currently SQLite)~~ — done, the datasource is PostgreSQL
 5. Add monitoring/logging (Sentry, LogRocket)
 
 ---
@@ -246,10 +251,10 @@ To auto-fix most linting issues:
 
 ```bash
 # Fix auto-fixable issues
-npx eslint src/ --ext .ts,.tsx --fix
+npm run lint --fix
 
 # Check remaining issues
-npx eslint src/ --ext .ts,.tsx
+npm run lint
 ```
 
 **Note:** This will fix:
