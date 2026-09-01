@@ -32,6 +32,36 @@ test.describe('Navigation', () => {
     await expect(page.getByRole('heading', { name: 'Policy Management' })).toHaveCount(0);
   });
 
+  test('a reporter cannot call the admin API, only the admin pages were guarded', async ({
+    page,
+  }) => {
+    // The page redirect above was the only admin coverage there was. Deleting
+    // requireRole('admin') from the policy DELETE handler lets any reporter
+    // remove the district's bullying procedure from every future retrieval,
+    // and nothing failed. These are the nine handlers that guard actually
+    // holds. (TEST-35)
+    const attempts: [('post' | 'put' | 'patch' | 'delete'), string][] = [
+      ['post', '/api/admin/policies'],
+      ['put', '/api/admin/policies/any-id'],
+      ['delete', '/api/admin/policies/any-id'],
+      ['post', '/api/admin/policies/upload'],
+      ['post', '/api/admin/prompts'],
+      ['put', '/api/admin/prompts/any-id'],
+      ['delete', '/api/admin/prompts/any-id'],
+      ['post', '/api/policies'],
+    ];
+
+    for (const [method, url] of attempts) {
+      const response = await page.request[method](url, { data: {} });
+      // 403, not 404: the caller is authenticated and the route exists — it is
+      // the role that is insufficient. Scoping hides rows; roles refuse verbs.
+      expect(
+        response.status(),
+        `${method.toUpperCase()} ${url} should be refused for a reporter`
+      ).toBe(403);
+    }
+  });
+
   test('signing out ends the session', async ({ page, context }) => {
     await page.goto('/');
     await page.getByText('Settings').click();

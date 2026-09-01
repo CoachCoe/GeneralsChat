@@ -52,7 +52,13 @@ export default defineConfig({
   webServer: {
     command: 'npm run build && npm start',
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    // Never reuse. The env block below applies only to a server Playwright
+    // starts, so reusing one already on this port silently discards
+    // ANTHROPIC_BASE_URL and runs the whole suite against the real API and
+    // whatever DATABASE_URL that process was given -- and .env points at
+    // production. global-setup guards the database it resets; it cannot guard
+    // a server it did not start. (TEST-40)
+    reuseExistingServer: false,
     timeout: 180_000,
     stdout: 'pipe',
     stderr: 'pipe',
