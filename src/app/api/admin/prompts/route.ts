@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     if (!guard.ok) return guard.response;
 
     const body = await request.json();
-    const { name, content, description, createdBy } = body;
+    const { name, content, description } = body;
 
     // Validation
     if (!name || !content) {
@@ -60,7 +60,12 @@ export async function POST(request: NextRequest) {
         name,
         content,
         description,
-        createdBy,
+        // From the session, never the body. This row governs mandated-reporting
+        // advice and `createdBy` is the only provenance it carries, so an
+        // attacker-chosen value is attacker-chosen attribution. CLAUDE.md:
+        // "No route may read a user id from a body or query string; that was a
+        // real vulnerability." This was the last such route. (SEC-21)
+        createdBy: guard.user.id,
         isActive: false // New prompts start as inactive
       }
     });

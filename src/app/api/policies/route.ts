@@ -12,6 +12,8 @@ import {
   UploadError,
 } from '@/lib/uploads';
 import { requireRole, requireUser } from '@/lib/session';
+import { policyFacetsSchema } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
 
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
 
@@ -61,8 +63,17 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const title = formData.get('title') as string;
-    const jurisdiction = (formData.get('jurisdiction') as string) || 'district';
-    const category = (formData.get('category') as string) || 'other';
+    const facets = policyFacetsSchema.safeParse({
+      jurisdiction: formData.get('jurisdiction'),
+      category: formData.get('category'),
+    });
+    if (!facets.success) {
+      return validationError(
+        'Jurisdiction and category must each be one of the known values',
+        facets.error.flatten().fieldErrors
+      );
+    }
+    const { jurisdiction, category } = facets.data;
     const effectiveDate = formData.get('effectiveDate') as string;
     const file = formData.get('file') as File;
 

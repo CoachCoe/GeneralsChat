@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { requireRole } from '@/lib/session';
+import { policyFacetsSchema } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
 
 type Params = {
   params: Promise<{
@@ -55,6 +57,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const body = await request.json();
     const { title, content, jurisdiction, category, effectiveDate, isActive, metadata } = body;
+
+    // A partial update may omit either facet, but must not set a bad one.
+    const facets = policyFacetsSchema.partial().safeParse({ jurisdiction, category });
+    if (!facets.success) {
+      return validationError(
+        'Jurisdiction and category must each be one of the known values',
+        facets.error.flatten().fieldErrors
+      );
+    }
 
     const policy = await prisma.policy.update({
       where: { id },

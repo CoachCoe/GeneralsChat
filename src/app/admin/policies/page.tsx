@@ -25,6 +25,28 @@ interface Policy {
   };
 }
 
+/**
+ * Report what an upload actually achieved.
+ *
+ * The route computes and returns `chunksCreated`; all three call sites threw it
+ * away and said "uploaded successfully" on any 2xx. A policy with no chunks is
+ * invisible to retrieval, so that message was wrong in exactly the case the
+ * operator most needed to know about. (B5)
+ */
+function reportUpload(data: { chunksCreated?: number }) {
+  const chunks = data.chunksCreated;
+  if (chunks === undefined) {
+    alert('Policy uploaded.');
+    return;
+  }
+  alert(
+    chunks > 0
+      ? `Policy uploaded and indexed into ${chunks} searchable chunk${chunks === 1 ? '' : 's'}.`
+      : 'Policy uploaded, but it produced no searchable text, so retrieval cannot return it. ' +
+        'Check the document and re-upload.'
+  );
+}
+
 export default function PoliciesPage() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +115,7 @@ export default function PoliciesPage() {
           throw new Error(data.error || 'Failed to upload policy');
         }
 
-        alert('Policy uploaded successfully');
+        reportUpload(await response.json());
       } else if (uploadMethod === 'url') {
         // Upload from URL
         if (!url.trim()) {
@@ -119,7 +141,7 @@ export default function PoliciesPage() {
           throw new Error(data.error || 'Failed to upload policy');
         }
 
-        alert('Policy uploaded successfully');
+        reportUpload(await response.json());
       } else if (uploadMethod === 'file') {
         // Upload file
         if (!file) {
@@ -145,7 +167,7 @@ export default function PoliciesPage() {
           throw new Error(data.error || 'Failed to upload policy');
         }
 
-        alert('Policy uploaded successfully');
+        reportUpload(await response.json());
       }
 
       // Reset form

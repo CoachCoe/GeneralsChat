@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { requireRole } from '@/lib/session';
+import { policyFacetsSchema } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
 
 // GET /api/admin/policies - List all policies
 export async function GET() {
@@ -53,12 +55,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Create policy
+    const facets = policyFacetsSchema.safeParse({ jurisdiction, category });
+    if (!facets.success) {
+      return validationError(
+        'Jurisdiction and category must each be one of the known values',
+        facets.error.flatten().fieldErrors
+      );
+    }
+
     const policy = await prisma.policy.create({
       data: {
         title,
         content,
-        jurisdiction: jurisdiction || 'district',
-        category: category || 'other',
+        jurisdiction: facets.data.jurisdiction,
+        category: facets.data.category,
         effectiveDate: new Date(effectiveDate),
         metadata: JSON.stringify({
           keywords: keywords || [],

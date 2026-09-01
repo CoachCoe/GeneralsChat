@@ -4,7 +4,7 @@ import { ragSystem } from '@/lib/ai/rag';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { processDocument } from '@/lib/utils/documentProcessor';
+import { processDocument, countWords } from '@/lib/utils/documentProcessor';
 import { safeFetchText, UnsafeUrlError } from '@/lib/safe-fetch';
 import {
   assertAllowedExtension,
@@ -15,6 +15,8 @@ import {
   uploadErrorStatus,
 } from '@/lib/uploads';
 import { requireRole } from '@/lib/session';
+import { policyFacetsSchema } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
 
 /** Formats the documentProcessor can actually parse. */
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
@@ -31,8 +33,17 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const url = formData.get('url') as string | null;
     const title = formData.get('title') as string;
-    const jurisdiction = (formData.get('jurisdiction') as string) || 'district';
-    const category = (formData.get('category') as string) || 'other';
+    const facets = policyFacetsSchema.safeParse({
+      jurisdiction: formData.get('jurisdiction'),
+      category: formData.get('category'),
+    });
+    if (!facets.success) {
+      return validationError(
+        'Jurisdiction and category must each be one of the known values',
+        facets.error.flatten().fieldErrors
+      );
+    }
+    const { jurisdiction, category } = facets.data;
     const effectiveDate = formData.get('effectiveDate') as string;
     const keywords = formData.get('keywords') as string;
 
@@ -98,6 +109,19 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+    }
+
+    // An extraction that produced nothing must not become an active policy.
+    // A scanned PDF yields '' here, and the row was created active anyway --
+    // unretrievable, and (before B2) silently cancelling the coverage gap for
+    // its category, so one upload deleted a safety warning and reported
+    // success. countWords exists to make this visible and was never called. (B5)
+    if (countWords(content) === 0) {
+      return validationError('No text could be extracted from this document', {
+        file: [
+          'The document produced no readable text. If it is a scan, run it through OCR first.',
+        ],
+      });
     }
 
     // Create policy

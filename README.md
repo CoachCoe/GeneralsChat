@@ -91,8 +91,25 @@ docker run -p 8000:8000 chromadb/chroma
 | `npm run policies:coverage` | What the library can and cannot answer |
 
 `scripts/test-*.ts` are **manual demo scripts, not automated tests** — they
-print a transcript and assert nothing. They need a running server and read
-`APP_BASE_URL` (default `http://localhost:3000`).
+print a transcript and assert nothing. They fall into three groups, and the
+difference matters:
+
+- `test-chat-behavior.ts`, `test-complete-rag.ts`, `test-lawyer-persona.ts`
+  need a running server and read `APP_BASE_URL` (default
+  `http://localhost:3000`). They POST to `/api/chat`, which requires a
+  session, so they return 401 unless `APP_SESSION_COOKIE` is set.
+- `test-phase3.ts` and `test-rag.ts` use **no server**. They connect with
+  Prisma and **create and delete `User`, `Incident`, `Conversation` and
+  `Policy` rows in whatever `DATABASE_URL` points at**, with best-effort
+  cleanup that a mid-run failure will skip. `.env` points at production, so
+  always override it:
+
+  ```bash
+  DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_test?schema=public" \
+  npx tsx scripts/test-rag.ts
+  ```
+
+- `test-claude.ts` makes a **billed** Anthropic call.
 
 ## How policies are modelled
 
@@ -196,7 +213,7 @@ The end-to-end suite covers the journeys and access control:
 
 ```bash
 createdb generalschat_test
-DATABASE_URL="postgresql://localhost:5432/generalschat_test?schema=public" \
+DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_test?schema=public" \
 AUTH_SECRET="$(openssl rand -base64 32)" \
 npm test
 ```
