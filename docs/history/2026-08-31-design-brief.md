@@ -1,5 +1,19 @@
 # UI/UX redesign brief — GeneralsChat
 
+> **Consumed brief — historical.** This was written on 2026-08-31 to hand to a
+> designer, and it describes the codebase *as it was then*, in present tense.
+> Most of what it calls a problem has since been fixed, so read it as a record
+> of the starting point rather than a description of the app.
+>
+> Specifically, these are no longer true: Tailwind **is** installed (v4, with
+> the design tokens as its theme); `globals.css` is **deleted** (it was 1,161
+> lines); guidance **renders** as markdown; there is **one** incident list with
+> segments rather than four routes; the mobile layout **works**; and the
+> obligation queue **exists** at `/`.
+>
+> What shipped from it, and what deliberately did not, is recorded in
+> [`audit/2026-09-01-ux-redesign.md`](../audit/2026-09-01-ux-redesign.md).
+
 Paste this into a design session. Fill in the four decisions marked **[YOU DECIDE]** first — everything else is factual and verified against the codebase.
 
 ---

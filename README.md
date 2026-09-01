@@ -15,6 +15,7 @@ disclosures — so confidentiality and correctness matter. Read
 | Layer | Choice |
 |---|---|
 | Framework | Next.js 15 (App Router), React 19 |
+| Styling | Tailwind v4, design tokens in `src/app/theme.css` |
 | Database | PostgreSQL via Prisma 6 |
 | LLM | Anthropic Claude (`claude-sonnet-4-20250514`) |
 | Retrieval | Chroma vector search, with a keyword fallback over `PolicyChunk` |
@@ -77,6 +78,7 @@ docker run -p 8000:8000 chromadb/chroma
 | `npm run lint` | ESLint over `src scripts e2e` |
 | `npm test` | Playwright suite — starts its own server, see below |
 | `npm run test:e2e` | Same as `npm test` |
+| `npm run test:e2e:ui` | Playwright UI mode |
 | `npm run migrate` | `prisma migrate deploy` |
 | `npm run db:studio` | Prisma Studio on :5555 |
 | `npm run db:seed-prompt` | Seed the active `SystemPrompt` row |
@@ -113,6 +115,27 @@ a **coverage gap**: the assistant states the federal and state requirements it
 can support and says plainly that it could not find a local policy, instead of
 passing a statute off as district procedure.
 
+## Screens
+
+| Route | What it is |
+|---|---|
+| `/` | **The obligation queue.** What is overdue, due today, and later, across every incident. This is the page an administrator opens to answer "what am I late on?" |
+| `/chat` | Incident intake. Describe what happened; the reply is classified, cited and carries deadlines |
+| `/incidents?segment=` | One list, four segments: `open` (default), `pending` (outstanding actions), `closed`, `all` |
+| `/incidents/[id]` | Timeline of the incident — intake, attachments, and every obligation's deadline state |
+| `/policies` | Read-only policy library, any signed-in user |
+| `/admin/policies` | Policy management, admin only |
+| `/admin/prompt` | System prompt editor, admin only |
+| `/login` | Sign in |
+
+`/incidents/new` redirects to `/chat`, and `/incidents/active|closed|pending`
+redirect into the segmented list — those routes were duplicates.
+
+**Obligations are the product.** They are created when an incident is
+classified, each with the deadline its policy sets, and read back through
+`GET /api/obligations` across all of a user's incidents. `PATCH
+/api/obligations/[id]` marks one done; that is the only state change.
+
 ## Loading policy documents
 
 Guidance quality depends entirely on having district policies indexed. Three
@@ -127,13 +150,17 @@ paths exist; see `QUICK_START_POLICY_UPLOAD.md` for detail.
 All three now index through the same chunker (1000 words, 200-word overlap)
 and generate embeddings when configured.
 
-> Policy rows created before this branch were chunked by an older, broken
-> splitter, have no embeddings, and predate the `category` field. Re-index them:
+> Any policy rows written before 2026-09-01 were chunked by an older, broken
+> splitter and have no embeddings. Production has been re-indexed already; run
+> this against any other environment:
 >
 > ```bash
 > npm run policies:reindex              # dry run: report what would change
 > npm run policies:reindex -- --apply   # write
 > ```
+>
+> It refuses to leave a policy with zero chunks and exits non-zero if any
+> active policy ends up unretrievable.
 
 ## Testing
 
@@ -154,22 +181,39 @@ pointing `DATABASE_URL` at a real database cannot wipe it.
 Set `ANTHROPIC_BASE_URL` to route model calls at a gateway, proxy, or stub;
 leave it unset to use the real API.
 
+### CI
+
+`.github/workflows/ci.yml` runs typecheck, lint, build and the full e2e suite
+against a `postgres:16` service container, on every push to `main`/`dev` and
+every pull request. It needs no secrets: the database is ephemeral and model
+calls go to the local stub.
+
 ## Architecture notes
 
 ```
-src/app/api/chat        POST → classify → retrieve policy → Claude → persist
+src/app/api/chat            POST → classify → retrieve policy → Claude → persist
+src/app/api/obligations     the queue: outstanding actions across incidents
 src/lib/ai/claude-service.ts   prompt assembly and all Anthropic calls
 src/lib/ai/rag.ts              retrieval: Chroma, with keyword fallback
 src/lib/ai/classifier.ts       incident type, severity, required actions
+src/lib/deadline.ts            how a remaining interval reads
+src/lib/session.ts             requireUser / requireRole guards
 src/lib/uploads.ts             upload path safety (see Security status)
 src/lib/safe-fetch.ts          SSRF-guarded outbound fetch
+src/components/design/         the component set (obligation row, source ladder,
+                               authority chip, coverage gap, markdown guidance)
+src/app/theme.css              design tokens and the component layer
 ```
+
+Colour in this UI means a deadline state and nothing else — overdue, due soon,
+met. There is no brand accent, deliberately: it would compete with the one
+signal the interface is allowed to raise its voice with.
 
 The system prompt is **database-driven**: `ClaudeService.getActiveSystemPrompt()`
 reads the `SystemPrompt` row with `isActive: true` on every request, and that
 row completely replaces the in-code default. It is editable at `/admin/prompt`.
-`LAWYER_PERSONA_UPDATE.md` describes an earlier, different persona and is
-superseded on this point.
+`docs/history/2025-11-02-lawyer-persona.md` describes an earlier, different
+persona and is superseded on this point.
 
 ## Authentication
 

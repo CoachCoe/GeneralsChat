@@ -34,17 +34,24 @@
 
 **Best for:** Quick testing or single policy upload
 
+`POST /api/policies` requires an **admin session** — it is not open. Sign in
+through the UI, copy the `authjs.session-token` cookie from your browser, and
+pass it as shown. Without it the request returns 401.
+
 ```bash
 curl -X POST http://localhost:3000/api/policies \
+  -H "Cookie: authjs.session-token=$SESSION_TOKEN" \
   -F "title=JLDBB - Suicide Prevention" \
-  -F "policyType=suicide_prevention" \
+  -F "jurisdiction=district" \
+  -F "category=suicide_prevention" \
   -F "effectiveDate=2024-01-01" \
   -F "file=@sample-policies/jldbb-suicide-prevention.pdf"
 ```
 
 **Replace:**
 - `title` → Your policy title
-- `policyType` → One of the 20 policy types (see below)
+- `jurisdiction` → `federal`, `state`, `district` or `school` (see below)
+- `category` → one of the 20 categories (see below)
 - `effectiveDate` → YYYY-MM-DD format
 - `file=@...` → Path to your policy file
 
@@ -242,4 +249,5 @@ The system is fully operational and ready to accept more policies. Just:
 2. Run the batch upload script (or use UI/command line)
 3. Test in chat to verify policies are being used
 
-**Questions?** Check `SYSTEM_STATUS.md` for detailed system verification results.
+**Questions?** See the [README](README.md) for the current setup, architecture and
+security status. Dated snapshots from November 2025 are in `docs/history/`.
