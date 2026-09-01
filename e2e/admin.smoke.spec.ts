@@ -21,4 +21,13 @@ test.describe('Admin routes', () => {
     await page.goto('/policies');
     await expect(page.getByRole('link', { name: 'Manage policies' })).toBeVisible();
   });
+
+  test('an admin still sees the advisor-profile link a reporter does not', async ({ page }) => {
+    // The other half of SPEC-50: gating the link on role must not hide it from
+    // the role it exists for.
+    await page.goto('/');
+    await expect(
+      page.locator('nav[aria-label="Main"]').locator('a[href="/admin/prompt"]').first()
+    ).toBeVisible();
+  });
 });

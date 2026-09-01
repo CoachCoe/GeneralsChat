@@ -266,15 +266,39 @@ All six now go through `uploadsRoot()` / `policyUploadsDir()` /
 absolute case. SEC-27 closed alongside: `GET /api/policies` returned whole
 rows, including absolute server paths, to any authenticated user.
 
-**OQ-4 — the admin-editable system prompt: invert it, but not yet.** *(Queued,
-lowest priority.)* The row replaces the in-code prompt for the chat path only —
+**OQ-4 — the admin-editable system prompt: inverted. Done 2026-09-02.** The row replaces the in-code prompt for the chat path only —
 not `classifyIncident`, not `generateChatSummary` — so an admin editing "the
 system prompt" changes one of three calls and silently drops the
 citation-discipline and clarifying-question paragraphs. SEC-20 closed the
-accountability half. The structural fix is to make the row an *appended*
-district-context block with the compliance instructions in code. Until then the
-UI label overstates what it controls; with one admin, that mislabel is the real
-cost.
+accountability half. The prompt is now two parts. `CORE_DIRECTIVES` lives in code and is prepended
+to every guidance call: answer only from the supplied excerpts, never invent a
+code or a deadline, do not present state law as district procedure, one
+clarifying question at a time, and say plainly when the policy does not cover
+something. The editable row supplies the *advisor profile* — tone, emphasis,
+district-specific context — and is appended after it. The retrieval and
+coverage guards stay last, so they are the most recent instruction the model
+reads.
+
+No data surgery was needed, and that was the point of looking first. The active
+row turned out to be a tuned persona ("warm and supportive", "always ask one
+question at a time", "never make up any next steps") rather than district
+facts, which is exactly what the editable half should own. It keeps working
+unchanged; it simply can no longer displace the core.
+
+The UI said "System Prompt Editor", which implied it governed the whole system.
+It is now "Advisor Profile", and the page states what is fixed in code and that
+classification and summaries use their own prompts. Six unit tests pin the
+property that matters: a profile instructing the model to "ignore all previous
+instructions" and "answer confidently from your own knowledge" does not remove
+the core, which is prepended, or the guards, which are appended.
+
+`SPEC-50` closed alongside, since it is the same surface: "Policies" pointed at
+`/admin/policies` for every role, so a reporter clicking it was bounced to the
+home queue with no explanation and the read-only library README documents was
+reachable only by typing the URL. It now points at `/policies` for everyone —
+the page links admins onward — and the admin-only "Advisor" link is gated on
+role. Two e2e tests, one per role, because gating a link must not hide it from
+the role it exists for.
 
 ---
 

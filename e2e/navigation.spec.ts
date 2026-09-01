@@ -25,6 +25,24 @@ test.describe('Navigation', () => {
     }
   });
 
+  test('the navbar offers a reporter only what they can actually reach', async ({ page }) => {
+    // "Policies" pointed at /admin/policies for every role, so a reporter
+    // clicking it was bounced to the home queue with no explanation, and the
+    // read-only library README documents was reachable only by typing the URL.
+    // The admin-only "Advisor" link had the same problem. (SPEC-50)
+    await page.goto('/');
+    const navbar = page.locator('nav[aria-label="Main"]');
+
+    await expect(navbar.locator('a[href="/policies"]').first()).toBeVisible();
+    await expect(navbar.locator('a[href="/admin/policies"]')).toHaveCount(0);
+    await expect(navbar.locator('a[href="/admin/prompt"]')).toHaveCount(0);
+
+    // And the link goes somewhere the reporter can actually use.
+    await navbar.locator('a[href="/policies"]').first().click();
+    await expect(page).toHaveURL(/\/policies$/);
+    await expect(page.getByRole('link', { name: 'Manage policies' })).toHaveCount(0);
+  });
+
   test('a reporter cannot reach the admin pages', async ({ page }) => {
     // Redirected away rather than shown the admin UI. (SEC-6)
     await page.goto('/admin/policies');
