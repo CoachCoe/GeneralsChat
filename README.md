@@ -285,12 +285,24 @@ environment; `docker-compose.yml` will refuse to start without `AUTH_SECRET`.
 
 ## Security status
 
-An audit on 2026-08-31 found 153 issues. The blocking ones are fixed:
-authentication and authorization, arbitrary file write on both upload paths,
-SSRF in the policy URL fetch, attachments served from `public/` with no access
-check, missing upload size and type limits, unvalidated write bodies and
-pagination, a production container running the dev server, and a page that
-fabricated compliance determinations with `Math.random()`.
+An audit on 2026-08-31 found 153 issues; a second on 2026-09-01 found 142
+more. The 2026-08-31 blockers are all fixed: authentication and authorization,
+arbitrary file write on both upload paths, SSRF in the policy URL fetch,
+attachments served from `public/` with no access check, missing upload size and
+type limits, unvalidated write bodies and pagination, a production container
+running the dev server, and a page that fabricated compliance determinations
+with `Math.random()`.
+
+The 2026-09-01 audit found six blockers. Five are fixed — see
+[`docs/audit/2026-09-01-work-completed.md`](docs/audit/2026-09-01-work-completed.md).
+
+**The sixth is open and you should know it before trusting any deadline this
+tool shows you.** Obligation deadlines are produced by a classification call
+that is never given the retrieved policy, so they are the model's recall of
+New Hampshire law rather than something a policy states, and
+`ComplianceAction` carries no `policyId` to check them against. The fix needs
+a product decision (OQ-5 in the findings). Until it lands, confirm every
+deadline against the cited policy.
 
 Still open, and worth knowing before you deploy:
 
