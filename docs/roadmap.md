@@ -79,12 +79,26 @@ npm run policies:load -- --file <path> --title "..." \
 Dry run by default; `--apply` writes, `--replace` supersedes an existing policy
 of the same title and purges its old chunks from the vector store.
 
-### 4. Policy-coverage report — *~30 min*
+### ~~4. Policy-coverage report~~ — **done 2026-09-01**
 
-`npm run policies:coverage`: per category, which jurisdictions hold a policy and
-which have no local one. Turns "there should be a district or school policy for
-everything" into a checklist, and makes the sparse-library state legible while
-the library is being filled.
+`npm run policies:coverage`. Two views: what a real incident gets today, and
+what to load next. Logic lives in `src/lib/policy-coverage.ts`, derived from the
+same `categoriesForIncidentType` retrieval uses, so the report cannot drift from
+what the system actually does. `--check` exits non-zero if any active policy is
+unretrievable, so it can gate a deploy.
+
+It counts a policy as coverage only if it is **active and has chunks** — a row
+with no chunks is invisible to retrieval, so counting it would claim coverage
+the system cannot deliver.
+
+**What it found immediately:** `mandatory_reporting` has *nothing loaded at
+all*, and it is retrieved for every incident regardless of type. So every
+incident — including a fully-covered bullying one — currently gets no
+mandatory-reporting policy. That is the single highest-value document to load
+next.
+
+Current state: 4 retrievable policies, 16 chunks, 0 embedded. 2 of 20 categories
+have a local policy. Bullying is fully covered; Title IX has federal only.
 
 ### 5. Persist the incident-page summary — *~20 min, SPEC-35*
 

@@ -86,6 +86,8 @@ docker run -p 8000:8000 chromadb/chroma
 | `npm run policies:batch-upload` | Bulk-upload policy documents |
 | `npm run user:create` | Create or update a user and set a password |
 | `npm run policies:reindex` | Re-chunk and re-embed every policy |
+| `npm run policies:load` | Load one policy document |
+| `npm run policies:coverage` | What the library can and cannot answer |
 
 `scripts/test-*.ts` are **manual demo scripts, not automated tests** — they
 print a transcript and assert nothing. They need a running server and read
@@ -148,7 +150,24 @@ paths exist; see `QUICK_START_POLICY_UPLOAD.md` for detail.
 3. `POST /api/policies` directly.
 
 All three now index through the same chunker (1000 words, 200-word overlap)
-and generate embeddings when configured.
+and generate embeddings when configured. For a single document:
+
+```bash
+npm run policies:load -- --file <path> --title "..." \
+  --jurisdiction district --category bullying --effective YYYY-MM-DD
+```
+
+Dry run by default; `--apply` writes, `--replace` supersedes an existing policy
+of the same title and purges its old chunks. It refuses a document that extracts
+fewer than 50 words, since a scanned image with no text layer would otherwise
+load as a policy retrieval can never match.
+
+To see what the library can actually answer:
+
+```bash
+npm run policies:coverage          # by incident type, and by category
+npm run policies:coverage -- --check   # non-zero exit if anything is unretrievable
+```
 
 > Any policy rows written before 2026-09-01 were chunked by an older, broken
 > splitter and have no embeddings. Production has been re-indexed already; run
