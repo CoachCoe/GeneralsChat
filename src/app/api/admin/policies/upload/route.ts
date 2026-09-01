@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { processDocument, countWords } from '@/lib/utils/documentProcessor';
+import { processDocument } from '@/lib/utils/documentProcessor';
 import { safeFetchText, UnsafeUrlError } from '@/lib/safe-fetch';
 import {
   assertAllowedExtension,
+  assertIndexablePolicyText,
   assertWithinSizeLimit,
   maxUploadBytes,
   safeUploadPath,
@@ -112,17 +113,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // An extraction that produced nothing must not become an active policy.
-    // A scanned PDF yields '' here, and the row was created active anyway --
-    // unretrievable, and (before B2) silently cancelling the coverage gap for
-    // its category, so one upload deleted a safety warning and reported
-    // success. countWords exists to make this visible and was never called. (B5)
-    if (countWords(content) === 0) {
-      return validationError('No text could be extracted from this document', {
-        file: [
-          'The document produced no readable text. If it is a scan, run it through OCR first.',
-        ],
-      });
+    // Rejecting after the write would leave the file on disk with no Policy row
+    // pointing at it -- the exact rule stated forty lines above.
+    try {
+      assertIndexablePolicyText(content);
+    } catch (error) {
+      if (filePath) await unlink(filePath).catch(() => {});
+      throw error;
     }
 
     // Create policy

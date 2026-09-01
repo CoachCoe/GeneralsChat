@@ -10,6 +10,7 @@ import {
   assertWithinSizeLimit,
   safeUploadPath,
   UploadError,
+  assertIndexablePolicyText,
 } from '@/lib/uploads';
 import { requireRole, requireUser } from '@/lib/session';
 import { policyFacetsSchema } from '@/lib/validation';
@@ -108,6 +109,8 @@ export async function POST(request: NextRequest) {
       const processed = await processDocument(uploadPath);
       content = processed.content;
     }
+
+    assertIndexablePolicyText(content);
 
     // Create policy record
     const policy = await prisma.policy.create({

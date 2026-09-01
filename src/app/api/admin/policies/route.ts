@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/session';
 import { policyFacetsSchema } from '@/lib/validation';
 import { validationError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
+import { assertIndexablePolicyText, UploadError } from '@/lib/uploads';
 
 // GET /api/admin/policies - List all policies
 export async function GET() {
@@ -56,6 +57,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Create policy
+    assertIndexablePolicyText(content);
+
     const facets = policyFacetsSchema.safeParse({ jurisdiction, category });
     if (!facets.success) {
       return validationError(
@@ -111,6 +114,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ policy, chunksCreated }, { status: 201 });
   } catch (error) {
+    if (error instanceof UploadError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Error creating policy:', error);
     return NextResponse.json(
       { error: 'Failed to create policy' },
