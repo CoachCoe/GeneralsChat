@@ -24,20 +24,37 @@ test.describe('Incident management', () => {
     await expect(page.getByText(ADMIN_ONLY)).toHaveCount(0);
   });
 
-  test('active incidents page shows open incidents only', async ({ page }) => {
-    // This page queried ?status=active, a value nothing ever writes, and threw
-    // TypeError on every successful response. (FLOW-12, FLOW-13)
-    await page.goto('/incidents/active');
+  test('the open segment shows open incidents only', async ({ page }) => {
+    await page.goto('/incidents?segment=open');
 
     await expect(page.getByText(SEEDED_OPEN)).toBeVisible();
     await expect(page.getByText(SEEDED_CLOSED)).toHaveCount(0);
   });
 
-  test('closed incidents page shows closed incidents only', async ({ page }) => {
-    await page.goto('/incidents/closed');
+  test('the closed segment shows closed incidents only', async ({ page }) => {
+    await page.goto('/incidents?segment=closed');
 
     await expect(page.getByText(SEEDED_CLOSED)).toBeVisible();
     await expect(page.getByText(SEEDED_OPEN)).toHaveCount(0);
+  });
+
+  test('the former list routes redirect into the segmented list', async ({ page }) => {
+    // Four near-identical routes collapsed into one; the old URLs are kept as
+    // redirects so existing links and bookmarks still work. (design 1j)
+    for (const [from, to] of [
+      ['/incidents/active', 'segment=open'],
+      ['/incidents/closed', 'segment=closed'],
+      ['/incidents/pending', 'segment=pending'],
+    ]) {
+      await page.goto(from);
+      await expect(page).toHaveURL(new RegExp(`/incidents\\?${to}$`));
+    }
+  });
+
+  test('/incidents/new redirects to chat', async ({ page }) => {
+    await page.goto('/incidents/new');
+    await expect(page).toHaveURL(/\/chat$/);
+    await expect(page.getByTestId('chat-input')).toBeVisible();
   });
 
   test('opens an incident and shows its detail', async ({ page }) => {

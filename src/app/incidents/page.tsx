@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { SegmentedTabs } from '@/components/design/SegmentedTabs';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,10 +35,13 @@ interface Incident {
   };
 }
 
-export default function IncidentsPage() {
+function IncidentsPageContent() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  // Segment comes from the URL so a view is addressable, and so the three
+  // former list routes can redirect into it. (design 1f/1j)
+  const searchParams = useSearchParams();
+  const filter = searchParams.get('segment') ?? 'all';
 
   useEffect(() => {
     fetchIncidents();
@@ -46,7 +51,10 @@ export default function IncidentsPage() {
   const fetchIncidents = async () => {
     try {
       const params = new URLSearchParams();
-      if (filter !== 'all') {
+      if (filter === 'pending') {
+        // "Pending" means outstanding compliance actions, not a status.
+        params.append('hasPendingActions', 'true');
+      } else if (filter !== 'all') {
         params.append('status', filter);
       }
       
@@ -118,21 +126,17 @@ export default function IncidentsPage() {
           </p>
         </div>
 
-        <div className="flex gap-4 mb-6">
-          {['all', 'open', 'closed'].map((status) => (
-            <Button
-              key={status}
-              variant={filter === status ? 'default' : 'outline'}
-              onClick={() => setFilter(status)}
-              className={`capitalize ${
-                filter === status
-                  ? 'btn-primary'
-                  : 'btn-secondary'
-              }`}
-            >
-              {status}
-            </Button>
-          ))}
+        <div className="mb-6">
+          <SegmentedTabs
+            basePath="/incidents"
+            active={filter}
+            segments={[
+              { value: 'all', label: 'All' },
+              { value: 'open', label: 'Open' },
+              { value: 'pending', label: 'Pending actions' },
+              { value: 'closed', label: 'Closed' },
+            ]}
+          />
         </div>
 
         <div className="grid gap-6">
@@ -241,5 +245,13 @@ export default function IncidentsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function IncidentsPage() {
+  return (
+    <Suspense>
+      <IncidentsPageContent />
+    </Suspense>
   );
 }

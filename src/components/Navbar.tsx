@@ -61,12 +61,16 @@ export default function Navbar() {
 
           {/* Settings Menu */}
           <div className="relative">
-            <span
+            <button
+              type="button"
               onClick={() => setIsAdminOpen(!isAdminOpen)}
+              aria-expanded={isAdminOpen}
+              aria-haspopup="menu"
               className="navbar-link"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}
             >
               Settings
-            </span>
+            </button>
 
             {/* Settings Dropdown Menu */}
             {isAdminOpen && (
