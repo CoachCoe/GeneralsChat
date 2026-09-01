@@ -74,6 +74,9 @@ export async function GET(request: NextRequest) {
             select: {
               conversations: true,
               attachments: true,
+              // Total, so the list can show "2 of 4 done" alongside the
+              // outstanding actions included above.
+              complianceActions: true,
             },
           },
         },

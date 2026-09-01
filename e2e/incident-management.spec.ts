@@ -14,7 +14,9 @@ const ADMIN_ONLY = 'Title IX: Admin-only incident';
 
 test.describe('Incident management', () => {
   test('lists the incidents this user filed, and not other users\'', async ({ page }) => {
-    await page.goto('/incidents');
+    // Explicit segment: the default is the open working set, and this
+    // assertion is about access control rather than filtering.
+    await page.goto('/incidents?segment=all');
 
     await expect(page.getByRole('heading', { name: 'Incidents', level: 1 })).toBeVisible();
     await expect(page.getByText(SEEDED_OPEN)).toBeVisible();

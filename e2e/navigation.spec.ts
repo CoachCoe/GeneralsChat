@@ -18,7 +18,7 @@ test.describe('Navigation', () => {
   test('navbar links are present on every page', async ({ page }) => {
     for (const url of ['/', '/chat', '/incidents']) {
       await page.goto(url);
-      const navbar = page.locator('nav');
+      const navbar = page.locator('nav[aria-label="Main"]');
       await expect(navbar).toBeVisible();
       await expect(navbar.locator('a[href="/chat"]').first()).toBeVisible();
       await expect(navbar.locator('a[href="/incidents"]').first()).toBeVisible();

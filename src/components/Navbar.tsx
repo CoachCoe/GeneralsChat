@@ -23,7 +23,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className={`navbar-apple sticky top-0 z-50 w-full safe-area-inset-top ${isScrolled ? 'scrolled' : ''}`}>
+    <nav aria-label="Main" className={`navbar-apple sticky top-0 z-50 w-full safe-area-inset-top ${isScrolled ? 'scrolled' : ''}`}>
       <div className="w-full flex items-center justify-between h-[52px] px-4 max-w-[1440px] mx-auto">
         {/* Logo/Brand - Clickable to home */}
         <Link href="/" className="flex items-center" style={{ opacity: 0.9, transition: 'opacity 0.2s' }}>
