@@ -9,6 +9,7 @@ import { ObligationRow, type Obligation } from '@/components/design/ObligationRo
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
 import { describeDeadline, DEADLINE_COLOR } from '@/lib/deadline';
 import { INCIDENT_TYPE_LABELS } from '@/types';
+import { useMounted } from '@/lib/useMounted';
 
 interface Conversation {
   id: string;
@@ -74,6 +75,7 @@ export default function IncidentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
+  const mounted = useMounted();
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -242,13 +244,14 @@ export default function IncidentDetailPage() {
             ? (INCIDENT_TYPE_LABELS[incident.incidentType as keyof typeof INCIDENT_TYPE_LABELS] ??
                incident.incidentType)
             : 'Unclassified'}{' '}
-          · filed by {incident.reporter?.name ?? 'unknown'},{' '}
-          {new Date(incident.createdAt).toLocaleString('en-US', {
-            day: 'numeric',
-            month: 'short',
-            hour: 'numeric',
-            minute: '2-digit',
-          })}
+          · filed by {incident.reporter?.name ?? 'unknown'}
+          {mounted &&
+            `, ${new Date(incident.createdAt).toLocaleString('en-US', {
+              day: 'numeric',
+              month: 'short',
+              hour: 'numeric',
+              minute: '2-digit',
+            })}`}
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -352,15 +355,18 @@ function StampBar({
   total: number;
   overdue: number;
 }) {
+  const mounted = useMounted();
   const stamps: { label: string; value: string; tone?: string }[] = [
     {
       label: 'Reported',
-      value: new Date(incident.createdAt).toLocaleString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        hour: 'numeric',
-        minute: '2-digit',
-      }),
+      value: mounted
+        ? new Date(incident.createdAt).toLocaleString('en-US', {
+            day: 'numeric',
+            month: 'short',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+        : '\u00a0',
     },
     { label: 'Classified', value: incident.incidentType ? 'yes' : 'not yet' },
     {
@@ -370,9 +376,11 @@ function StampBar({
     },
     {
       label: 'Closed',
-      value: incident.closedAt
-        ? new Date(incident.closedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-        : '—',
+      value: !mounted
+        ? '\u00a0'
+        : incident.closedAt
+          ? new Date(incident.closedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+          : '—',
     },
   ];
 
@@ -400,6 +408,7 @@ const KIND_TONE: Record<TimelineEvent['kind'], string> = {
 };
 
 function TimelineRow({ event }: { event: TimelineEvent }) {
+  const mounted = useMounted();
   const isAttachment = event.kind === 'attachment';
   return (
     <div className="flex gap-3 rounded-[12px] border border-line bg-surface px-4 py-3">
@@ -408,12 +417,14 @@ function TimelineRow({ event }: { event: TimelineEvent }) {
         <div className="flex flex-wrap items-baseline gap-2">
           <span className="text-[15px] font-medium text-text">{event.title}</span>
           <span className="tabular text-[12px] text-text-muted">
-            {event.at.toLocaleString('en-US', {
-              day: 'numeric',
-              month: 'short',
-              hour: 'numeric',
-              minute: '2-digit',
-            })}
+            {mounted
+              ? event.at.toLocaleString('en-US', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })
+              : '\u00a0'}
           </span>
           {event.kind === 'missed' && (
             <span className={`tabular text-[12px] ${DEADLINE_COLOR.overdue}`}>{event.meta}</span>

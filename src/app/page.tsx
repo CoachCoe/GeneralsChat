@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { ObligationRow, type Obligation } from '@/components/design/ObligationRow';
 import { StateBlock } from '@/components/design/StateBlock';
+import { useMounted } from '@/lib/useMounted';
 
 interface Counts {
   overdue: number;
@@ -25,6 +26,7 @@ export default function HomePage() {
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [counts, setCounts] = useState<Counts | null>(null);
   const [loading, setLoading] = useState(true);
+  const mounted = useMounted();
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -96,7 +98,7 @@ export default function HomePage() {
       <Navbar />
       <main className="mx-auto flex max-w-[900px] flex-col gap-8 px-6 py-10">
         <header className="flex flex-col gap-2">
-          <span className="eyebrow">{stamp}</span>
+          <span className="eyebrow">{mounted ? stamp : '\u00a0'}</span>
           <h1 className="font-display text-[40px] leading-[1.15] tracking-[-0.03em] text-text">
             {headline}
           </h1>

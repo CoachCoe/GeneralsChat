@@ -1,44 +1,19 @@
 /*
- * Tailwind WITHOUT preflight.
+ * Tailwind, with preflight.
  *
- * globals.css still carries its own reset and 213 hand-written utilities for
- * the pages that have not been migrated yet. Pulling in Tailwind's preflight
- * now would restyle all of them at once. Utilities land in the `utilities`
- * cascade layer, and globals.css is unlayered, so where the two define the
- * same class the existing one still wins -- migration stays page-by-page.
- * Classes globals.css never defined (animate-spin, the lg: breakpoints) start
- * working immediately, which is a strict improvement.
+ * globals.css is gone. It was 1,161 lines: a hand-rolled partial clone of
+ * Tailwind's utilities plus a bespoke Apple-derived component set. The clone
+ * silently failed on classes the markup used -- no loading spinner spun, four
+ * of the eight responsive classes did nothing -- and because it was unlayered
+ * it beat every Tailwind utility in the cascade, which made a migration
+ * impossible to reason about until it was put in a layer.
  *
- * Pass 3 of the migration swaps this for a plain `@import "tailwindcss"` and
- * deletes globals.css.
+ * Tailwind now supplies the utilities, the tokens below supply the palette and
+ * type, and the component layer at the end of this file carries the handful of
+ * composite classes that are genuinely worth naming.
  */
-@layer legacy, theme, base, components, utilities;
+@import "tailwindcss";
 
-/*
- * globals.css goes into the `legacy` layer, beneath Tailwind.
- *
- * It was unlayered, and unlayered CSS beats every cascade layer regardless of
- * specificity -- so its hand-rolled `.w-full` silently beat Tailwind's
- * `lg:w-[340px]` and collapsed a flex column to zero width. That was not a
- * one-off: any Tailwind responsive override of a class globals.css also
- * defines would lose the same way, which makes migration impossible to reason
- * about. Layering it puts Tailwind on top while the component classes
- * (.card-apple, .btn-primary, .navbar-link) still style the pages that have
- * not moved yet.
- *
- * Pass 3 deletes globals.css and this layer with it.
- */
-@import "./globals.css" layer(legacy);
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
-
-/*
- * Design tokens from the GeneralsChat redesign (1j).
- *
- * The palette is Tailwind's `stone` ramp plus three earned state colours.
- * "Earned, never decorative" -- colour in this UI means a deadline state and
- * nothing else, so these are the only accents in the system.
- */
 @theme {
   /* Surfaces and text */
   --color-bg: #0f0f0f;
@@ -97,4 +72,173 @@
     letter-spacing: 0.12em;
     color: var(--color-text-muted);
   }
+}
+
+/*
+ * The component layer.
+ *
+ * Replaces the bespoke half of globals.css -- the `-apple` classes and the
+ * green-gradient buttons -- with token-built equivalents. Everything else that
+ * file defined was a hand-rolled Tailwind clone, which Tailwind itself now
+ * supplies.
+ *
+ * Note the primary button is neutral, not green. Colour in this system means a
+ * deadline state; a brand-coloured button competes with the one signal the UI
+ * is allowed to shout with. (design 1j)
+ */
+@layer components {
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    padding: 24px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--radius-control);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .btn-primary {
+    background: var(--color-text);
+    color: var(--color-bg);
+    border: none;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-line);
+  }
+  .btn-secondary:hover {
+    border-color: var(--color-line-strong);
+    color: var(--color-text);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-text-tertiary);
+    border: none;
+  }
+  .btn-ghost:hover { color: var(--color-text); }
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .field {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 14px;
+    background: var(--color-input);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-control);
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+  .field:focus { border-color: var(--color-line-strong); }
+  .field-textarea {
+    min-height: 120px;
+    line-height: 1.6;
+    resize: vertical;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--color-line);
+    border-radius: 9999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--color-text-tertiary);
+  }
+
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-input);
+  }
+  .list-row:last-child { border-bottom: none; }
+
+  .navbar {
+    background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--color-line);
+  }
+  .navbar-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 12px;
+    color: var(--color-text-tertiary);
+    font-size: 14px;
+    text-decoration: none;
+    border-radius: var(--radius-control);
+    transition: color 0.2s ease;
+  }
+  .navbar-link:hover { color: var(--color-text); }
+  .navbar-dropdown {
+    position: absolute;
+    right: 0;
+    margin-top: 8px;
+    min-width: 200px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    padding: 6px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+  .navbar-dropdown-item {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    text-decoration: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .navbar-dropdown-item:hover { background: var(--color-input); color: var(--color-text); }
+
+  /* Type scale (design 1j): serif for titles and answers, sans for the rest. */
+  .heading-xl {
+    font-family: var(--font-display);
+    font-size: 40px;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: var(--color-text);
+  }
+  .heading-lg {
+    font-family: var(--font-display);
+    font-size: 26px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+  }
+  .heading-md {
+    font-family: var(--font-display);
+    font-size: 22px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+  }
+  .label-sm { font-size: 13px; color: var(--color-text-tertiary); }
+  .body-text { font-size: 15px; line-height: 1.65; color: var(--color-text-secondary); }
+  .caption { font-size: 12px; line-height: 1.5; color: var(--color-text-muted); }
 }

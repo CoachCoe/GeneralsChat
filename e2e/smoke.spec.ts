@@ -23,10 +23,12 @@ test.describe('Route smoke', () => {
       // falling through to an error boundary.
       await expect(page.locator('nav[aria-label="Main"]')).toBeVisible();
 
-      // Next's dev overlay and font preload warnings are not our concern;
-      // React render errors are.
+      // Font preload notices are noise; React render errors are not -- and
+      // hydration mismatches in particular must NOT be filtered. A previous
+      // version of this filter excluded /hydrat/, which would have hidden the
+      // React #418 mismatch that time-derived text was producing.
       const real = errors.filter(
-        e => !/favicon|preload|Download the React DevTools|hydrat/i.test(e)
+        e => !/favicon|preload|Download the React DevTools/i.test(e)
       );
       expect(real, `console errors on ${route}:\n${real.join('\n')}`).toHaveLength(0);
     });

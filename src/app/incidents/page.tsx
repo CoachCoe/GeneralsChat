@@ -7,6 +7,7 @@ import Navbar from '@/components/Navbar';
 import { SegmentedTabs } from '@/components/design/SegmentedTabs';
 import { StateBlock } from '@/components/design/StateBlock';
 import { describeDeadline, DEADLINE_COLOR } from '@/lib/deadline';
+import { useMounted } from '@/lib/useMounted';
 import { CATEGORY_LABELS, INCIDENT_TYPE_LABELS } from '@/types';
 
 interface Action {
@@ -169,6 +170,7 @@ function IncidentsPageContent() {
 }
 
 function IncidentRow({ incident }: { incident: Incident }) {
+  const mounted = useMounted();
   const openActions = incident.complianceActions.filter(a => a.status !== 'completed');
   const total = incident._count?.complianceActions ?? openActions.length;
   const done = Math.max(0, total - openActions.length);
@@ -194,7 +196,7 @@ function IncidentRow({ incident }: { incident: Incident }) {
     >
       <div className="flex w-[110px] flex-none flex-col gap-0.5">
         <span className={`tabular text-[14px] font-medium leading-none ${DEADLINE_COLOR[deadline.state]}`}>
-          {deadline.label}
+          {mounted ? deadline.label : '\u00a0'}
         </span>
         {next?.description && (
           <span className="truncate text-[11px] text-text-muted">{next.description}</span>
@@ -204,7 +206,9 @@ function IncidentRow({ incident }: { incident: Incident }) {
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-[15px] font-medium text-text">{incident.title}</span>
         <span className="text-[12px] text-text-muted">
-          filed {new Date(incident.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+          {mounted
+            ? `filed ${new Date(incident.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}`
+            : '\u00a0'}
           {incident.reporter?.name ? ` · ${incident.reporter.name}` : ''}
         </span>
       </div>

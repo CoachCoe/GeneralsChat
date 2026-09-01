@@ -12,6 +12,7 @@ import {
   POLICY_JURISDICTIONS,
   JURISDICTION_LABELS,
 } from '@/types';
+import { useMounted } from '@/lib/useMounted';
 
 interface Policy {
   id: string;
@@ -45,6 +46,7 @@ export default function PoliciesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jurisdiction, setJurisdiction] = useState('all');
+  const mounted = useMounted();
 
   useEffect(() => {
     (async () => {
@@ -148,10 +150,12 @@ export default function PoliciesPage() {
                   {CATEGORY_LABELS[policy.category] ?? policy.category}
                 </span>
                 <span className="tabular text-[12px] text-text-muted">
-                  {new Date(policy.effectiveDate).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                  })}
+                  {mounted
+                    ? new Date(policy.effectiveDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                      })
+                    : '\u00a0'}
                 </span>
               </div>
             ))}
