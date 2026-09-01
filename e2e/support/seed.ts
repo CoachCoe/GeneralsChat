@@ -92,6 +92,8 @@ export async function resetDatabase(): Promise<void> {
           'consistently and documented in the student information system.',
       },
       {
+        // Federal-only, no local counterpart: exercises the scope note, which
+        // is the pilot's common case for anything outside the loaded subject.
         title: '34 CFR 300.34: Restraint and Seclusion Guidance',
         jurisdiction: 'federal',
         category: 'restraint_seclusion',

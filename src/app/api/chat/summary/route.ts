@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { claudeService } from '@/lib/ai/claude-service';
-import { ragSystem } from '@/lib/ai/rag';
-import { prisma } from '@/lib/db';
-import { createErrorResponse } from '@/lib/errors';
-import { incidentScope, requireUser } from '@/lib/session';
+import { createErrorResponse, notFoundError, validationError } from '@/lib/errors';
+import { requireUser } from '@/lib/session';
+import { generateIncidentSummary } from '@/lib/ai/incident-summary';
+import { recordAudit } from '@/lib/audit';
 
 /**
- * POST /api/chat/summary
- *
- * Generates a comprehensive end-of-chat summary including:
- * - What the administrator shared
- * - Policy citations and how they were applied
- * - Risk assessment and compliance status
- * - Outstanding next steps and open questions
+ * POST /api/chat/summary — end-of-chat summary.
  *
  * Body: { incidentId: string }
+ *
+ * The other half of the pair with /api/incidents/[id]/summary. Both are thin
+ * adapters over generateIncidentSummary; they were previously two
+ * implementations of one feature that had drifted apart. (DEAD-12)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,103 +19,37 @@ export async function POST(request: NextRequest) {
     if (!guard.ok) return guard.response;
 
     const { incidentId } = await request.json();
-
-    if (!incidentId) {
-      return NextResponse.json(
-        { error: 'Incident ID is required' },
-        { status: 400 }
-      );
+    if (!incidentId || typeof incidentId !== 'string') {
+      return validationError('Incident ID is required', {
+        incidentId: ['Expected a string'],
+      });
     }
 
-    // Get the incident and all conversation history
-    const incident = await prisma.incident.findFirst({
-      where: { id: incidentId, ...incidentScope(guard.user) },
-      include: {
-        conversations: {
-          orderBy: { timestamp: 'asc' },
-        },
-        complianceActions: true,
-      },
-    });
+    const result = await generateIncidentSummary(incidentId, guard.user);
 
-    if (!incident) {
-      return NextResponse.json(
-        { error: 'Incident not found' },
-        { status: 404 }
-      );
+    if (!result.ok) {
+      return result.reason === 'not-found'
+        ? notFoundError('Incident')
+        : validationError('Nothing to summarise', {
+            conversations: ['This incident has no conversation to summarise yet.'],
+          });
     }
 
-    if (incident.conversations.length === 0) {
-      return NextResponse.json(
-        { error: 'No conversation history to summarize' },
-        { status: 400 }
-      );
-    }
-
-    // Convert conversation history to Claude messages
-    const conversationHistory = incident.conversations.map(conv => ({
-      role: conv.sender as 'user' | 'assistant',
-      content: conv.message,
-    }));
-
-    // Get relevant policy context from the entire conversation
-    const allMessages = conversationHistory
-      .filter(msg => msg.role === 'user')
-      .map(msg => msg.content)
-      .join(' ');
-
-    const { response: policyContext } = await ragSystem.generateResponseWithCitations(
-      allMessages,
-      { maxResults: 10, includeMetadata: true }
-    );
-
-    // Generate the comprehensive summary
-    const summary = await claudeService.generateChatSummary(
-      conversationHistory,
-      policyContext
-    );
-
-    // Store the summary in the database
-    await prisma.conversation.create({
-      data: {
-        incidentId: incident.id,
-        sender: 'assistant',
-        message: `## END OF CHAT SUMMARY\n\n${summary.content}`,
-        metadata: JSON.stringify({
-          type: 'summary',
-          generatedAt: new Date().toISOString(),
-          messageCount: incident.conversations.length,
-          usage: summary.usage,
-        }),
-      },
-    });
-
-    // Mark incident as reviewed
-    const existingMetadata = incident.metadata ? JSON.parse(incident.metadata) : {};
-    await prisma.incident.update({
-      where: { id: incidentId },
-      data: {
-        metadata: JSON.stringify({
-          ...existingMetadata,
-          summaryGenerated: true,
-          summaryGeneratedAt: new Date().toISOString(),
-        }),
-      },
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'summary',
+      entityId: result.messageId,
+      details: { incidentId, via: 'chat' },
     });
 
     return NextResponse.json({
-      summary: summary.content,
-      usage: summary.usage,
-      incidentId: incident.id,
-      messagesAnalyzed: incident.conversations.length,
+      summary: result.summary,
+      usage: result.usage,
+      incidentId,
+      messageId: result.messageId,
     });
-
   } catch (error) {
-    // Was `details: error.message` with no NODE_ENV guard, unlike every other
-    // route -- so a malformed incidentId or a JSON.parse failure on metadata
-    // handed the caller raw Prisma or Anthropic SDK text. createErrorResponse
-    // gates that behind development. (SEC-15, DEAD-9)
-    console.error('Error generating chat summary:', error);
     return createErrorResponse(error, 'Failed to generate summary', {
       endpoint: '/api/chat/summary',
       method: 'POST',

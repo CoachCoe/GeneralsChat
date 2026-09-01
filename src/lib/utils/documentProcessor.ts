@@ -31,7 +31,13 @@ export async function processDocument(filePath: string): Promise<ProcessedDocume
     switch (fileExtension) {
       case '.pdf':
         if (!pdf) {
-          pdf = (await import('pdf-parse')).default;
+          // Import the library entry point, not the package root.
+          // pdf-parse's index.js runs a debug harness on require that reads
+          // ./test/data/05-versions-space.pdf -- a fixture it does not ship --
+          // so importing the root throws ENOENT and every PDF upload fails.
+          // This only shows up against a real PDF, which is why it survived
+          // being "wired in" during the audit.
+          pdf = (await import('pdf-parse/lib/pdf-parse.js')).default;
         }
         const pdfData = await pdf(fileBuffer);
         content = pdfData.text;

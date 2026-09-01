@@ -60,10 +60,12 @@ test.describe('Incident management', () => {
   });
 
   test('opens an incident and shows its detail', async ({ page }) => {
-    const list = await page.request.get('/api/incidents?status=open');
+    // limit=100: earlier specs create incidents, and the seeded one must not
+    // depend on landing inside the default page of ten.
+    const list = await page.request.get('/api/incidents?status=open&limit=100');
     const { incidents } = await list.json();
     const target = incidents.find((i: { title: string }) => i.title === SEEDED_OPEN);
-    expect(target).toBeTruthy();
+    expect(target, `seeded incident "${SEEDED_OPEN}" not found`).toBeTruthy();
 
     await page.goto(`/incidents/${target.id}`);
 
@@ -72,9 +74,10 @@ test.describe('Incident management', () => {
   });
 
   test('closing an incident persists across a reload and stamps closedAt', async ({ page }) => {
-    const list = await page.request.get('/api/incidents?status=open');
+    const list = await page.request.get('/api/incidents?status=open&limit=100');
     const { incidents } = await list.json();
     const target = incidents.find((i: { title: string }) => i.title === SEEDED_OPEN);
+    expect(target, `seeded incident "${SEEDED_OPEN}" not found`).toBeTruthy();
 
     await page.goto(`/incidents/${target.id}`);
     await page.getByRole('button', { name: /Close Incident/i }).click();
@@ -161,15 +164,101 @@ test.describe('Obligation queue', () => {
     expect(Array.isArray(obligations)).toBe(true);
   });
 
-  test('rejects an invalid obligation status', async ({ page }) => {
+  test('shows the empty state when nothing is outstanding', async ({ page }) => {
+    // Production sits in exactly this state after clearing test data, and
+    // nothing covered it: the queue rendered from a non-empty fixture every
+    // time. Discharge everything, then assert the empty state rather than a
+    // bare or broken queue.
     const list = await page.request.get('/api/obligations');
     const { obligations } = await list.json();
-    // Seeded, so this does not depend on an earlier test having run.
+
+    for (const o of obligations) {
+      const res = await page.request.patch(`/api/obligations/${o.id}`, {
+        data: { status: 'completed' },
+      });
+      expect(res.ok()).toBe(true);
+    }
+
+    const after = await page.request.get('/api/obligations');
+    expect((await after.json()).counts.open).toBe(0);
+
+    await page.goto('/');
+    await expect(page.getByText('Nothing outstanding')).toBeVisible();
+    // The headline must not claim lateness when there is none.
+    await expect(page.getByRole('heading', { level: 1 })).not.toContainText('late');
+    // And the way in is still there.
+    await expect(page.getByRole('link', { name: 'Report an incident' })).toBeVisible();
+  });
+
+  test('rejects an invalid obligation status', async ({ page }) => {
+    // `window=all` includes completed obligations, so this does not depend on
+    // any still being open -- another test in this file discharges them.
+    const list = await page.request.get('/api/obligations?window=all');
+    const { obligations } = await list.json();
     expect(obligations.length).toBeGreaterThan(0);
 
     const response = await page.request.patch(`/api/obligations/${obligations[0].id}`, {
       data: { status: 'banana' },
     });
     expect(response.status()).toBe(400);
+  });
+});
+
+/**
+ * A generated summary is part of the incident record, not a throwaway view.
+ * The incident-page endpoint used to return one and store nothing, so it was
+ * lost on refresh after being paid for. (SPEC-35)
+ */
+test.describe('Incident summary', () => {
+  test('persists, survives a reload, and is not replayed as chat context', async ({ page }) => {
+    // An incident with a real conversation to summarise.
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill(
+      'A student is being bullied repeatedly by a classmate during recess.'
+    );
+    const [chat] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+    const { incidentId } = await chat.json();
+
+    const before = await page.request.get(`/api/incidents/${incidentId}`);
+    const conversationsBefore = (await before.json()).conversations.length;
+
+    const gen = await page.request.post(`/api/incidents/${incidentId}/summary`);
+    expect(gen.status()).toBe(200);
+    const { data } = await gen.json().then((b: { data?: unknown }) => (b.data ? b : { data: b }));
+    expect((data as { summary: string }).summary.length).toBeGreaterThan(0);
+
+    // Recorded against the file, so a reload still has it.
+    const after = await page.request.get(`/api/incidents/${incidentId}`);
+    const incident = await after.json();
+    expect(incident.conversations.length).toBe(conversationsBefore + 1);
+    const summaryRow = incident.conversations.find(
+      (c: { sender: string }) => c.sender === 'summary'
+    );
+    expect(summaryRow, 'summary was not stored against the incident').toBeTruthy();
+
+    // Its own sender, so later turns do not replay it back to the model.
+    expect(summaryRow.sender).not.toBe('assistant');
+
+    // And it shows in the timeline as what it is.
+    await page.goto(`/incidents/${incidentId}`);
+    await expect(page.getByText('Summary generated')).toBeVisible();
+  });
+
+  test('refuses to summarise an incident with no conversation', async ({ page }) => {
+    const created = await page.request.post('/api/incidents', {
+      data: { title: 'Empty incident', description: 'Filed with no conversation yet.' },
+    });
+    const { incident } = await created.json();
+
+    const gen = await page.request.post(`/api/incidents/${incident.id}/summary`);
+    expect(gen.status()).toBe(400);
+  });
+
+  test('does not summarise another user\'s incident', async ({ page }) => {
+    const gen = await page.request.post('/api/incidents/does-not-exist/summary');
+    expect(gen.status()).toBe(404);
   });
 });

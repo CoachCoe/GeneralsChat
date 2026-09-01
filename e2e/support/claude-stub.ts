@@ -19,7 +19,9 @@ export const STUB_REPLY =
 function classificationJson(userText: string) {
   const type = /fight|altercation|punch|assault|weapon/i.test(userText)
     ? 'violence'
-    : 'bullying';
+    : /sexual|title ix|harass/i.test(userText)
+      ? 'title_ix'
+      : 'bullying';
   return JSON.stringify({
     type,
     severity: 'high',

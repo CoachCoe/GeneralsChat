@@ -7,7 +7,7 @@ This document maps the comprehensive policy framework to the system's policy typ
 For each policy document:
 1. Save the policy as a `.txt`, `.pdf`, or `.docx` file in `sample-policies/`
 2. Use the upload script below
-3. Match the `policyType` to the category
+3. Set the policy's `jurisdiction` (who issued it) and `category` (what it covers)
 
 ## Policy Categories
 
@@ -123,75 +123,6 @@ that file to select which documents to upload.
 (This section previously inlined a second, divergent copy of that script
 under a third filename that was never created. Removed per audit finding
 REPO-7 / SPEC-21.)
-
-\`\`\`typescript
-import { config } from 'dotenv';
-import { resolve } from 'path';
-import fs from 'fs';
-import FormData from 'form-data';
-import fetch from 'node-fetch';
-
-config({ path: resolve(__dirname, '../.env') });
-
-// Define your policies here
-const policies = [
-  {
-    file: 'suicide-prevention-plan.pdf',
-    title: 'JLDBB - Suicide Prevention Plan',
-    type: 'suicide_prevention',
-    effectiveDate: '2024-01-01'
-  },
-  {
-    file: 'mandatory-reporting-jlf.pdf',
-    title: 'JLF - Reporting Child Abuse and Neglect',
-    type: 'mandatory_reporting',
-    effectiveDate: '2019-01-01'
-  },
-  // Add more policies here...
-];
-
-async function uploadPolicies() {
-  console.log(\`📚 Uploading \${policies.length} policies...\\n\`);
-
-  for (const policy of policies) {
-    try {
-      const filePath = resolve(__dirname, '../sample-policies', policy.file);
-
-      if (!fs.existsSync(filePath)) {
-        console.log(\`⚠️  Skipping \${policy.file} (not found)\`);
-        continue;
-      }
-
-      const form = new FormData();
-      form.append('title', policy.title);
-      form.append('policyType', policy.type);
-      form.append('effectiveDate', policy.effectiveDate);
-      form.append('file', fs.readFileSync(filePath), {
-        filename: policy.file,
-        contentType: policy.file.endsWith('.pdf') ? 'application/pdf' : 'text/plain',
-      });
-
-      const response = await fetch('http://localhost:3000/api/policies', {
-        method: 'POST',
-        body: form as any,
-        headers: form.getHeaders(),
-      });
-
-      if (response.ok) {
-        console.log(\`✅ \${policy.title}\`);
-      } else {
-        console.log(\`❌ Failed: \${policy.title}\`);
-      }
-    } catch (error: any) {
-      console.log(\`❌ Error uploading \${policy.title}: \${error.message}\`);
-    }
-  }
-
-  console.log('\\n✅ Batch upload complete!');
-}
-
-uploadPolicies();
-\`\`\`
 
 ## Required Forms Tracking
 

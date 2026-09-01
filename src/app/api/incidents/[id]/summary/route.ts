@@ -1,17 +1,19 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
-import { claudeService } from '@/lib/ai/claude-service';
-import { ragSystem } from '@/lib/ai/rag';
 import { logRequest, logResponse } from '@/lib/logger';
-import { createErrorResponse, notFoundError, successResponse } from '@/lib/errors';
-import { incidentScope, requireUser } from '@/lib/session';
+import { createErrorResponse, notFoundError, successResponse, validationError } from '@/lib/errors';
+import { requireUser } from '@/lib/session';
+import { generateIncidentSummary } from '@/lib/ai/incident-summary';
+import { recordAudit } from '@/lib/audit';
 
-type Params = {
-  params: Promise<{
-    id: string;
-  }>;
-};
+type Params = { params: Promise<{ id: string }> };
 
+/**
+ * Generate a summary for an incident and record it against the file.
+ *
+ * A thin adapter over generateIncidentSummary; the chat endpoint is the other.
+ * This route previously returned the summary without storing it, so a user
+ * generated one, refreshed, and lost it after paying for the call. (SPEC-35)
+ */
 export async function POST(request: NextRequest, { params }: Params) {
   const startTime = Date.now();
 
@@ -19,63 +21,38 @@ export async function POST(request: NextRequest, { params }: Params) {
     logRequest('POST', '/api/incidents/[id]/summary');
     const guard = await requireUser();
     if (!guard.ok) return guard.response;
+
     const { id } = await params;
+    const result = await generateIncidentSummary(id, guard.user);
 
-    // Fetch incident with full conversation history
-    const incident = await prisma.incident.findFirst({
-      where: { id, ...incidentScope(guard.user) },
-      include: {
-        reporter: true,
-        conversations: {
-          orderBy: { timestamp: 'asc' },
-        },
-        attachments: true,
-        complianceActions: true,
-      },
-    });
-
-    if (!incident) {
-      return notFoundError('Incident');
+    if (!result.ok) {
+      const response =
+        result.reason === 'not-found'
+          ? notFoundError('Incident')
+          : validationError('Nothing to summarise', {
+              conversations: ['This incident has no conversation to summarise yet.'],
+            });
+      logResponse('POST', '/api/incidents/[id]/summary', response.status, Date.now() - startTime);
+      return response;
     }
 
-    // Get relevant policy context
-    const policyQuery = `${incident.title} ${incident.description || ''} ${incident.incidentType || ''}`;
-    const { response: policyContext } = await ragSystem.generateResponseWithCitations(
-      policyQuery,
-      { incidentId: incident.id }
-    );
-
-    // Build conversation history for Claude
-    const conversationHistory = incident.conversations.map(conv => ({
-      role: conv.sender === 'user' ? 'user' as const : 'assistant' as const,
-      content: conv.message,
-    }));
-
-    // Generate comprehensive summary using Claude's existing method
-    const summaryResponse = await claudeService.generateChatSummary(
-      conversationHistory,
-      policyContext
-    );
-
-    const duration = Date.now() - startTime;
-    logResponse('POST', '/api/incidents/[id]/summary', 200, duration);
-
-    return successResponse({
-      summary: summaryResponse.content,
-      usage: summaryResponse.usage,
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'summary',
+      entityId: result.messageId,
+      details: { incidentId: id },
     });
+
+    logResponse('POST', '/api/incidents/[id]/summary', 200, Date.now() - startTime);
+    return successResponse({ summary: result.summary, usage: result.usage });
   } catch (error) {
     const duration = Date.now() - startTime;
-    const errorResponse = createErrorResponse(
-      error,
-      'Failed to generate summary',
-      {
-        endpoint: '/api/incidents/[id]/summary',
-        method: 'POST',
-        duration,
-      }
-    );
-
+    const errorResponse = createErrorResponse(error, 'Failed to generate summary', {
+      endpoint: '/api/incidents/[id]/summary',
+      method: 'POST',
+      duration,
+    });
     logResponse('POST', '/api/incidents/[id]/summary', errorResponse.status, duration);
     return errorResponse;
   }

@@ -9,6 +9,9 @@ import Image from 'next/image';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
 import { SourceLadder } from '@/components/design/SourceLadder';
 import { CoverageGapCard } from '@/components/design/CoverageGapCard';
+import { ClassificationChip } from '@/components/design/ClassificationChip';
+import { LibraryScopeNote } from '@/components/design/LibraryScopeNote';
+import { ALWAYS_RETRIEVED_CATEGORY } from '@/types';
 
 interface Citation {
   policyId: string;
@@ -23,6 +26,24 @@ interface Coverage {
   categoriesWithoutLocalPolicy: string[];
 }
 
+interface Classification {
+  type: string;
+  severity?: string | null;
+}
+
+/**
+ * True when nothing the incident is actually *about* has a local policy.
+ *
+ * mandatory_reporting is appended to every incident and is nearly always
+ * covered locally, so it has to be excluded — otherwise this is never true and
+ * the scope note never appears.
+ */
+function isSubjectOutsideLibrary(coverage: Coverage): boolean {
+  const subject = coverage.categories.filter(c => c !== ALWAYS_RETRIEVED_CATEGORY);
+  if (subject.length === 0) return false;
+  return subject.every(c => coverage.categoriesWithoutLocalPolicy.includes(c));
+}
+
 interface Message {
   id: string;
   type: 'user' | 'general';
@@ -31,6 +52,8 @@ interface Message {
   /** Policies the guidance was drawn from; empty means none matched. */
   citations?: Citation[];
   coverage?: Coverage;
+  /** Present only on the turn where the incident was classified. */
+  classification?: Classification | null;
 }
 
 interface Chat {
@@ -165,7 +188,8 @@ export default function ChatPage() {
         content: data.response,
         timestamp: new Date(),
         citations: data.citations ?? [],
-        coverage: data.coverage
+        coverage: data.coverage,
+        classification: data.classification
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
@@ -482,7 +506,17 @@ export default function ChatPage() {
                           wordBreak: 'break-word'
                         }}>
                           {message.type === 'general' ? (
-                            <GuidanceBlock>{message.content}</GuidanceBlock>
+                            <>
+                              {message.classification?.type && (
+                                <div className="mb-4">
+                                  <ClassificationChip
+                                    incidentType={message.classification.type}
+                                    severity={message.classification.severity}
+                                  />
+                                </div>
+                              )}
+                              <GuidanceBlock>{message.content}</GuidanceBlock>
+                            </>
                           ) : (
                             message.content
                           )}
@@ -504,11 +538,22 @@ export default function ChatPage() {
                               </div>
                             )}
 
-                            {message.coverage && (
-                              <CoverageGapCard
-                                categories={message.coverage.categoriesWithoutLocalPolicy}
-                              />
-                            )}
+                            {message.coverage &&
+                              (isSubjectOutsideLibrary(message.coverage) ? (
+                                // Nothing implicated has local cover: that is the
+                                // subject being outside the library, not a partial
+                                // miss, and it warrants a different sentence.
+                                <LibraryScopeNote
+                                  incidentType={message.classification?.type}
+                                  categories={message.coverage.categoriesWithoutLocalPolicy.filter(
+                                    (c) => c !== ALWAYS_RETRIEVED_CATEGORY
+                                  )}
+                                />
+                              ) : (
+                                <CoverageGapCard
+                                  categories={message.coverage.categoriesWithoutLocalPolicy}
+                                />
+                              ))}
                           </div>
                         )}
                       </div>

@@ -2,7 +2,7 @@
 
 Branch `ux/redesign`, cut from `dev` after the audit merge (`16157f3`).
 Design source: `GeneralsChat Redesign.dc.html` (Claude Design), turn 1.
-Brief: [`docs/design-brief.md`](../design-brief.md).
+Brief: [`docs/history/2026-08-31-design-brief.md`](../history/2026-08-31-design-brief.md).
 
 ## Gates
 

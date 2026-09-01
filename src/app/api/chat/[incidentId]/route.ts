@@ -34,6 +34,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     // Format messages for the chat UI
     const messages = incident.conversations.map(conv => ({
       id: conv.id,
+      // Summaries render like any assistant turn; they are part of the record.
       type: conv.sender === 'user' ? 'user' : 'general',
       content: conv.message,
       timestamp: conv.timestamp,

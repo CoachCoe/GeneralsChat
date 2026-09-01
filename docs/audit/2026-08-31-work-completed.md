@@ -1,5 +1,14 @@
 # Audit remediation — work completed — 2026-08-31
 
+> **Reading note.** This is a historical record, accurate as of 2026-08-31. Many
+> findings below have since been fixed — see
+> [`2026-08-31-work-completed.md`](./2026-08-31-work-completed.md) and
+> [`2026-09-01-ux-redesign.md`](./2026-09-01-ux-redesign.md) for what was done.
+> The root status files it cites by line number (`BUILD_STATUS.md`,
+> `SYSTEM_STATUS.md`, `LAWYER_PERSONA_UPDATE.md`) now live in `docs/history/`
+> with dated filenames; their contents are unchanged, so the line references
+> still resolve.
+
 Branch `audit/2026-08-31`, cut from `dev` at `1352563`.
 Findings: [`2026-08-31-findings.md`](./2026-08-31-findings.md).
 
