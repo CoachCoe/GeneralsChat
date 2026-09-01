@@ -122,7 +122,7 @@ export default function Navbar() {
           aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={isMobileMenuOpen}
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center border-none bg-transparent p-2 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:hidden"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center border-none bg-transparent p-2 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] md:hidden"
         >
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -131,7 +131,7 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div style={{
-          borderTop: '0.5px solid var(--separator)',
+          borderTop: '0.5px solid var(--color-line)',
           padding: '8px'
         }}>
           <div className="flex flex-col gap-1">

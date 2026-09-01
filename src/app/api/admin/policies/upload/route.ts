@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { processDocument } from '@/lib/utils/documentProcessor';
 import { safeFetchText, UnsafeUrlError } from '@/lib/safe-fetch';
 import {
   assertAllowedExtension,
+  assertIndexablePolicyText,
   assertWithinSizeLimit,
   maxUploadBytes,
   safeUploadPath,
@@ -15,6 +16,9 @@ import {
   uploadErrorStatus,
 } from '@/lib/uploads';
 import { requireRole } from '@/lib/session';
+import { policyFacetsSchema } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit';
 
 /** Formats the documentProcessor can actually parse. */
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
@@ -31,8 +35,17 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const url = formData.get('url') as string | null;
     const title = formData.get('title') as string;
-    const jurisdiction = (formData.get('jurisdiction') as string) || 'district';
-    const category = (formData.get('category') as string) || 'other';
+    const facets = policyFacetsSchema.safeParse({
+      jurisdiction: formData.get('jurisdiction'),
+      category: formData.get('category'),
+    });
+    if (!facets.success) {
+      return validationError(
+        'Jurisdiction and category must each be one of the known values',
+        facets.error.flatten().fieldErrors
+      );
+    }
+    const { jurisdiction, category } = facets.data;
     const effectiveDate = formData.get('effectiveDate') as string;
     const keywords = formData.get('keywords') as string;
 
@@ -100,6 +113,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Rejecting after the write would leave the file on disk with no Policy row
+    // pointing at it -- the exact rule stated forty lines above.
+    try {
+      assertIndexablePolicyText(content);
+    } catch (error) {
+      if (filePath) await unlink(filePath).catch(() => {});
+      throw error;
+    }
+
     // Create policy
     const keywordsArray = keywords ? keywords.split(',').map(k => k.trim()) : [];
 
@@ -119,6 +141,13 @@ export async function POST(request: NextRequest) {
         isActive: true,
         version: 1
       }
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'policy',
+      entityId: policy.id,
+      details: { title: policy.title, jurisdiction: policy.jurisdiction, category: policy.category },
     });
 
     // Indexed through the RAG system, which applies the documented 1000-word /

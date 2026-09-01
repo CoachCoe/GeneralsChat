@@ -262,15 +262,15 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--background)' }}>
+    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
       <Navbar />
       <div className="flex" style={{ height: 'calc(100vh - 52px)' }}>
         {/* Sidebar */}
         <div
           style={{
             width: sidebarOpen ? '260px' : '0px',
-            borderRight: '1px solid var(--separator)',
-            background: 'var(--background)',
+            borderRight: '1px solid var(--color-line)',
+            background: 'var(--color-bg)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -285,18 +285,18 @@ export default function ChatPage() {
                 width: '100%',
                 padding: '10px 14px',
                 background: 'transparent',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--color-line)',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 cursor: 'pointer',
-                color: 'var(--foreground)',
+                color: 'var(--color-text)',
                 fontSize: '14px',
                 fontWeight: 500,
                 transition: 'background 0.2s'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--secondary)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-input)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
               <Plus size={18} />
@@ -314,11 +314,11 @@ export default function ChatPage() {
             flexDirection: 'column'
           }}>
             {loadingHistories ? (
-              <div style={{ padding: '10px 12px', color: 'var(--muted-foreground)', fontSize: '14px' }}>
+              <div style={{ padding: '10px 12px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
                 Loading...
               </div>
             ) : previousChats.length === 0 ? (
-              <div style={{ padding: '10px 12px', color: 'var(--muted-foreground)', fontSize: '14px' }}>
+              <div style={{ padding: '10px 12px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
                 No previous chats
               </div>
             ) : (
@@ -332,9 +332,9 @@ export default function ChatPage() {
                     borderRadius: '8px',
                     cursor: 'pointer',
                     transition: 'background 0.2s',
-                    background: incidentId === chat.id ? 'var(--secondary)' : 'transparent'
+                    background: incidentId === chat.id ? 'var(--color-input)' : 'transparent'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--secondary)'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-input)'}
                   onMouseLeave={(e) => {
                     if (incidentId !== chat.id) {
                       e.currentTarget.style.background = 'transparent';
@@ -343,7 +343,7 @@ export default function ChatPage() {
                 >
                   <div style={{
                     fontSize: '14px',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-text)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -371,7 +371,7 @@ export default function ChatPage() {
             justifyContent: 'space-between',
             padding: '0 16px',
             minHeight: '48px',
-            borderBottom: '1px solid var(--separator)',
+            borderBottom: '1px solid var(--color-line)',
             flexShrink: 0
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -381,18 +381,18 @@ export default function ChatPage() {
                   style={{
                     padding: '6px',
                     borderRadius: '6px',
-                    color: 'var(--muted-foreground)',
+                    color: 'var(--color-text-muted)',
                     background: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
                     transition: 'all 0.2s'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--foreground)';
-                    e.currentTarget.style.background = 'var(--secondary)';
+                    e.currentTarget.style.color = 'var(--color-text)';
+                    e.currentTarget.style.background = 'var(--color-input)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--muted-foreground)';
+                    e.currentTarget.style.color = 'var(--color-text-muted)';
                     e.currentTarget.style.background = 'transparent';
                   }}
                 >
@@ -435,7 +435,7 @@ export default function ChatPage() {
                   borderRadius: '50%',
                   overflow: 'hidden',
                   marginBottom: '24px',
-                  border: '2px solid var(--primary)',
+                  border: '2px solid var(--color-text)',
                 }}>
                   <Image
                     src="/General.jpeg"
@@ -448,14 +448,14 @@ export default function ChatPage() {
                 <h2 style={{
                   fontSize: '24px',
                   fontWeight: 600,
-                  color: 'var(--foreground)',
+                  color: 'var(--color-text)',
                   marginBottom: '12px'
                 }}>
                   Chat with the General
                 </h2>
                 <p style={{
                   fontSize: '15px',
-                  color: 'var(--muted-foreground)',
+                  color: 'var(--color-text-muted)',
                   maxWidth: '420px',
                   lineHeight: '1.5'
                 }}>
@@ -482,7 +482,7 @@ export default function ChatPage() {
                           borderRadius: '50%',
                           overflow: 'hidden',
                           flexShrink: 0,
-                          border: '1px solid var(--primary)',
+                          border: '1px solid var(--color-text)',
                         }}>
                           <Image
                             src="/General.jpeg"
@@ -499,11 +499,11 @@ export default function ChatPage() {
                       }}>
                         <div style={{
                           padding: message.type === 'user' ? '12px 16px' : '0',
-                          background: message.type === 'user' ? 'var(--secondary)' : 'transparent',
+                          background: message.type === 'user' ? 'var(--color-input)' : 'transparent',
                           borderRadius: message.type === 'user' ? '16px' : '0',
                           fontSize: '15px',
                           lineHeight: '1.6',
-                          color: 'var(--foreground)',
+                          color: 'var(--color-text)',
                           whiteSpace: message.type === 'user' ? 'pre-wrap' : 'normal',
                           wordBreak: 'break-word'
                         }}>
@@ -555,6 +555,7 @@ export default function ChatPage() {
                               ) : (
                                 <CoverageGapCard
                                   categories={message.coverage.categoriesWithoutLocalPolicy}
+                                  byCategory={message.coverage.byCategory}
                                 />
                               ))}
                           </div>
@@ -571,7 +572,7 @@ export default function ChatPage() {
                         borderRadius: '50%',
                         overflow: 'hidden',
                         flexShrink: 0,
-                        border: '1px solid var(--primary)',
+                        border: '1px solid var(--color-text)',
                       }}>
                         <Image
                           src="/General.jpeg"
@@ -586,14 +587,14 @@ export default function ChatPage() {
                           width: '8px',
                           height: '8px',
                           borderRadius: '50%',
-                          background: 'var(--muted-foreground)',
+                          background: 'var(--color-text-muted)',
                           animation: 'bounce 1.4s infinite ease-in-out both'
                         }}></div>
                         <div style={{
                           width: '8px',
                           height: '8px',
                           borderRadius: '50%',
-                          background: 'var(--muted-foreground)',
+                          background: 'var(--color-text-muted)',
                           animation: 'bounce 1.4s infinite ease-in-out both',
                           animationDelay: '0.16s'
                         }}></div>
@@ -601,7 +602,7 @@ export default function ChatPage() {
                           width: '8px',
                           height: '8px',
                           borderRadius: '50%',
-                          background: 'var(--muted-foreground)',
+                          background: 'var(--color-text-muted)',
                           animation: 'bounce 1.4s infinite ease-in-out both',
                           animationDelay: '0.32s'
                         }}></div>
@@ -618,16 +619,16 @@ export default function ChatPage() {
           {/* Input Area */}
           <div style={{
             padding: '16px',
-            borderTop: '1px solid var(--separator)',
-            background: 'var(--background)',
+            borderTop: '1px solid var(--color-line)',
+            background: 'var(--color-bg)',
             flexShrink: 0
           }}>
             <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
               <div style={{
-                border: '1px solid var(--border)',
+                border: '1px solid var(--color-line)',
                 borderRadius: '12px',
                 padding: '8px 12px',
-                background: 'var(--background)',
+                background: 'var(--color-bg)',
                 display: 'flex',
                 alignItems: 'flex-end',
                 gap: '8px'
@@ -636,7 +637,7 @@ export default function ChatPage() {
                   style={{
                     padding: '6px',
                     borderRadius: '6px',
-                    color: 'var(--muted-foreground)',
+                    color: 'var(--color-text-muted)',
                     background: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
@@ -645,11 +646,11 @@ export default function ChatPage() {
                     alignItems: 'center'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--foreground)';
-                    e.currentTarget.style.background = 'var(--secondary)';
+                    e.currentTarget.style.color = 'var(--color-text)';
+                    e.currentTarget.style.background = 'var(--color-input)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--muted-foreground)';
+                    e.currentTarget.style.color = 'var(--color-text-muted)';
                     e.currentTarget.style.background = 'transparent';
                   }}
                 >
@@ -671,7 +672,7 @@ export default function ChatPage() {
                     border: 'none',
                     outline: 'none',
                     background: 'transparent',
-                    color: 'var(--foreground)',
+                    color: 'var(--color-text)',
                     fontSize: '15px',
                     lineHeight: '1.5',
                     fontFamily: 'inherit',
@@ -694,8 +695,8 @@ export default function ChatPage() {
                   style={{
                     padding: '6px',
                     borderRadius: '6px',
-                    background: inputValue.trim() ? 'var(--primary)' : 'transparent',
-                    color: inputValue.trim() ? 'white' : 'var(--muted-foreground)',
+                    background: inputValue.trim() ? 'var(--color-text)' : 'transparent',
+                    color: inputValue.trim() ? 'white' : 'var(--color-text-muted)',
                     border: 'none',
                     cursor: inputValue.trim() ? 'pointer' : 'not-allowed',
                     transition: 'all 0.2s',

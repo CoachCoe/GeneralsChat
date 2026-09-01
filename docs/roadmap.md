@@ -154,6 +154,38 @@ All 11 JICK sections (A–K) parse, 9 of them carrying their RSA reference.
 
 ---
 
+### Audit 2026-09-01 — **done, with one blocker deferred**
+
+Six parallel read-only passes; 142 findings, 6 blockers. Five fixed. See
+[`docs/audit/2026-09-01-findings.md`](./audit/2026-09-01-findings.md) and
+[`-work-completed.md`](./audit/2026-09-01-work-completed.md).
+
+The one not fixed is the important one, and it changes what step 6 below is
+for: **obligation deadlines are produced by a classification call that is
+never shown a policy.** `classifyIncident` is invoked with two arguments, so
+its `policyContext` parameter is undefined and the model is asked to recall
+New Hampshire law. Until that is fixed, every countdown in the product is the
+model's guess, and `ComplianceAction` has no `policyId` to reconcile it
+against.
+
+The fix needs a product decision first — **OQ-5: what should the product do
+when the library cannot support a deadline?** Suppress the obligation, show it
+without a countdown, or show it marked unverified. Settle that and the
+two-phase re-classification is straightforward. The UI has been corrected in
+the meantime so it no longer claims the deadline came from the policy.
+
+Three other things that were true and are no longer:
+
+- A policy row with no chunks used to *cancel* the coverage gap for its
+  category, so one bad upload silently removed a safety warning.
+- An `other`-classified incident — the classifier's own failure default —
+  retrieved no mandatory-reporting policy and reported no gap.
+- The cross-user authorization tests attempted ids that do not exist, so
+  deleting `incidentScope` from the incident and obligation routes left the
+  suite green. That is SEC-7 with a passing test.
+
+---
+
 ## Next — gated on real use
 
 ### 6. Run a real incident end to end, and watch it — *maintainer*

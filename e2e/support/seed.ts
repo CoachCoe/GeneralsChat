@@ -18,7 +18,13 @@ export const TEST_USERS = {
  * fully parallel, so an empty-state test and an incident-creating test raced
  * each other. (TEST-21)
  */
-export async function resetDatabase(): Promise<void> {
+/** Ids a test needs to attempt access it must not be granted. */
+export interface SeededIds {
+  adminIncidentId: string;
+  adminObligationId: string;
+}
+
+export async function resetDatabase(): Promise<SeededIds> {
   execSync('npx prisma migrate deploy', { stdio: 'inherit' });
 
   const prisma = new PrismaClient();
@@ -114,6 +120,17 @@ export async function resetDatabase(): Promise<void> {
       },
     ];
 
+    // Active, district, school_safety -- and deliberately given NO chunks below.
+    // Retrieval can never return it, so it must not count as coverage. This is
+    // the production state a failed re-index leaves behind, and counting it
+    // suppressed the gap warning that says the library is empty. (B2)
+    const unchunked = {
+      title: 'Policy EBCA: Crisis Response (indexing incomplete)',
+      jurisdiction: 'district',
+      category: 'school_safety',
+      content: 'District procedure: unavailable -- this policy has not been indexed.',
+    };
+
     for (const p of policies) {
       const created = await prisma.policy.create({
         data: {
@@ -138,6 +155,17 @@ export async function resetDatabase(): Promise<void> {
         })),
       });
     }
+
+    await prisma.policy.create({
+      data: {
+        title: unchunked.title,
+        content: unchunked.content,
+        jurisdiction: unchunked.jurisdiction,
+        category: unchunked.category,
+        effectiveDate: new Date('2024-01-01'),
+        isActive: true,
+      },
+    });
 
     // One open incident owned by the reporter, one closed, and one owned by
     // the admin so cross-user access can be asserted.
@@ -187,7 +215,11 @@ export async function resetDatabase(): Promise<void> {
         closedAt: new Date(),
       },
     });
-    await prisma.incident.create({
+    // The admin's incident carries an obligation of its own. Without one there
+    // is no foreign row for a reporter to attempt, so the cross-user tests had
+    // to PATCH an id that does not exist -- which 404s whether or not scoping
+    // is applied, and so could not fail. (TEST-27, TEST-28)
+    const adminIncident = await prisma.incident.create({
       data: {
         title: 'Title IX: Admin-only incident',
         description: 'Only the admin filed this one.',
@@ -195,8 +227,22 @@ export async function resetDatabase(): Promise<void> {
         severity: 'critical',
         incidentType: 'title_ix',
         reporterId: admin.id,
+        complianceActions: {
+          create: {
+            actionType: 'notification',
+            description: 'Notify the Title IX coordinator',
+            status: 'pending',
+            dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+          },
+        },
       },
+      include: { complianceActions: true },
     });
+
+    return {
+      adminIncidentId: adminIncident.id,
+      adminObligationId: adminIncident.complianceActions[0].id,
+    };
   } finally {
     await prisma.$disconnect();
   }

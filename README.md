@@ -91,8 +91,25 @@ docker run -p 8000:8000 chromadb/chroma
 | `npm run policies:coverage` | What the library can and cannot answer |
 
 `scripts/test-*.ts` are **manual demo scripts, not automated tests** — they
-print a transcript and assert nothing. They need a running server and read
-`APP_BASE_URL` (default `http://localhost:3000`).
+print a transcript and assert nothing. They fall into three groups, and the
+difference matters:
+
+- `test-chat-behavior.ts`, `test-complete-rag.ts`, `test-lawyer-persona.ts`
+  need a running server and read `APP_BASE_URL` (default
+  `http://localhost:3000`). They POST to `/api/chat`, which requires a
+  session, so they return 401 unless `APP_SESSION_COOKIE` is set.
+- `test-phase3.ts` and `test-rag.ts` use **no server**. They connect with
+  Prisma and **create and delete `User`, `Incident`, `Conversation` and
+  `Policy` rows in whatever `DATABASE_URL` points at**, with best-effort
+  cleanup that a mid-run failure will skip. `.env` points at production, so
+  always override it:
+
+  ```bash
+  DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_test?schema=public" \
+  npx tsx scripts/test-rag.ts
+  ```
+
+- `test-claude.ts` makes a **billed** Anthropic call.
 
 ## How policies are modelled
 
@@ -196,7 +213,7 @@ The end-to-end suite covers the journeys and access control:
 
 ```bash
 createdb generalschat_test
-DATABASE_URL="postgresql://localhost:5432/generalschat_test?schema=public" \
+DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_test?schema=public" \
 AUTH_SECRET="$(openssl rand -base64 32)" \
 npm test
 ```
@@ -268,12 +285,24 @@ environment; `docker-compose.yml` will refuse to start without `AUTH_SECRET`.
 
 ## Security status
 
-An audit on 2026-08-31 found 153 issues. The blocking ones are fixed:
-authentication and authorization, arbitrary file write on both upload paths,
-SSRF in the policy URL fetch, attachments served from `public/` with no access
-check, missing upload size and type limits, unvalidated write bodies and
-pagination, a production container running the dev server, and a page that
-fabricated compliance determinations with `Math.random()`.
+An audit on 2026-08-31 found 153 issues; a second on 2026-09-01 found 142
+more. The 2026-08-31 blockers are all fixed: authentication and authorization,
+arbitrary file write on both upload paths, SSRF in the policy URL fetch,
+attachments served from `public/` with no access check, missing upload size and
+type limits, unvalidated write bodies and pagination, a production container
+running the dev server, and a page that fabricated compliance determinations
+with `Math.random()`.
+
+The 2026-09-01 audit found six blockers. Five are fixed — see
+[`docs/audit/2026-09-01-work-completed.md`](docs/audit/2026-09-01-work-completed.md).
+
+**The sixth is open and you should know it before trusting any deadline this
+tool shows you.** Obligation deadlines are produced by a classification call
+that is never given the retrieved policy, so they are the model's recall of
+New Hampshire law rather than something a policy states, and
+`ComplianceAction` carries no `policyId` to check them against. The fix needs
+a product decision (OQ-5 in the findings). Until it lands, confirm every
+deadline against the cited policy.
 
 Still open, and worth knowing before you deploy:
 

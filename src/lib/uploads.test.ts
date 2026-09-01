@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolve, sep } from 'path';
 import {
   assertAllowedExtension,
+  assertIndexablePolicyText,
   assertWithinSizeLimit,
   DEFAULT_MAX_UPLOAD_BYTES,
   fileExtension,
@@ -107,6 +108,39 @@ describe('assertWithinSizeLimit', () => {
     } catch (e) {
       expect(e).toBeInstanceOf(UploadError);
       expect((e as UploadError).status).toBe(413);
+    }
+  });
+});
+
+describe('assertIndexablePolicyText', () => {
+  // Retrieval works from chunks and chunks come from this text, so a policy
+  // with none is invisible to search while still counting as loaded. There are
+  // three ingestion routes; this is the rule all three call. (B5)
+
+  it('accepts text that will produce chunks', () => {
+    expect(() => assertIndexablePolicyText('Staff must report within 24 hours.')).not.toThrow();
+  });
+
+  it('rejects an extraction that produced nothing', () => {
+    // What a scanned PDF yields.
+    expect(() => assertIndexablePolicyText('')).toThrow(/No text could be extracted/);
+  });
+
+  it('rejects whitespace, which a truthiness check would let through', () => {
+    // The JSON route guards with `!content`, which passes for all of these.
+    for (const blank of ['   ', '\n\n', '\t', ' \n \t ']) {
+      expect(() => assertIndexablePolicyText(blank)).toThrow(/No text could be extracted/);
+    }
+  });
+
+  it('reports 422, not 500', () => {
+    // The document is readable and the request well-formed; the content is the
+    // problem, so this is the caller's to fix.
+    try {
+      assertIndexablePolicyText('');
+      throw new Error('expected a throw');
+    } catch (error) {
+      expect((error as { status?: number }).status).toBe(422);
     }
   });
 });

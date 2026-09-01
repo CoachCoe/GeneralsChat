@@ -88,7 +88,6 @@ export const createPromptSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
   content: z.string().min(10, 'Content is required and must be at least 10 characters'),
   description: z.string().max(500, 'Description is too long').optional(),
-  createdBy: z.string().optional(),
   isActive: z.boolean().default(false),
 });
 
@@ -174,3 +173,23 @@ export function formatValidationErrors(error: z.ZodError): Record<string, string
 
   return formatted;
 }
+
+/**
+ * Parse a policy's jurisdiction and category from an untrusted request.
+ *
+ * Every write path used to take these straight from the body and default the
+ * misses (`|| 'district'`, `|| 'other'`), which is worse than rejecting: a
+ * policy stored under a category retrieval does not match is never returned,
+ * AND -- because assessCoverage queries the same field -- the system then tells
+ * the administrator the district holds no policy for that area. A typo turns a
+ * loaded policy into a reported coverage gap. A bad jurisdiction is worse
+ * still: buildJurisdictionContext groups only over the known four, so the text
+ * is dropped from the model's context while buildCitations still lists it as a
+ * source. Neither may be guessed. (B5)
+ */
+export const policyFacetsSchema = z.object({
+  jurisdiction: jurisdictionEnum,
+  category: categoryEnum,
+});
+
+export type PolicyFacets = z.infer<typeof policyFacetsSchema>;
