@@ -292,8 +292,13 @@ property that matters: a profile instructing the model to "ignore all previous
 instructions" and "answer confidently from your own knowledge" does not remove
 the core, which is prepended, or the guards, which are appended.
 
-Still open and unchanged: `SPEC-50` — the navbar shows this admin-only link to
-every role, so a reporter clicking it is bounced home with no explanation.
+`SPEC-50` closed alongside, since it is the same surface: "Policies" pointed at
+`/admin/policies` for every role, so a reporter clicking it was bounced to the
+home queue with no explanation and the read-only library README documents was
+reachable only by typing the URL. It now points at `/policies` for everyone —
+the page links admins onward — and the admin-only "Advisor" link is gated on
+role. Two e2e tests, one per role, because gating a link must not hide it from
+the role it exists for.
 
 ---
 
