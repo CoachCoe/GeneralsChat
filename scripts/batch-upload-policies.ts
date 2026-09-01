@@ -1,8 +1,9 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import fs from 'fs';
-import FormData from 'form-data';
-import fetch from 'node-fetch';
+
+// Node 18+ provides fetch and FormData globally; the previous `form-data` and
+// `node-fetch` imports were undeclared phantom dependencies. (DEAD-19)
 
 config({ path: resolve(__dirname, '../.env') });
 
@@ -14,10 +15,13 @@ config({ path: resolve(__dirname, '../.env') });
  */
 
 interface PolicyUpload {
-  file: string;                  // Filename in sample-policies/
-  title: string;                 // Policy title (e.g., "JLDBB - Suicide Prevention")
-  type: string;                  // Policy type (see options below)
-  effectiveDate: string;         // YYYY-MM-DD format
+  file: string;          // Filename in sample-policies/
+  title: string;         // e.g. "JLDBB - Suicide Prevention"
+  /** Who issued it: federal | state | district | school */
+  jurisdiction: string;
+  /** What it covers: bullying, title_ix, mandatory_reporting, ... */
+  category: string;
+  effectiveDate: string; // YYYY-MM-DD
 }
 
 /**
@@ -44,7 +48,30 @@ interface PolicyUpload {
  * - chemical_safety
  */
 
+/**
+ * Base URL for the running dev server. Was hardcoded to :3002, which nothing
+ * serves -- `npm run dev` binds :3000. (REPO-8, SPEC-22, DEAD-23)
+ */
+const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
+
 const policies: PolicyUpload[] = [
+  // Recovered from scripts/upload-{bus,title-ix,sexual-harassment,sample}-policy.ts,
+  // four copy-paste clones of this script that were deleted in the same commit
+  // (DEAD-21). Uncomment an entry once its file is in sample-policies/.
+  //
+  // { file: 'student-conduct-school-buses.txt',
+  //   title: 'Policy JICC: Student Conduct on School Buses',
+  //   jurisdiction: 'district', category: 'discipline', effectiveDate: '2024-05-09' },
+  // { file: 'title-ix-policy-update-2025.txt',
+  //   title: '2025 NHSBA Special Title IX Policy Update',
+  //   jurisdiction: 'state', category: 'title_ix', effectiveDate: '2025-01-09' },
+  // { file: 'sexual-harassment-policy.pdf',
+  //   title: 'Policy ACAC: Prohibition of Sexual Harassment Policy and Grievance Procedures',
+  //   jurisdiction: 'district', category: 'title_ix', effectiveDate: '2024-01-01' },
+  // { file: 'bullying-prevention-policy.txt',
+  //   title: 'School District Bullying Prevention and Intervention Policy',
+  //   jurisdiction: 'district', category: 'bullying', effectiveDate: '2024-09-01' },
+
   // ============================================================================
   // PRIORITY 1: IMMEDIATE SAFETY & LEGAL REQUIREMENTS
   // ============================================================================
@@ -188,7 +215,8 @@ async function uploadPolicies() {
     try {
       const form = new FormData();
       form.append('title', policy.title);
-      form.append('policyType', policy.type);
+      form.append('jurisdiction', policy.jurisdiction);
+      form.append('category', policy.category);
       form.append('effectiveDate', policy.effectiveDate);
 
       // Determine content type
@@ -197,21 +225,22 @@ async function uploadPolicies() {
       if (ext.endsWith('.pdf')) contentType = 'application/pdf';
       else if (ext.endsWith('.docx')) contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-      form.append('file', fs.readFileSync(filePath), {
-        filename: policy.file,
-        contentType,
-      });
+      form.append(
+        'file',
+        new Blob([fs.readFileSync(filePath)], { type: contentType }),
+        policy.file
+      );
 
-      const response = await fetch('http://localhost:3002/api/policies', {
+      // fetch sets the multipart boundary itself; do not set Content-Type.
+      const response = await fetch(`${BASE_URL}/api/policies`, {
         method: 'POST',
-        body: form as any,
-        headers: form.getHeaders(),
+        body: form,
       });
 
       if (response.ok) {
         const data = await response.json();
         console.log(`\n✅ UPLOADED: ${policy.title}`);
-        console.log(`   Type: ${policy.type}`);
+        console.log(`   ${policy.jurisdiction} / ${policy.category}`);
         console.log(`   File: ${policy.file}`);
         console.log(`   Chunks: ${data.chunksCreated || 'N/A'}`);
         successCount++;

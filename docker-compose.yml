@@ -1,32 +1,48 @@
-version: '3.8'
+# Local development stack.
+#
+# Previously this file could not start the app at all: DATABASE_URL was a
+# SQLite path while the Prisma datasource is postgresql, there was no database
+# service of any kind, ANTHROPIC_API_KEY (the only key the app actually needs)
+# was never passed in, and it provisioned an Ollama container for a code path
+# that no longer exists. The whole repo was also bind-mounted over /app,
+# discarding the image build. (REPO-15, SEC-14, REPO-3)
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: generalschat
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d generalschat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   app:
     build: .
     ports:
       - "3000:3000"
-    volumes:
-      - ./:/app
-      - /app/node_modules
-      - ./uploads:/app/uploads
-      - ./data:/app/data
     environment:
-      - DATABASE_URL=file:./data/compliance.db
-      - OLLAMA_URL=http://ollama:11434
-      - UPLOADS_DIR=/app/uploads
-    depends_on:
-      - ollama
-  
-  ollama:
-    image: ollama/ollama
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/generalschat?schema=public
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY must be set}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set - generate with: openssl rand -base64 32}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
+      # Optional: enables vector search instead of the keyword fallback.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CHROMA_URL: ${CHROMA_URL:-}
+      UPLOADS_DIR: /app/uploads
     volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
-    command: >
-      sh -c "ollama serve &
-             sleep 10 &&
-             ollama pull llama2:7b-chat &&
-             wait"
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
-  ollama_data:
+  postgres_data:
+  uploads_data:

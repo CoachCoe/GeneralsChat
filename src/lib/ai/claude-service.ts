@@ -1,6 +1,59 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logAIOperation, logError, logExternalAPI } from '@/lib/logger';
+import { INCIDENT_TYPES, PolicyCoverage, SEVERITIES } from '@/types';
+
+/**
+ * The model's classification JSON, validated rather than trusted.
+ *
+ * Previously this was a bare JSON.parse whose result was returned as
+ * `type: string` and cast with `as any` at the call site, so a malformed or
+ * injected value flowed straight into the incident record. (SEC-9, DEAD-13)
+ */
+const classificationSchema = z.object({
+  type: z.enum(INCIDENT_TYPES),
+  severity: z.enum(SEVERITIES),
+  reasoning: z.string(),
+  /**
+   * Each action carries its own deadline. Previously this was a plain string
+   * array paired with the separate `timeline` array *by index*, even though
+   * the prompt asked for the two independently and never required them to
+   * correspond -- so a mandatory 24-hour report routinely inherited an
+   * unrelated entry's date, or fell through to a hardcoded 3-day default.
+   * (FLOW-17)
+   */
+  requiredActions: z.array(
+    z.object({
+      description: z.string(),
+      dueInHours: z.number().positive().max(24 * 365),
+    })
+  ),
+  timeline: z.array(z.string()),
+  stakeholders: z.array(z.string()),
+});
+
+export type ClassificationResult = z.infer<typeof classificationSchema>;
+
+/**
+ * Pulls the first JSON object out of a model response.
+ *
+ * The previous implementation only stripped markdown fences when the response
+ * *started* with one, so any prose preamble ("Here is the classification:")
+ * defeated it and silently fell through to the severity:'medium' default.
+ */
+function extractJsonObject(raw: string): string {
+  const withoutFences = raw
+    .replace(/```(?:json)?\s*/gi, '')
+    .replace(/```/g, '')
+    .trim();
+  const start = withoutFences.indexOf('{');
+  const end = withoutFences.lastIndexOf('}');
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error('No JSON object found in model response');
+  }
+  return withoutFences.slice(start, end + 1);
+}
 
 /**
  * Claude AI Service
@@ -45,6 +98,13 @@ class ClaudeService {
 
       this.client = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
+        // Optional override for a gateway, proxy, or a local stub during
+        // end-to-end tests. Anthropic calls are made server-side, so they
+        // cannot be intercepted from the browser (which is why the old
+        // page.route mock in e2e/ never worked -- TEST-3).
+        ...(process.env.ANTHROPIC_BASE_URL
+          ? { baseURL: process.env.ANTHROPIC_BASE_URL }
+          : {}),
       });
     }
 
@@ -129,7 +189,8 @@ class ClaudeService {
   async generateComplianceResponse(
     userQuery: string,
     policyContext: string,
-    conversationHistory: ClaudeMessage[] = []
+    conversationHistory: ClaudeMessage[] = [],
+    coverage?: PolicyCoverage
   ): Promise<ClaudeResponse> {
     // Try to get active system prompt from database first
     let systemPromptContent = await this.getActiveSystemPrompt();
@@ -206,11 +267,48 @@ WHEN YOU NEED MORE INFORMATION:
 Remember: You're here to help them navigate this successfully. Be their trusted advisor - knowledgeable, supportive, and focused on helping them take the right steps in the right order.`;
     }
 
-    // Append policy context to the system prompt (whether from database or default)
-    const finalSystemPrompt = `${systemPromptContent}
+    // Append policy context to the system prompt (whether from database or default).
+    //
+    // When retrieval returned nothing, the previous code spliced in an empty
+    // string under the "Available Policy Context:" header and left the
+    // instruction to "Reference specific policy codes (e.g. JICK, ACAC, JLF)"
+    // standing -- so the model had nothing to cite but those in-prompt examples
+    // and attributed district deadlines to policies it was never given.
+    // Given FLOW-4/FLOW-5/FLOW-22 that is the common path, not an edge case.
+    // (FLOW-3, SPEC-3)
+    const hasPolicyContext = policyContext.trim().length > 0;
+
+    // Local policy is expected to implement the federal and state floor, so
+    // its absence is a compliance gap the administrator should hear about --
+    // not something to paper over by citing the statute as if it were the
+    // district's own procedure.
+    const gaps = coverage?.categoriesWithoutLocalPolicy ?? [];
+    const coverageNote = gaps.length > 0
+      ? `
+
+POLICY COVERAGE GAP:
+This incident implicates the following areas, and the policy library holds NO district or school policy for them: ${gaps.join(', ')}.
+State whatever federal or state requirements you can support from the text above, then tell them plainly that you could not find a district or school policy covering this and that they should confirm the local procedure with their compliance officer. Do not present a federal or state requirement as if it were district procedure, and do not invent a local policy code.`
+      : '';
+
+    const finalSystemPrompt = hasPolicyContext
+      ? `${systemPromptContent}
 
 Available Policy Context:
-${policyContext}`;
+${policyContext}${coverageNote}`
+      : `${systemPromptContent}
+
+Available Policy Context:
+(none)
+
+IMPORTANT - NO POLICY RETRIEVED FOR THIS QUERY:
+No district policy text was retrieved for this question. For this response you must:
+- NOT cite or invent any policy code (JICK, ACAC, JLF or otherwise)
+- NOT state district-specific deadlines or requirements as established fact
+- Say plainly that you could not locate the applicable district policy
+- Limit yourself to general best practice and statutory obligations you are
+  confident about, labelled as such
+- Recommend they confirm with their compliance officer or legal counsel`;
 
     const messages: ClaudeMessage[] = [
       ...conversationHistory,
@@ -229,14 +327,7 @@ ${policyContext}`;
   async classifyIncident(
     incidentDescription: string,
     policyContext?: string
-  ): Promise<{
-    type: string;
-    severity: string;
-    reasoning: string;
-    requiredActions: string[];
-    timeline: string[];
-    stakeholders: string[];
-  }> {
+  ): Promise<ClassificationResult> {
     const startTime = Date.now();
 
     const systemPrompt = `You are a school incident classification expert. Analyze the incident and provide structured classification.
@@ -246,10 +337,19 @@ Respond with a JSON object containing:
   "type": "bullying" | "title_ix" | "harassment" | "violence" | "substance" | "other",
   "severity": "low" | "medium" | "high" | "critical",
   "reasoning": "Brief explanation of why this classification was chosen",
-  "requiredActions": ["Action 1", "Action 2", ...],
+  "requiredActions": [
+    { "description": "Action 1", "dueInHours": 24 },
+    { "description": "Action 2", "dueInHours": 120 }
+  ],
   "timeline": ["Immediate: ...", "Within 24h: ...", "Within 5 days: ...", ...],
   "stakeholders": ["Administrator", "Parents", "Counselor", ...]
 }
+
+Every entry in requiredActions MUST carry its own "dueInHours" deadline,
+counted from now. Use the shortest legally required window for that specific
+action -- e.g. a mandatory DCYF or police report is typically 24 hours, not a
+default. Do not rely on the "timeline" array to date the actions; that array
+is narrative only.
 
 Consider:
 - Title IX requirements for sexual harassment
@@ -272,17 +372,9 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
     );
 
     try {
-      // Extract JSON from response (Claude might wrap it in markdown)
-      let jsonText = response.content.trim();
-
-      // Remove markdown code blocks if present
-      if (jsonText.startsWith('```json')) {
-        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/```\n?/g, '');
-      }
-
-      const classification = JSON.parse(jsonText);
+      const classification = classificationSchema.parse(
+        JSON.parse(extractJsonObject(response.content))
+      );
 
       const duration = Date.now() - startTime;
       logAIOperation('classifyIncident', this.model, undefined, duration);
@@ -301,7 +393,10 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
         type: 'other',
         severity: 'medium',
         reasoning: 'Unable to automatically classify. Manual review required.',
-        requiredActions: ['Review incident details', 'Contact administrator'],
+        requiredActions: [
+          { description: 'Review incident details', dueInHours: 24 },
+          { description: 'Contact administrator', dueInHours: 24 },
+        ],
         timeline: ['Immediate: Begin investigation'],
         stakeholders: ['Administrator', 'Reporter'],
       };

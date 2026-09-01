@@ -1,23 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireUser } from '@/lib/session';
 
 // GET /api/chat/history - Get user's chat histories
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    // Took `userId` from the query string, so the "only your own chats" filter
+    // was enforced by the caller -- anyone could read anyone's history by
+    // guessing an id. It is now always the session user. (SEC-8)
+    const guard = await requireUser();
+    if (!guard.ok) return guard.response;
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      );
-    }
-
-    // Fetch user's incidents with their latest conversation
     const incidents = await prisma.incident.findMany({
       where: {
-        reporterId: userId,
+        reporterId: guard.user.id,
       },
       include: {
         conversations: {

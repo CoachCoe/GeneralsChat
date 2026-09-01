@@ -6,12 +6,31 @@ import { Send, Plus, Paperclip, Menu } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { GuidanceBlock } from '@/components/design/GuidanceBlock';
+import { SourceLadder } from '@/components/design/SourceLadder';
+import { CoverageGapCard } from '@/components/design/CoverageGapCard';
+
+interface Citation {
+  policyId: string;
+  title: string;
+  jurisdiction: string;
+  category: string;
+}
+
+interface Coverage {
+  categories: string[];
+  byCategory: Record<string, string[]>;
+  categoriesWithoutLocalPolicy: string[];
+}
 
 interface Message {
   id: string;
   type: 'user' | 'general';
   content: string;
   timestamp: Date;
+  /** Policies the guidance was drawn from; empty means none matched. */
+  citations?: Citation[];
+  coverage?: Coverage;
 }
 
 interface Chat {
@@ -26,13 +45,26 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // The sidebar is 260px and defaulted open, which left 115px for the
+  // conversation on a phone -- the composer was effectively unreachable.
+  // Collapse it below the md breakpoint; it is still togglable. (design 1i)
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 767px)');
+    const apply = (matches: boolean) => {
+      if (matches) setSidebarOpen(false);
+    };
+    apply(narrow.matches);
+    const onChange = (e: MediaQueryListEvent) => apply(e.matches);
+    narrow.addEventListener('change', onChange);
+    return () => narrow.removeEventListener('change', onChange);
+  }, []);
   const [incidentId, setIncidentId] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [previousChats, setPreviousChats] = useState<Chat[]>([]);
   const [loadingHistories, setLoadingHistories] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const userId = 'demo-user'; // In production, get from auth session
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,7 +82,8 @@ export default function ChatPage() {
   const fetchChatHistories = async () => {
     setLoadingHistories(true);
     try {
-      const response = await fetch(`/api/chat/history?userId=${userId}`);
+      // No userId param: the endpoint always scopes to the session user. (SEC-8)
+      const response = await fetch('/api/chat/history');
       if (!response.ok) throw new Error('Failed to fetch histories');
 
       const data = await response.json();
@@ -110,7 +143,6 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: currentInput,
-          userId,
           incidentId,
         }),
       });
@@ -131,7 +163,9 @@ export default function ChatPage() {
         id: (Date.now() + 1).toString(),
         type: 'general',
         content: data.response,
-        timestamp: new Date()
+        timestamp: new Date(),
+        citations: data.citations ?? [],
+        coverage: data.coverage
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
@@ -444,17 +478,45 @@ export default function ChatPage() {
                           fontSize: '15px',
                           lineHeight: '1.6',
                           color: 'var(--foreground)',
-                          whiteSpace: 'pre-wrap',
+                          whiteSpace: message.type === 'user' ? 'pre-wrap' : 'normal',
                           wordBreak: 'break-word'
                         }}>
-                          {message.content}
+                          {message.type === 'general' ? (
+                            <GuidanceBlock>{message.content}</GuidanceBlock>
+                          ) : (
+                            message.content
+                          )}
                         </div>
+
+                        {message.type === 'general' && message.citations && (
+                          <div data-testid="chat-sources" className="mt-4 flex flex-col gap-4">
+                            {message.citations.length > 0 ? (
+                              <SourceLadder
+                                sources={message.citations.map((c) => ({
+                                  jurisdiction: c.jurisdiction,
+                                  title: c.title,
+                                }))}
+                                gapCategories={message.coverage?.categoriesWithoutLocalPolicy ?? []}
+                              />
+                            ) : (
+                              <div className="text-[13px] text-text-muted">
+                                No matching district policy was found for this question.
+                              </div>
+                            )}
+
+                            {message.coverage && (
+                              <CoverageGapCard
+                                categories={message.coverage.categoriesWithoutLocalPolicy}
+                              />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
 
                   {isLoading && (
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div data-testid="chat-loading" role="status" aria-live="polite" style={{ display: 'flex', gap: '12px' }}>
                       <div style={{
                         width: '32px',
                         height: '32px',
@@ -547,6 +609,8 @@ export default function ChatPage() {
                 </button>
 
                 <textarea
+                  data-testid="chat-input"
+                  aria-label="Message"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -574,6 +638,9 @@ export default function ChatPage() {
                 />
 
                 <button
+                  data-testid="chat-send"
+                  type="button"
+                  aria-label="Send message"
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isLoading}
                   style={{

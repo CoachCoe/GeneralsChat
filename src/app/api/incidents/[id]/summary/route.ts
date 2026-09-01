@@ -4,6 +4,7 @@ import { claudeService } from '@/lib/ai/claude-service';
 import { ragSystem } from '@/lib/ai/rag';
 import { logRequest, logResponse } from '@/lib/logger';
 import { createErrorResponse, notFoundError, successResponse } from '@/lib/errors';
+import { incidentScope, requireUser } from '@/lib/session';
 
 type Params = {
   params: Promise<{
@@ -16,11 +17,13 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   try {
     logRequest('POST', '/api/incidents/[id]/summary');
+    const guard = await requireUser();
+    if (!guard.ok) return guard.response;
     const { id } = await params;
 
     // Fetch incident with full conversation history
-    const incident = await prisma.incident.findUnique({
-      where: { id },
+    const incident = await prisma.incident.findFirst({
+      where: { id, ...incidentScope(guard.user) },
       include: {
         reporter: true,
         conversations: {

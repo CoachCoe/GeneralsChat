@@ -1,5 +1,7 @@
 'use client';
 
+import { signOut, useSession } from 'next-auth/react';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -7,6 +9,7 @@ import { Settings, Menu, X } from 'lucide-react';
 
 export default function Navbar() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const { data: session } = useSession();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -20,7 +23,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className={`navbar-apple sticky top-0 z-50 w-full safe-area-inset-top ${isScrolled ? 'scrolled' : ''}`}>
+    <nav aria-label="Main" className={`navbar sticky top-0 z-50 w-full safe-area-inset-top ${isScrolled ? 'scrolled' : ''}`}>
       <div className="w-full flex items-center justify-between h-[52px] px-4 max-w-[1440px] mx-auto">
         {/* Logo/Brand - Clickable to home */}
         <Link href="/" className="flex items-center" style={{ opacity: 0.9, transition: 'opacity 0.2s' }}>
@@ -34,8 +37,8 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Right side navigation */}
-        <div className="flex items-center gap-2">
+        {/* Right side navigation — desktop */}
+        <div className="hidden items-center gap-2 md:flex">
           {/* Chat Link */}
           <Link href="/chat" className="navbar-link">
             Chat
@@ -58,12 +61,16 @@ export default function Navbar() {
 
           {/* Settings Menu */}
           <div className="relative">
-            <span
+            <button
+              type="button"
               onClick={() => setIsAdminOpen(!isAdminOpen)}
+              aria-expanded={isAdminOpen}
+              aria-haspopup="menu"
               className="navbar-link"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}
             >
               Settings
-            </span>
+            </button>
 
             {/* Settings Dropdown Menu */}
             {isAdminOpen && (
@@ -76,6 +83,13 @@ export default function Navbar() {
 
                 {/* Menu */}
                 <div className="navbar-dropdown z-50">
+                  {session?.user && (
+                    <div className="navbar-dropdown-item" style={{ opacity: 0.7, cursor: 'default' }}>
+                      {session.user.email}
+                      <br />
+                      <span style={{ fontSize: '0.75rem' }}>{session.user.role}</span>
+                    </div>
+                  )}
                   <Link
                     href="/about"
                     onClick={() => setIsAdminOpen(false)}
@@ -83,16 +97,32 @@ export default function Navbar() {
                   >
                     About
                   </Link>
+                  {session?.user && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAdminOpen(false);
+                        signOut({ callbackUrl: '/login' });
+                      }}
+                      className="navbar-dropdown-item"
+                      style={{ width: '100%', textAlign: 'left' }}
+                    >
+                      Sign out
+                    </button>
+                  )}
                 </div>
               </>
             )}
           </div>
         </div>
 
-        {/* Mobile Menu Button (for future responsive support) */}
+        {/* Mobile menu button */}
         <button
+          type="button"
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isMobileMenuOpen}
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="hidden transition-apple p-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-none bg-transparent cursor-pointer"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center border-none bg-transparent p-2 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:hidden"
         >
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>

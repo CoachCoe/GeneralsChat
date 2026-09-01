@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireRole } from '@/lib/session';
 
 type Params = {
   params: Promise<{
@@ -10,6 +11,11 @@ type Params = {
 // GET /api/admin/prompts/[id] - Get single prompt with full content
 export async function GET(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
     const prompt = await prisma.systemPrompt.findUnique({
       where: { id }
@@ -35,6 +41,11 @@ export async function GET(request: NextRequest, { params }: Params) {
 // PUT /api/admin/prompts/[id] - Update prompt
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
     const body = await request.json();
     const { name, content, description, isActive } = body;
@@ -70,6 +81,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
 // DELETE /api/admin/prompts/[id] - Delete prompt
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
+    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    const guard = await requireRole('admin');
+    if (!guard.ok) return guard.response;
+
     const { id } = await params;
     // Prevent deleting active prompt
     const prompt = await prisma.systemPrompt.findUnique({

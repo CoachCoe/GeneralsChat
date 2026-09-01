@@ -1,82 +1,58 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Navigation', () => {
-  test('should navigate to all main pages from navbar', async ({ page }) => {
-    // Start at home page
+  test('navigates to the main pages from the navbar', async ({ page }) => {
     await page.goto('/');
+    await expect(page).toHaveTitle(/Generals Chat|School Compliance/i);
 
-    // Verify home page loads
-    await expect(page).toHaveTitle(/School Compliance|GeneralsChat/i);
-
-    // Test Chat link
-    await page.click('text=Chat');
+    await page.click('a[href="/chat"]');
     await page.waitForURL('**/chat');
-    await expect(page.locator('h1')).toContainText(/Chat|General/i);
+    // The chat page has no <h1>; the composer is the real signal it rendered.
+    await expect(page.getByTestId('chat-input')).toBeVisible();
 
-    // Test Incidents link
-    await page.click('text=Incidents');
+    await page.click('a[href="/incidents"]');
     await page.waitForURL('**/incidents');
-    await expect(page.locator('h1')).toContainText('Incidents');
-
-    // Test Policies link
-    await page.click('a[href="/admin/policies"]');
-    await page.waitForURL('**/admin/policies');
-    await expect(page.locator('h1')).toContainText(/Policies|Policy/i);
-
-    // Test Todos link
-    await page.click('text=Todos');
-    await page.waitForURL('**/todos');
-    await expect(page.locator('h1')).toContainText('Todos');
+    await expect(page.getByRole('heading', { name: 'Incidents', level: 1 })).toBeVisible();
   });
 
-  test('should have working navbar on all pages', async ({ page }) => {
-    const pages = [
-      { url: '/', navText: 'Chat' },
-      { url: '/chat', navText: 'Incidents' },
-      { url: '/incidents', navText: 'Chat' },
-      { url: '/todos', navText: 'Chat' }
-    ];
-
-    for (const { url, navText } of pages) {
+  test('navbar links are present on every page', async ({ page }) => {
+    for (const url of ['/', '/chat', '/incidents']) {
       await page.goto(url);
-
-      // Verify navbar is visible
-      const navbar = page.locator('nav');
+      const navbar = page.locator('nav[aria-label="Main"]');
       await expect(navbar).toBeVisible();
-
-      // Verify key nav links are present
-      await expect(navbar.locator('text=Chat')).toBeVisible();
-      await expect(navbar.locator('text=Incidents')).toBeVisible();
-      await expect(navbar.locator('text=Todos')).toBeVisible();
+      await expect(navbar.locator('a[href="/chat"]').first()).toBeVisible();
+      await expect(navbar.locator('a[href="/incidents"]').first()).toBeVisible();
     }
   });
 
-  test('should show mobile menu on small screens', async ({ page }) => {
-    // Set mobile viewport
-    await page.setViewportSize({ width: 375, height: 667 });
-
-    await page.goto('/');
-
-    // Mobile menu button should be visible
-    const menuButton = page.locator('[role="button"]').filter({ hasText: /menu|☰/i }).first();
-
-    // Check if mobile menu structure exists (button or dropdown trigger)
-    // Note: Implementation may vary, so we check for common patterns
-    const hasMobileNav = await page.locator('nav button').count() > 0 ||
-                         await page.locator('[data-mobile-menu]').count() > 0;
-
-    expect(hasMobileNav || await menuButton.count() > 0).toBeTruthy();
+  test('a reporter cannot reach the admin pages', async ({ page }) => {
+    // Redirected away rather than shown the admin UI. (SEC-6)
+    await page.goto('/admin/policies');
+    await expect(page).toHaveURL(/\/$|\/login/);
+    await expect(page.getByRole('heading', { name: 'Policy Management' })).toHaveCount(0);
   });
 
-  test('should navigate back to home from any page', async ({ page }) => {
-    // Start from incidents page
-    await page.goto('/incidents');
+  test('signing out ends the session', async ({ page, context }) => {
+    await page.goto('/');
+    await page.getByText('Settings').click();
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.waitForURL('**/login**');
 
-    // Click on logo or home link
-    await page.click('a[href="/"]');
-    await page.waitForURL('/');
+    // The session cookie is gone, so a protected API call is refused.
+    const response = await context.request.get('/api/incidents');
+    expect(response.status()).toBe(401);
+  });
+});
 
-    // Verify we're on home page
-    await expect(page.locator('h1')).toBeTruthy();
+test.describe('Policy library', () => {
+  test('a non-admin can read the library but not manage it', async ({ page }) => {
+    await page.goto('/policies');
+    await expect(page.getByRole('heading', { name: 'Policy library', level: 1 })).toBeVisible();
+
+    // Seeded fixtures include federal, state and district policies.
+    await expect(page.getByText('Policy JICK: Bullying Prevention')).toBeVisible();
+
+    // Management stays admin-only; a reporter gets no route into it.
+    await expect(page.getByRole('link', { name: 'Manage policies' })).toHaveCount(0);
   });
 });

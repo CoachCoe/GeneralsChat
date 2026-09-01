@@ -21,10 +21,6 @@ export default function Error({
     // Log error to console and any error tracking service
     console.error('Route error:', error);
 
-    // TODO: Send to error tracking service (e.g., Sentry)
-    // if (typeof window !== 'undefined' && window.Sentry) {
-    //   window.Sentry.captureException(error);
-    // }
   }, [error]);
 
   return (

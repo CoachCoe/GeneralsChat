@@ -21,7 +21,11 @@ model User {
   name      String
   role      String   @default("reporter") // admin, investigator, reporter
 
-  // Authentication fields (for NextAuth)
+  // Authentication. Credentials provider with JWT sessions, so no Account /
+  // Session / VerificationToken models are needed. Nullable because rows
+  // created before authentication existed have no password; those users
+  // cannot sign in until one is set.
+  passwordHash  String?
   emailVerified DateTime?
   image         String?
 
@@ -150,7 +154,17 @@ model Policy {
 
   version       Int      @default(1)
   effectiveDate DateTime
-  policyType    String   // federal, state, district, school
+
+  /// Where the policy comes from: federal, state, district, school.
+  /// Orthogonal to `category` -- a district bullying policy and a federal
+  /// Title IX rule are different jurisdictions AND different categories, and
+  /// an incident normally implicates several of both.
+  jurisdiction  String   @default("district")
+
+  /// What the policy is about: bullying, title_ix, mandatory_reporting, ...
+  /// This is what incident classification matches against during retrieval.
+  category      String   @default("other")
+
   isActive      Boolean  @default(true)
 
   // Metadata (JSON: keywords, categories, etc.)
@@ -163,9 +177,12 @@ model Policy {
   // Relations
   chunks PolicyChunk[]
 
-  @@index([policyType])
+  @@index([jurisdiction])
+  @@index([category])
   @@index([isActive])
   @@index([effectiveDate])
+  // Retrieval filters on category + isActive together.
+  @@index([category, isActive])
 }
 
 model PolicyChunk {
