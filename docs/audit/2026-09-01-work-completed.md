@@ -16,7 +16,7 @@ All four pass from a clean build directory. CI runs exactly these.
 | `npm run typecheck` | 0 errors | 0 errors |
 | `npm run lint` | 0 errors, 3 warnings | 0 errors, 3 warnings |
 | `npm run build` | ✓ | ✓ |
-| `npm run test:unit` | 97 | **110** |
+| `npm run test:unit` | 97 | **114** |
 | `npm run test:e2e` | 52 | **53** |
 
 The 3 lint warnings are pre-existing and untouched (unused vars in
@@ -155,6 +155,36 @@ nothing. User message bubbles on `/chat` rendered with no background; the 44px
 minimum touch target was absent on every `<Button>`; the destructive "End Chat"
 variant painted nothing. Mapped to the tokens that exist and confirmed each
 resolves in the built CSS.
+
+## Review round (/bastion)
+
+Six findings, four of them correctness. All addressed.
+
+1. **The empty-extraction guard covered one of three ingestion paths.** The
+   worst of the six, and the same class of bug this audit is about: the
+   findings named "three parallel ingestion endpoints" as a major finding, and
+   the fix patched the handler that happened to be open. `POST /api/policies`
+   still created an active zero-chunk policy. The rule now lives once, in
+   `src/lib/uploads.ts`, and all three routes call it — as an `UploadError`
+   with 422, since the request is well-formed and the content is the problem.
+2. **A rejected upload left the file on disk.** The guard sat after
+   `writeFile`, so a refused upload orphaned the bytes with no `Policy` row —
+   violating a rule stated in a comment forty lines above it, in the same
+   function, about the same failure. Unlinked on that path now.
+3. **The PUT validated the facets and wrote the raw ones.** `facets.data` was
+   discarded. Equivalent today because `z.enum` does not transform, and a
+   silent bypass the moment it does.
+4. **`new Date(effectiveDate)` was still unguarded** in the object that had
+   just been given a schema for its neighbours. `Invalid Date` reached Prisma
+   and returned 500 for a bad request.
+5. **Commit batching.** One commit carried five unrelated concerns. The review
+   fixes are split into three.
+6. **Comments.** Seven blocks reconstructed how a bug was found rather than
+   what a reader needs at that line. Cut to the non-obvious why; the narrative
+   is already in this directory.
+
+Four new unit tests cover the shared guard, including whitespace-only input —
+which every truthiness check in those three routes lets through.
 
 ## Deferred, with reasons
 
