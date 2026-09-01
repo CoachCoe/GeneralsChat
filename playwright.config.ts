@@ -37,9 +37,15 @@ export default defineConfig({
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'reporter',
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: /auth\.setup\.ts|admin\..*\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE.reporter },
+    },
+    {
+      name: 'admin',
+      testMatch: /admin\..*\.spec\.ts/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE.admin },
     },
   ],
 
