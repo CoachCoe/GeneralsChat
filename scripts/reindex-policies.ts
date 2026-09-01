@@ -46,6 +46,7 @@ async function main() {
 
   let reindexed = 0;
   let skipped = 0;
+  const failed: string[] = [];
 
   for (const policy of policies) {
     const label = `${policy.jurisdiction}/${policy.category}  ${policy.title}`;
@@ -62,27 +63,66 @@ async function main() {
       continue;
     }
 
-    // Purges Chroma as well as the rows, then re-adds through the single
-    // chunker with embeddings when OPENAI_API_KEY is configured.
-    await ragSystem.deletePolicyChunks(policy.id);
-    await ragSystem.addPolicyDocument(policy.id, policy.content, {
-      title: policy.title,
-      jurisdiction: policy.jurisdiction,
-      category: policy.category,
-      effectiveDate: policy.effectiveDate.toISOString(),
-    });
+    // Re-indexing is delete-then-recreate, and the Chroma half cannot join a
+    // database transaction. So each policy is handled independently and
+    // verified afterwards: a failure must not abort the run and leave later
+    // policies untouched, and it must not pass silently leaving this one with
+    // no chunks at all -- a policy with zero chunks is invisible to retrieval,
+    // which is worse than one chunked badly.
+    try {
+      await ragSystem.deletePolicyChunks(policy.id);
+      await ragSystem.addPolicyDocument(policy.id, policy.content, {
+        title: policy.title,
+        jurisdiction: policy.jurisdiction,
+        category: policy.category,
+        effectiveDate: policy.effectiveDate.toISOString(),
+      });
+    } catch (error) {
+      console.error(`  FAIL  ${label}\n        ${(error as Error).message}`);
+      failed.push(policy.title);
+      continue;
+    }
 
     const after = await prisma.policyChunk.count({ where: { policyId: policy.id } });
     const embedded = await prisma.policyChunk.count({
       where: { policyId: policy.id, embedding: { not: null } },
     });
+
+    if (after === 0) {
+      console.error(`  EMPTY ${label}\n        left with no chunks — this policy is now unretrievable`);
+      failed.push(policy.title);
+      continue;
+    }
+
     console.log(`  OK    ${label}\n        ${policy._count.chunks} -> ${after} chunk(s), ${embedded} with embeddings`);
     reindexed++;
   }
 
   console.log(
-    `\n${APPLY ? 'Re-indexed' : 'Would re-index'} ${reindexed}, skipped ${skipped}.`
+    `\n${APPLY ? 'Re-indexed' : 'Would re-index'} ${reindexed}, skipped ${skipped}, failed ${failed.length}.`
   );
+
+  if (failed.length > 0) {
+    console.error('\nThese policies need attention — they may now have no chunks:');
+    for (const title of failed) console.error(`  - ${title}`);
+  }
+
+  // A final sweep, independent of the loop, so nothing is reported as fine
+  // while being invisible to retrieval.
+  if (APPLY) {
+    const orphans = await prisma.policy.findMany({
+      where: { isActive: true, chunks: { none: {} } },
+      select: { title: true, content: true },
+    });
+    const withContent = orphans.filter(o => o.content?.trim());
+    if (withContent.length > 0) {
+      console.error(`\n${withContent.length} active polic${withContent.length === 1 ? 'y has' : 'ies have'} content but no chunks:`);
+      for (const o of withContent) console.error(`  - ${o.title}`);
+      process.exitCode = 1;
+    } else {
+      console.log('\nVerified: every active policy with content has chunks.');
+    }
+  }
   if (!APPLY) console.log('Re-run with --apply to write.');
   if (APPLY && !process.env.OPENAI_API_KEY) {
     console.log(
