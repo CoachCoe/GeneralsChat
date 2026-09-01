@@ -194,11 +194,29 @@ export default function PromptEditorPage() {
       <Navbar />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="heading-xl" style={{ color: 'var(--color-text)' }}>System Prompt Editor</h1>
+          <h1 className="heading-xl" style={{ color: 'var(--color-text)' }}>Advisor Profile</h1>
           <Button onClick={handleCreateNew}>
-            <Plus size={20} style={{ marginRight: 'var(--spacing-2)' }} />
-            New Prompt
+            <Plus size={20} style={{ marginRight: '8px' }} />
+            New Profile
           </Button>
+        </div>
+
+        {/*
+          Says what this actually controls. It was labelled "System Prompt
+          Editor", which implied it governed the whole system: in fact it
+          governs the chat guidance only -- classification and summaries use
+          fixed prompts -- and it can no longer remove the compliance rules,
+          which live in code and are prepended to every call. (OQ-4)
+        */}
+        <div className="mb-6 rounded-[16px] border border-line bg-surface px-5 py-4 text-[14px] leading-[1.6] text-text-secondary">
+          <span className="font-medium text-text">
+            This sets tone, emphasis and district-specific context for chat guidance.
+          </span>{' '}
+          It does not replace the compliance rules: answering only from retrieved policy, never
+          inventing a code or deadline, not presenting state law as district procedure, and saying
+          plainly when the policy does not cover something are fixed in code and are applied to
+          every answer whatever is written here. Incident classification and generated summaries
+          use their own fixed prompts and are not affected by this profile.
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -349,13 +367,13 @@ export default function PromptEditorPage() {
                   {/* Content Editor */}
                   <div className="mb-4">
                     <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-                      System Prompt Content
+                      Profile Content
                     </label>
                     <textarea
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
                       disabled={!isEditing}
-                      placeholder="Enter the system prompt that Claude will use..."
+                      placeholder="Tone, emphasis, and anything specific to your district..."
                       className="field field-textarea"
                       style={{
                         width: '100%',

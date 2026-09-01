@@ -49,9 +49,9 @@ export default function Navbar() {
             Policies
           </Link>
 
-          {/* Prompt Link */}
+          {/* Advisor profile (admin) */}
           <Link href="/admin/prompt" className="navbar-link">
-            Prompt
+            Advisor
           </Link>
 
           {/* Incidents Link */}
@@ -156,7 +156,7 @@ export default function Navbar() {
               onClick={() => setIsMobileMenuOpen(false)}
               className="navbar-dropdown-item"
             >
-              Prompt
+              Advisor
             </Link>
 
             <Link
