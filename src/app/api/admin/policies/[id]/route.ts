@@ -68,14 +68,30 @@ export async function PUT(request: NextRequest, { params }: Params) {
       );
     }
 
+    // An unparseable date reaches Prisma as `Invalid Date` and comes back a
+    // 500. The neighbouring fields are validated; this one was not.
+    let parsedEffectiveDate: Date | undefined;
+    if (effectiveDate !== undefined) {
+      parsedEffectiveDate = new Date(effectiveDate);
+      if (Number.isNaN(parsedEffectiveDate.getTime())) {
+        return validationError('effectiveDate is not a valid date', {
+          effectiveDate: ['Expected a date the runtime can parse, e.g. 2026-09-01.'],
+        });
+      }
+    }
+
     const policy = await prisma.policy.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
-        ...(jurisdiction !== undefined && { jurisdiction }),
-        ...(category !== undefined && { category }),
-        ...(effectiveDate !== undefined && { effectiveDate: new Date(effectiveDate) }),
+        // The parsed values, not the raw body: validation that is thrown away
+        // stops being validation the moment the schema gains a transform.
+        ...(facets.data.jurisdiction !== undefined && {
+          jurisdiction: facets.data.jurisdiction,
+        }),
+        ...(facets.data.category !== undefined && { category: facets.data.category }),
+        ...(parsedEffectiveDate !== undefined && { effectiveDate: parsedEffectiveDate }),
         ...(isActive !== undefined && { isActive }),
         ...(metadata !== undefined && { metadata: JSON.stringify(metadata) })
       }
