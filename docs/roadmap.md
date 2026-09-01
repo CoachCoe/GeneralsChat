@@ -11,18 +11,21 @@ Last reviewed: 2026-09-01. Context: entering a single-user pilot.
 
 ## Now
 
-### 1. Clear the six pre-fix test incidents — *needs a go-ahead*
+### ~~1. Clear the six pre-fix test incidents~~ — **done 2026-09-01**
 
-Production holds **32 obligations, all of them overdue**, clustered at −302d,
-−300d and −298d. They came from November 2025 test incidents, and the 22 sitting
-together at −300d are the fingerprint of the index-pairing bug (FLOW-17) falling
-through to its hardcoded three-day default.
+Cleared: 6 incidents, 12 conversations, 32 obligations. Policies, chunks and
+users untouched and verified. A full JSON backup was taken first, outside the
+repo — ask before assuming it is still around, it lives in a session scratch
+directory rather than anywhere durable.
 
-So the home queue currently reads **"32 things are late."** — every one
-fabricated. For a product whose entire headline is that sentence, this is the
-first thing a pilot user will see and the first thing they will stop trusting.
+They were fragments of a single demo narrative from 2025-11-03, each message
+landing as its own incident, all titled with `generateIncidentTitle`'s
+`New Incident Report` fallback — so they were also evidence that conversation
+threading and title generation were both broken then.
 
-Destructive, so it needs an explicit go-ahead.
+This also surfaced a coverage gap: the queue had only ever been tested with a
+non-empty fixture, and clearing production put it in the one state nothing
+asserted. There is now a test for the empty queue.
 
 ### 2. Rotate the admin password — *maintainer*
 

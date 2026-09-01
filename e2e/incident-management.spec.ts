@@ -161,10 +161,37 @@ test.describe('Obligation queue', () => {
     expect(Array.isArray(obligations)).toBe(true);
   });
 
-  test('rejects an invalid obligation status', async ({ page }) => {
+  test('shows the empty state when nothing is outstanding', async ({ page }) => {
+    // Production sits in exactly this state after clearing test data, and
+    // nothing covered it: the queue rendered from a non-empty fixture every
+    // time. Discharge everything, then assert the empty state rather than a
+    // bare or broken queue.
     const list = await page.request.get('/api/obligations');
     const { obligations } = await list.json();
-    // Seeded, so this does not depend on an earlier test having run.
+
+    for (const o of obligations) {
+      const res = await page.request.patch(`/api/obligations/${o.id}`, {
+        data: { status: 'completed' },
+      });
+      expect(res.ok()).toBe(true);
+    }
+
+    const after = await page.request.get('/api/obligations');
+    expect((await after.json()).counts.open).toBe(0);
+
+    await page.goto('/');
+    await expect(page.getByText('Nothing outstanding')).toBeVisible();
+    // The headline must not claim lateness when there is none.
+    await expect(page.getByRole('heading', { level: 1 })).not.toContainText('late');
+    // And the way in is still there.
+    await expect(page.getByRole('link', { name: 'Report an incident' })).toBeVisible();
+  });
+
+  test('rejects an invalid obligation status', async ({ page }) => {
+    // `window=all` includes completed obligations, so this does not depend on
+    // any still being open -- another test in this file discharges them.
+    const list = await page.request.get('/api/obligations?window=all');
+    const { obligations } = await list.json();
     expect(obligations.length).toBeGreaterThan(0);
 
     const response = await page.request.patch(`/api/obligations/${obligations[0].id}`, {
