@@ -11,6 +11,24 @@ import { INCIDENT_TYPES, PolicyCoverage, SEVERITIES } from '@/types';
  * `type: string` and cast with `as any` at the call site, so a malformed or
  * injected value flowed straight into the incident record. (SEC-9, DEAD-13)
  */
+const derivedObligationsSchema = z.object({
+  obligations: z.array(
+    z.object({
+      description: z.string().min(1),
+      dueInHours: z.number().positive().max(24 * 365),
+      // null is a first-class answer here, and the common one while the policy
+      // library is thin. Coercing it to a number would be the whole bug.
+      sourceExcerpt: z.number().int().positive().nullable(),
+    })
+  ),
+});
+
+export interface DerivedObligation {
+  description: string;
+  dueInHours: number;
+  sourceExcerpt: number | null;
+}
+
 const classificationSchema = z.object({
   type: z.enum(INCIDENT_TYPES),
   severity: z.enum(SEVERITIES),
@@ -489,6 +507,69 @@ Example: ["Question 1?", "Question 2?", "Question 3?"]`;
   /**
    * Generate end-of-chat summary with policy citations and next steps
    */
+  /**
+   * Re-derive an incident's obligations with the retrieved policy in front of
+   * the model, and make it say which excerpt each deadline came from.
+   *
+   * Classification has to run before retrieval -- the categories it produces
+   * are what retrieval filters on -- so at classification time there is no
+   * policy to consult, and the deadlines it produced were the model's recall
+   * of state law. This is the second pass that closes the loop.
+   *
+   * The attribution is a claim, not a fact: `sourceExcerpt` is resolved
+   * against the excerpts actually supplied, and one that does not resolve is
+   * recorded as model-sourced. (OQ-5)
+   */
+  async deriveObligations(
+    description: string,
+    policyContext: string
+  ): Promise<{ obligations: DerivedObligation[]; usage: ClaudeResponse['usage'] }> {
+    if (!policyContext.trim()) {
+      return { obligations: [], usage: { inputTokens: 0, outputTokens: 0 } };
+    }
+
+    const systemPrompt = `You are a school district compliance attorney. Given an incident and the policy excerpts retrieved for it, list the actions the administrator must take.
+
+Each excerpt is numbered, like "[2] JICK §D — Procedures for Reporting (RSA 193-F:4, II(f) - (h))".
+
+For every action, you MUST decide where its deadline comes from:
+- If a supplied excerpt states the deadline, set "sourceExcerpt" to that excerpt's number.
+- If no supplied excerpt states it, set "sourceExcerpt" to null. Do NOT guess a number, and do NOT cite an excerpt that does not actually state the deadline. An action with a null source is still worth listing — it will be shown to the administrator as unverified, which is accurate and useful. Attributing it to an excerpt that does not support it is not.
+
+Return ONLY valid JSON:
+{
+  "obligations": [
+    { "description": "...", "dueInHours": 24, "sourceExcerpt": 2 },
+    { "description": "...", "dueInHours": 72, "sourceExcerpt": null }
+  ]
+}`;
+
+    const request = `INCIDENT:
+${description}
+
+RETRIEVED POLICY EXCERPTS:
+${policyContext}`;
+
+    const response = await this.generateResponse(
+      [{ role: 'user', content: request }],
+      systemPrompt,
+      { temperature: 0.2, maxTokens: 1500 }
+    );
+
+    try {
+      const parsed = derivedObligationsSchema.parse(
+        JSON.parse(extractJsonObject(response.content))
+      );
+      return { obligations: parsed.obligations, usage: response.usage };
+    } catch (error) {
+      // A parse failure must not invent obligations. Returning none leaves the
+      // first-pass ones in place, recorded as model-sourced, which is what they
+      // are.
+      console.error('deriveObligations: could not parse response', error);
+      return { obligations: [], usage: response.usage };
+    }
+  }
+
   async generateChatSummary(
     conversationHistory: ClaudeMessage[],
     policyContext: string,

@@ -1,6 +1,35 @@
 import { IncidentClassification, Action, ComplianceTimeline } from '@/types';
 import { claudeService } from './claude-service';
 
+/**
+ * Bucket an obligation by what it asks the administrator to do.
+ *
+ * Exported because obligations are now created in two places -- the two-phase
+ * path in the chat route, and this classifier's fallback -- and the same
+ * description must bucket the same way in both. Duplicating it is how the two
+ * summary endpoints drifted apart. (OQ-5)
+ */
+/**
+ * Classification could not be completed -- distinct from classifying as
+ * `other`, which is a real answer. (FLOW-35)
+ */
+export class ClassificationUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ClassificationUnavailableError';
+  }
+}
+
+export function actionTypeFor(description: string): string {
+  const lower = description.toLowerCase();
+  if (lower.includes('immediate') || lower.includes('urgent')) return 'immediate_response';
+  if (lower.includes('investigate')) return 'investigation';
+  if (lower.includes('notify') || lower.includes('contact')) return 'notification';
+  if (lower.includes('document')) return 'documentation';
+  if (lower.includes('report')) return 'reporting';
+  return 'general_action';
+}
+
 export class IncidentClassifier {
   async classifyIncident(
     description: string,
@@ -24,7 +53,7 @@ export class IncidentClassifier {
       const requiredActions: Action[] = classification.requiredActions.map(
         (action, idx) => ({
           id: `action_${idx + 1}`,
-          type: this.determineActionType(action.description),
+          type: actionTypeFor(action.description),
           description: action.description,
           dueDate: new Date(Date.now() + action.dueInHours * 60 * 60 * 1000),
           status: 'pending' as const,
@@ -41,25 +70,19 @@ export class IncidentClassifier {
         stakeholders: classification.stakeholders,
       };
     } catch (error) {
-      console.error('Classification error:', error);
-      // Return default classification on error
-      return this.getDefaultClassification();
+      // Let the failure surface. It used to return a default of
+      // `type: 'other', severity: 'low', requiredActions: []`, which the route
+      // then wrote to the incident -- and because the route only classifies
+      // when incidentType is null, that stamp was permanent, with no endpoint
+      // to correct it. A timed-out API call and a genuine "we could not tell"
+      // became the same record, on the incident where the system knew least.
+      //
+      // Throwing leaves incidentType null so the next turn tries again. The
+      // caller decides what to show meanwhile. (FLOW-35)
+      throw new ClassificationUnavailableError(
+        error instanceof Error ? error.message : 'Classification failed'
+      );
     }
-  }
-
-  /**
-   * Determine action type from description
-   */
-  private determineActionType(description: string): string {
-    const lower = description.toLowerCase();
-    if (lower.includes('immediate') || lower.includes('urgent'))
-      return 'immediate_response';
-    if (lower.includes('investigate')) return 'investigation';
-    if (lower.includes('notify') || lower.includes('contact'))
-      return 'notification';
-    if (lower.includes('document')) return 'documentation';
-    if (lower.includes('report')) return 'reporting';
-    return 'general_action';
   }
 
   /**
@@ -96,21 +119,13 @@ export class IncidentClassifier {
     };
   }
 
-  private getDefaultClassification(): IncidentClassification {
-    return {
-      type: 'other',
-      severity: 'low',
-      requiredActions: [],
-      timeline: {
-        immediateActions: [],
-        shortTermActions: [],
-        investigationPhase: [],
-        reportingDeadlines: [],
-        reviewMilestones: [],
-      },
-      stakeholders: [],
-    };
-  }
+  // getDefaultClassification is gone. It returned `type: 'other', severity:
+  // 'low', requiredActions: []` on any failure, which the route wrote to the
+  // incident permanently -- so an API timeout became an incident classified as
+  // "we could not tell" with zero obligations and no way to correct it.
+  // Failure now throws; see the catch above. Kept out rather than left unused,
+  // because a plausible-looking safe default is exactly what someone would
+  // re-wire. (FLOW-35)
 }
 
 export const incidentClassifier = new IncidentClassifier();

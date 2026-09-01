@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
       incidentId: action.incidentId,
       incidentTitle: action.incident.title,
       incidentType: action.incident.incidentType,
+      deadlineSource: action.deadlineSource,
+      citation: action.citation,
     }));
 
     const now = Date.now();
@@ -58,23 +60,32 @@ export async function GET(request: NextRequest) {
     endOfWeek.setDate(endOfWeek.getDate() + 7);
 
     const open = obligations.filter(o => o.status !== 'completed');
+    // Only policy-backed deadlines are counted. The headline these feed --
+    // "N things are late" -- is the number in the product that most looks like
+    // fact, and counting a deadline the model recalled rather than a policy
+    // stated would make it a confident assertion about a guess. Unverified
+    // obligations are still listed, and still say they need confirming; they
+    // just do not raise an alarm the system cannot substantiate. (OQ-5)
+    const backed = open.filter(o => o.deadlineSource === 'policy');
     const due = (o: (typeof obligations)[number]) =>
       o.dueDate ? new Date(o.dueDate).getTime() : null;
 
     return NextResponse.json({
       obligations,
       counts: {
-        overdue: open.filter(o => due(o) !== null && due(o)! < now).length,
-        today: open.filter(
+        overdue: backed.filter(o => due(o) !== null && due(o)! < now).length,
+        today: backed.filter(
           o => due(o) !== null && due(o)! >= now && due(o)! <= endOfToday.getTime()
         ).length,
-        week: open.filter(
+        week: backed.filter(
           o =>
             due(o) !== null &&
             due(o)! > endOfToday.getTime() &&
             due(o)! <= endOfWeek.getTime()
         ).length,
         open: open.length,
+        /** Open obligations whose deadline no retrieved policy supports. */
+        unverified: open.length - backed.length,
       },
     });
   } catch (error) {

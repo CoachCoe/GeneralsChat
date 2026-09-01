@@ -346,6 +346,24 @@ export interface PolicyChunk {
   sectionStatute?: string | null;
 }
 
+/**
+ * One numbered excerpt as it was presented to the model.
+ *
+ * The prompt hands the model `[1] JICK §D — ... <text>` and asks it to name the
+ * excerpt a deadline came from. That claim is then resolved against this list:
+ * an excerpt number the model invented does not appear here, so the attribution
+ * fails and the obligation is recorded as model-sourced. Trusting the claim
+ * instead would mean the citation on an obligation is only as good as the
+ * model's honesty about its own reasoning. (OQ-5)
+ */
+export interface PolicyReference {
+  /** The number the excerpt was given in the prompt, 1-based. */
+  n: number;
+  policyId: string;
+  /** Formatted reference, e.g. "JICK §F — Investigative Procedures (RSA ...)". */
+  citation: string;
+}
+
 /** One policy cited in a response, with enough detail for the UI to show it. */
 export interface PolicyCitation {
   policyId: string;

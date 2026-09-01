@@ -198,6 +198,67 @@ test.describe('Obligation queue', () => {
     ).toBe(false);
   });
 
+  test('records where each deadline came from, and only counts the backed ones', async ({
+    page,
+  }) => {
+    // The deadline on an obligation used to come from a classification call
+    // that was never shown a policy -- the model's recall of state law -- while
+    // the UI said it came from the policy. Obligations are now derived after
+    // retrieval, and each one records whether a retrieved excerpt actually
+    // states its deadline. (OQ-5)
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill(
+      'A student is being bullied repeatedly by a classmate during recess.'
+    );
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    const { obligations, counts } = await (
+      await page.request.get('/api/obligations?window=all&limit=100')
+    ).json();
+
+    const backed = obligations.filter(
+      (o: { deadlineSource: string }) => o.deadlineSource === 'policy'
+    );
+    const unverified = obligations.filter(
+      (o: { deadlineSource: string }) => o.deadlineSource === 'model'
+    );
+
+    // Both paths must be exercised: a deadline attributed to a retrieved
+    // excerpt, and one the policy does not state.
+    expect(backed.length).toBeGreaterThan(0);
+    expect(unverified.length).toBeGreaterThan(0);
+
+    // A backed obligation carries the provision it rests on; an unverified one
+    // must not, or the citation would be decoration.
+    expect(backed[0].citation).toBeTruthy();
+    expect(typeof backed[0].citation).toBe('string');
+    for (const o of unverified) expect(o.citation).toBeNull();
+
+    // The tallies are assertions of fact about lateness, so they count only
+    // deadlines a policy supports.
+    expect(counts.unverified).toBe(
+      obligations.filter(
+        (o: { deadlineSource: string; status: string }) =>
+          o.deadlineSource === 'model' && o.status !== 'completed'
+      ).length
+    );
+    expect(counts.open).toBeGreaterThanOrEqual(counts.unverified);
+  });
+
+  test('tells the administrator when a deadline is not backed by loaded policy', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    // The row says so itself: a countdown with no policy behind it must not
+    // read as a statutory clock.
+    await expect(
+      page.getByText('Deadline not found in the loaded policy').first()
+    ).toBeVisible();
+  });
+
   test('shows the empty state when nothing is outstanding', async ({ page }) => {
     // Production sits in exactly this state after clearing test data, and
     // nothing covered it: the queue rendered from a non-empty fixture every

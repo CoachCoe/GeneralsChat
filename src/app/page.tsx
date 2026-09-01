@@ -64,8 +64,15 @@ export default function HomePage() {
   const due = (o: Obligation) => (o.dueDate ? new Date(o.dueDate).getTime() : null);
   const open = obligations.filter(o => o.status !== 'completed');
 
-  const overdue = open.filter(o => due(o) !== null && due(o)! < now);
-  const today = open.filter(
+  // The headline states a fact about lateness, so it counts only deadlines a
+  // retrieved policy actually supports -- the same rule /api/obligations
+  // applies to its tallies. Counting an unverified deadline here would put a
+  // guess in the largest text on the page. Those obligations are still listed
+  // below, and say on their own row that they need confirming. (OQ-5)
+  const verified = open.filter(o => o.deadlineSource !== 'model');
+
+  const overdue = verified.filter(o => due(o) !== null && due(o)! < now);
+  const today = verified.filter(
     o => due(o) !== null && due(o)! >= now && due(o)! <= endOfToday.getTime()
   );
   const later = open.filter(o => due(o) === null || due(o)! > endOfToday.getTime());
@@ -78,12 +85,20 @@ export default function HomePage() {
         ? `Nothing is late.`
         : `You're clear.`;
 
+  const unverified = open.length - verified.length;
+  const unverifiedNote =
+    unverified > 0
+      ? ` ${unverified === 1 ? 'One obligation has' : `${unverified} obligations have`} a deadline no loaded policy states.`
+      : '';
+
   const subhead =
-    today.length > 0
+    (today.length > 0
       ? `${today.length === 1 ? 'One more is' : `${today.length} more are`} due today.`
       : overdue.length > 0
         ? 'Nothing else is due today.'
-        : 'No obligations are outstanding.';
+        : open.length > 0
+          ? 'Nothing with a confirmed deadline is outstanding.'
+          : 'No obligations are outstanding.') + unverifiedNote;
 
   const stamp = new Date().toLocaleString('en-US', {
     weekday: 'long',
