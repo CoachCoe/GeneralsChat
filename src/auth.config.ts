@@ -31,7 +31,16 @@ export const authConfig = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 8 * 60 * 60, // one working day
+    /*
+     * Thirty minutes, refreshed on activity — an effective idle timeout.
+     *
+     * These screens carry student records and get left open on desks and in
+     * hallways. A working-day session was too long for that. updateAge rolls
+     * the token forward while someone is actually using the app, so this bites
+     * only when a session has been idle. (design 1h)
+     */
+    maxAge: 30 * 60,
+    updateAge: 5 * 60,
   },
   callbacks: {
     /**

@@ -18,7 +18,7 @@ test.describe('Navigation', () => {
   test('navbar links are present on every page', async ({ page }) => {
     for (const url of ['/', '/chat', '/incidents']) {
       await page.goto(url);
-      const navbar = page.locator('nav');
+      const navbar = page.locator('nav[aria-label="Main"]');
       await expect(navbar).toBeVisible();
       await expect(navbar.locator('a[href="/chat"]').first()).toBeVisible();
       await expect(navbar.locator('a[href="/incidents"]').first()).toBeVisible();
@@ -41,5 +41,18 @@ test.describe('Navigation', () => {
     // The session cookie is gone, so a protected API call is refused.
     const response = await context.request.get('/api/incidents');
     expect(response.status()).toBe(401);
+  });
+});
+
+test.describe('Policy library', () => {
+  test('a non-admin can read the library but not manage it', async ({ page }) => {
+    await page.goto('/policies');
+    await expect(page.getByRole('heading', { name: 'Policy library', level: 1 })).toBeVisible();
+
+    // Seeded fixtures include federal, state and district policies.
+    await expect(page.getByText('Policy JICK: Bullying Prevention')).toBeVisible();
+
+    // Management stays admin-only; a reporter gets no route into it.
+    await expect(page.getByRole('link', { name: 'Manage policies' })).toHaveCount(0);
   });
 });

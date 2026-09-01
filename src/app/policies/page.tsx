@@ -1,242 +1,167 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { FileText, Upload, Eye, Download } from 'lucide-react';
-import { CATEGORY_LABELS } from '@/types';
+import { useEffect, useMemo, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import Link from 'next/link';
+import Navbar from '@/components/Navbar';
+import { StateBlock } from '@/components/design/StateBlock';
+import { SegmentedTabs } from '@/components/design/SegmentedTabs';
+import { AuthorityChip } from '@/components/design/AuthorityChip';
+import {
+  CATEGORY_LABELS,
+  POLICY_JURISDICTIONS,
+  JURISDICTION_LABELS,
+} from '@/types';
+import { useMounted } from '@/lib/useMounted';
 
 interface Policy {
   id: string;
   title: string;
-  content?: string;
-  filePath?: string;
-  version: number;
-  effectiveDate: string;
   jurisdiction: string;
   category: string;
+  effectiveDate: string;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
+/**
+ * The policy library, read-only.
+ *
+ * The design proposed removing this route and giving /admin/policies a
+ * read-only view for non-admins. That would mean loosening the /admin/*
+ * middleware gate, which is a security regression for a routing preference --
+ * so the two surfaces are kept instead: this is the library anyone signed in
+ * can read, and /admin/policies stays admin-only for management. The duplicate
+ * upload control that used to live here is gone, which was the actual
+ * duplication worth removing.
+ *
+ * Guidance quality depends entirely on what is loaded here, and early on the
+ * library is sparse -- so the empty and thin states are the common case, not
+ * an edge case.
+ */
 export default function PoliciesPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
+
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [error, setError] = useState<string | null>(null);
+  const [jurisdiction, setJurisdiction] = useState('all');
+  const mounted = useMounted();
 
   useEffect(() => {
-    fetchPolicies();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
-
-  const fetchPolicies = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (filter !== 'all') {
-        params.append('type', filter);
+    (async () => {
+      try {
+        const response = await fetch('/api/policies?active=true');
+        if (!response.ok) throw new Error('Could not load the policy library.');
+        const data = await response.json();
+        setPolicies(data.policies ?? []);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Something went wrong.');
+      } finally {
+        setLoading(false);
       }
-      
-      const response = await fetch(`/api/policies?${params}`);
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      setPolicies(data.policies);
-    } catch (error) {
-      console.error('Error fetching policies:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+  }, []);
 
-  const getPolicyTypeColor = (type: string) => {
-    switch (type) {
-      case 'federal': return 'bg-red-500';
-      case 'state': return 'bg-blue-500';
-      case 'district': return 'bg-green-500';
-      case 'school': return 'bg-purple-500';
-      default: return 'bg-gray-500';
-    }
-  };
+  const shown = useMemo(
+    () =>
+      jurisdiction === 'all'
+        ? policies
+        : policies.filter(p => p.jurisdiction === jurisdiction),
+    [policies, jurisdiction]
+  );
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
-    // Defaults only; the full form lives at /admin/policies.
-    formData.append('jurisdiction', 'district');
-    formData.append('category', 'other');
-    formData.append('effectiveDate', new Date().toISOString().split('T')[0]);
-
-    try {
-      const response = await fetch('/api/policies', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      // Refresh policies list
-      fetchPolicies();
-    } catch (error) {
-      console.error('Error uploading policy:', error);
-      alert('Failed to upload policy. Please try again.');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading policies...</p>
-        </div>
-      </div>
-    );
-  }
+  const localCount = policies.filter(
+    p => p.jurisdiction === 'district' || p.jurisdiction === 'school'
+  ).length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Policy Management</h1>
-            <p className="text-gray-600 mt-2">
-              Upload and manage school policies for AI-powered compliance guidance
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="file"
-              id="file-upload"
-              accept=".pdf,.doc,.docx,.txt"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <label htmlFor="file-upload">
-              <Button asChild>
-                <span>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Policy
-                </span>
-              </Button>
-            </label>
-          </div>
-        </div>
-
-        <div className="flex gap-4 mb-6">
-          {['all', 'federal', 'state', 'district', 'school'].map((type) => (
-            <Button
-              key={type}
-              variant={filter === type ? 'default' : 'outline'}
-              onClick={() => setFilter(type)}
-              className="capitalize"
+    <div className="min-h-screen bg-bg">
+      <Navbar />
+      <main className="mx-auto flex max-w-[900px] flex-col gap-6 px-6 py-10">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h1 className="font-display text-[40px] leading-[1.15] tracking-[-0.03em] text-text">
+            Policy library
+          </h1>
+          <span className="tabular text-[13px] text-text-muted">{policies.length} active</span>
+          {isAdmin && (
+            <Link
+              href="/admin/policies"
+              className="ml-auto inline-flex min-h-[44px] items-center rounded-[12px] border border-line px-4 text-[14px] text-text-secondary transition-colors hover:border-line-strong hover:text-text"
             >
-              {type}
-            </Button>
-          ))}
-        </div>
-
-        <div className="grid gap-6">
-          {policies.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No policies found</h3>
-                <p className="text-gray-600 mb-4">
-                  {filter === 'all' 
-                    ? 'No policies have been uploaded yet.'
-                    : `No ${filter} policies found.`
-                  }
-                </p>
-                <label htmlFor="file-upload">
-                  <Button asChild>
-                    <span>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload First Policy
-                    </span>
-                  </Button>
-                </label>
-              </CardContent>
-            </Card>
-          ) : (
-            policies.map((policy) => (
-              <Card key={policy.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{policy.title}</CardTitle>
-                      <CardDescription className="mt-1">
-                        Version {policy.version} • Effective {formatDate(policy.effectiveDate)}
-                      </CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                      <Badge className={`${getPolicyTypeColor(policy.jurisdiction)} text-white`}>
-                        {policy.jurisdiction} · {CATEGORY_LABELS[policy.category] ?? policy.category}
-                      </Badge>
-                      <Badge variant={policy.isActive ? 'default' : 'outline'}>
-                        {policy.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent>
-                  {policy.content && (
-                    <p className="text-gray-700 mb-4 line-clamp-3">
-                      {policy.content.substring(0, 200)}...
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span className="flex items-center gap-1">
-                        <FileText className="h-4 w-4" />
-                        {policy.filePath ? 'Document' : 'Text'}
-                      </span>
-                      <span>
-                        Created {formatDate(policy.createdAt)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <Eye className="mr-2 h-4 w-4" />
-                        View
-                      </Button>
-                      {policy.filePath && (
-                        <Button variant="outline" size="sm">
-                          <Download className="mr-2 h-4 w-4" />
-                          Download
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+              Manage policies
+            </Link>
           )}
         </div>
-      </div>
+
+        {!loading && !error && policies.length > 0 && localCount < 3 && (
+          <div className="rounded-[16px] border border-attention/40 bg-attention/[0.07] px-5 py-4 text-[14px] leading-[1.6] text-text-secondary">
+            <span className="font-medium text-text">
+              {localCount === 0
+                ? 'No district or school policies are loaded.'
+                : `Only ${localCount} district or school ${localCount === 1 ? 'policy is' : 'policies are'} loaded.`}
+            </span>{' '}
+            Guidance will lean on state and federal law until more are added. Deadlines are still
+            correct, but there will be more coverage gaps than there should be.
+          </div>
+        )}
+
+        <SegmentedTabs
+          basePath="/policies"
+          onSelect={setJurisdiction}
+          active={jurisdiction}
+          segments={[
+            { value: 'all', label: 'All' },
+            ...POLICY_JURISDICTIONS.map(j => ({
+              value: j,
+              label: JURISDICTION_LABELS[j],
+              count: policies.filter(p => p.jurisdiction === j).length,
+            })),
+          ]}
+        />
+
+        {loading && <StateBlock variant="loading" title="Loading the policy library" />}
+        {error && !loading && (
+          <StateBlock variant="error" title="Could not load the policy library" body={error} />
+        )}
+
+        {!loading && !error && shown.length === 0 && (
+          <StateBlock
+            title={policies.length === 0 ? 'No policies loaded' : 'Nothing at this level'}
+            body={
+              policies.length === 0
+                ? 'Guidance rests on the policies loaded here. Until some are added it can only cite state and federal law.'
+                : 'No policy has been loaded for this jurisdiction yet.'
+            }
+          />
+        )}
+
+        {!loading && !error && shown.length > 0 && (
+          <div className="overflow-hidden rounded-[16px] border border-line bg-surface">
+            {shown.map(policy => (
+              <div
+                key={policy.id}
+                className="flex flex-wrap items-center gap-3 border-b border-input px-5 py-4 last:border-b-0"
+              >
+                <AuthorityChip jurisdiction={policy.jurisdiction} />
+                <span className="min-w-0 flex-1 truncate text-[15px] text-text">{policy.title}</span>
+                <span className="text-[13px] text-text-tertiary">
+                  {CATEGORY_LABELS[policy.category] ?? policy.category}
+                </span>
+                <span className="tabular text-[12px] text-text-muted">
+                  {mounted
+                    ? new Date(policy.effectiveDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                      })
+                    : '\u00a0'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

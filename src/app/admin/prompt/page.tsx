@@ -183,7 +183,7 @@ export default function PromptEditorPage() {
       <div className="min-h-screen" style={{ background: 'var(--background)' }}>
         <Navbar />
         <div className="flex items-center justify-center h-screen">
-          <p className="text-apple-body" style={{ color: 'var(--muted-foreground)' }}>Loading...</p>
+          <p className="body-text" style={{ color: 'var(--muted-foreground)' }}>Loading...</p>
         </div>
       </div>
     );
@@ -194,7 +194,7 @@ export default function PromptEditorPage() {
       <Navbar />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-apple-largetitle" style={{ color: 'var(--foreground)' }}>System Prompt Editor</h1>
+          <h1 className="heading-xl" style={{ color: 'var(--foreground)' }}>System Prompt Editor</h1>
           <Button onClick={handleCreateNew}>
             <Plus size={20} style={{ marginRight: 'var(--spacing-2)' }} />
             New Prompt
@@ -204,14 +204,14 @@ export default function PromptEditorPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar - Prompt List */}
           <div className="lg:col-span-1">
-            <div className="card-apple">
-              <h2 className="text-apple-title3 mb-4" style={{ color: 'var(--foreground)' }}>Saved Prompts</h2>
+            <div className="card">
+              <h2 className="heading-md mb-4" style={{ color: 'var(--foreground)' }}>Saved Prompts</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-2)' }}>
                 {(prompts || []).map((prompt) => (
                   <button
                     key={prompt.id}
                     onClick={() => loadPrompt(prompt.id)}
-                    className={`list-item-apple text-left ${
+                    className={`list-row text-left ${
                       selectedPrompt?.id === prompt.id ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''
                     }`}
                     style={{
@@ -221,9 +221,9 @@ export default function PromptEditorPage() {
                   >
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-apple-subheadline font-medium truncate">{prompt.name}</span>
+                        <span className="label-sm font-medium truncate">{prompt.name}</span>
                         {prompt.isActive && (
-                          <span className="badge-apple flex-shrink-0 ml-2" style={{
+                          <span className="badge flex-shrink-0 ml-2" style={{
                             background: 'var(--success)',
                             color: 'white',
                             fontSize: '12px'
@@ -233,7 +233,7 @@ export default function PromptEditorPage() {
                         )}
                       </div>
                       {prompt.description && (
-                        <p className="text-apple-caption1 mt-1 truncate" style={{ opacity: 0.7 }}>
+                        <p className="caption mt-1 truncate" style={{ opacity: 0.7 }}>
                           {prompt.description}
                         </p>
                       )}
@@ -246,7 +246,7 @@ export default function PromptEditorPage() {
 
           {/* Main Editor */}
           <div className="lg:col-span-3">
-            <div className="card-apple">
+            <div className="card">
               {selectedPrompt || isCreating ? (
                 <>
                   {/* Header */}
@@ -258,11 +258,11 @@ export default function PromptEditorPage() {
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder="Prompt name..."
-                          className="input-apple text-apple-title2"
+                          className="field heading-lg"
                           style={{ fontWeight: 600 }}
                         />
                       ) : (
-                        <h2 className="text-apple-title2" style={{ color: 'var(--foreground)' }}>{selectedPrompt?.name}</h2>
+                        <h2 className="heading-lg" style={{ color: 'var(--foreground)' }}>{selectedPrompt?.name}</h2>
                       )}
                     </div>
                     <div className="flex items-center gap-2 ml-4">
@@ -335,11 +335,11 @@ export default function PromptEditorPage() {
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="Optional description..."
-                        className="input-apple text-apple-body"
+                        className="field body-text"
                       />
                     ) : (
                       selectedPrompt?.description && (
-                        <p className="text-apple-body" style={{ color: 'var(--muted-foreground)' }}>
+                        <p className="body-text" style={{ color: 'var(--muted-foreground)' }}>
                           {selectedPrompt.description}
                         </p>
                       )
@@ -348,7 +348,7 @@ export default function PromptEditorPage() {
 
                   {/* Content Editor */}
                   <div className="mb-4">
-                    <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                       System Prompt Content
                     </label>
                     <textarea
@@ -356,7 +356,7 @@ export default function PromptEditorPage() {
                       onChange={(e) => setContent(e.target.value)}
                       disabled={!isEditing}
                       placeholder="Enter the system prompt that Claude will use..."
-                      className="textarea-apple"
+                      className="field field-textarea"
                       style={{
                         width: '100%',
                         height: '384px',
@@ -366,7 +366,7 @@ export default function PromptEditorPage() {
                         opacity: isEditing ? 1 : 0.7
                       }}
                     />
-                    <p className="text-apple-caption1 mt-2" style={{ color: 'var(--muted-foreground)' }}>
+                    <p className="caption mt-2" style={{ color: 'var(--muted-foreground)' }}>
                       Characters: {content.length} | Lines: {content.split('\n').length}
                     </p>
                   </div>
@@ -376,8 +376,8 @@ export default function PromptEditorPage() {
                     <div className="mt-6 pt-6" style={{ borderTop: `0.5px solid var(--separator)` }}>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-apple-caption1" style={{ color: 'var(--muted-foreground)' }}>Status</p>
-                          <p className="text-apple-body font-medium" style={{ color: 'var(--foreground)' }}>
+                          <p className="caption" style={{ color: 'var(--muted-foreground)' }}>Status</p>
+                          <p className="body-text font-medium" style={{ color: 'var(--foreground)' }}>
                             {selectedPrompt.isActive ? (
                               <span style={{ color: 'var(--success)' }}>Active</span>
                             ) : (
@@ -386,8 +386,8 @@ export default function PromptEditorPage() {
                           </p>
                         </div>
                         <div>
-                          <p className="text-apple-caption1" style={{ color: 'var(--muted-foreground)' }}>Last Updated</p>
-                          <p className="text-apple-body font-medium" style={{ color: 'var(--foreground)' }}>
+                          <p className="caption" style={{ color: 'var(--muted-foreground)' }}>Last Updated</p>
+                          <p className="body-text font-medium" style={{ color: 'var(--foreground)' }}>
                             {new Date(selectedPrompt.updatedAt).toLocaleDateString()}
                           </p>
                         </div>
@@ -397,7 +397,7 @@ export default function PromptEditorPage() {
                 </>
               ) : (
                 <div className="text-center" style={{ padding: 'var(--spacing-8) 0' }}>
-                  <p className="text-apple-body mb-4" style={{ color: 'var(--muted-foreground)' }}>No prompt selected</p>
+                  <p className="body-text mb-4" style={{ color: 'var(--muted-foreground)' }}>No prompt selected</p>
                   <Button onClick={handleCreateNew}>
                     <Plus size={20} style={{ marginRight: 'var(--spacing-2)' }} />
                     Create Your First Prompt

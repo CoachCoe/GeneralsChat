@@ -4,7 +4,6 @@ import { Suspense, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { Button } from '@/components/ui/button';
 
 function LoginForm() {
   const router = useRouter();
@@ -40,7 +39,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center px-6">
+    <div className="flex min-h-screen items-center justify-center bg-bg px-6">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <Image
@@ -50,17 +49,17 @@ function LoginForm() {
             height={72}
             className="rounded-full mb-4"
           />
-          <h1 className="text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>
-            Sign in
+          <h1 className="font-display text-[32px] leading-[1.15] tracking-[-0.03em] text-text">
+            Compliance, on the clock.
           </h1>
-          <p className="text-sm mt-2" style={{ color: 'var(--muted-foreground)' }}>
-            School Compliance Assistant
+          <p className="mt-2 text-[15px] leading-[1.6] text-text-tertiary">
+            Sign in to see what&apos;s outstanding.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm mb-1" style={{ color: 'var(--muted-foreground)' }}>
+            <label htmlFor="email" className="mb-1.5 block text-[13px] text-text-tertiary">
               Email
             </label>
             <input
@@ -71,13 +70,12 @@ function LoginForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-600 bg-transparent px-3 py-2 text-sm"
-              style={{ color: 'var(--foreground)' }}
+              className="min-h-[44px] w-full rounded-[12px] border border-line bg-input px-3 py-2.5 text-[15px] text-text outline-none transition-colors focus:border-line-strong"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm mb-1" style={{ color: 'var(--muted-foreground)' }}>
+            <label htmlFor="password" className="mb-1.5 block text-[13px] text-text-tertiary">
               Password
             </label>
             <input
@@ -88,21 +86,28 @@ function LoginForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-600 bg-transparent px-3 py-2 text-sm"
-              style={{ color: 'var(--foreground)' }}
+              className="min-h-[44px] w-full rounded-[12px] border border-line bg-input px-3 py-2.5 text-[15px] text-text outline-none transition-colors focus:border-line-strong"
             />
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-[14px] text-overdue">
               {error}
             </p>
           )}
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="min-h-[44px] w-full rounded-[12px] bg-text px-4 text-[15px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
             {submitting ? 'Signing in…' : 'Sign in'}
-          </Button>
+          </button>
         </form>
+
+        <p className="mt-8 text-center text-[12px] leading-[1.6] text-text-muted">
+          Student records. Sessions end after 30 minutes idle.
+        </p>
       </div>
     </div>
   );

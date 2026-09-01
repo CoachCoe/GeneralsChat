@@ -129,6 +129,31 @@ export async function resetDatabase(): Promise<void> {
         reporterId: reporter.id,
       },
     });
+    // Obligations on the seeded open incident, so tests that exercise the
+    // queue do not depend on an earlier test having created some. One overdue,
+    // one upcoming.
+    const openIncident = await prisma.incident.findFirstOrThrow({
+      where: { title: 'Bullying: Playground incident' },
+    });
+    await prisma.complianceAction.createMany({
+      data: [
+        {
+          incidentId: openIncident.id,
+          actionType: 'notification',
+          description: 'Notify the parents of both students',
+          status: 'pending',
+          dueDate: new Date(Date.now() - 3 * 60 * 60 * 1000),
+        },
+        {
+          incidentId: openIncident.id,
+          actionType: 'investigation',
+          description: 'Complete the investigation summary',
+          status: 'pending',
+          dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+        },
+      ],
+    });
+
     await prisma.incident.create({
       data: {
         title: 'Harassment: Resolved hallway incident',

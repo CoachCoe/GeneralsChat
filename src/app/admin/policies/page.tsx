@@ -187,7 +187,7 @@ export default function PoliciesPage() {
       <div className="min-h-screen" style={{ background: 'var(--background)' }}>
         <Navbar />
         <div className="flex items-center justify-center h-screen">
-          <p className="text-apple-body" style={{ color: 'var(--muted-foreground)' }}>Loading...</p>
+          <p className="body-text" style={{ color: 'var(--muted-foreground)' }}>Loading...</p>
         </div>
       </div>
     );
@@ -198,7 +198,7 @@ export default function PoliciesPage() {
       <Navbar />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-apple-largetitle" style={{ color: 'var(--foreground)' }}>Policy Management</h1>
+          <h1 className="heading-xl" style={{ color: 'var(--foreground)' }}>Policy Management</h1>
           <Button onClick={() => setShowUploadModal(true)}>
             <Upload size={20} style={{ marginRight: 'var(--spacing-2)' }} />
             Upload Policy
@@ -206,16 +206,16 @@ export default function PoliciesPage() {
         </div>
 
         {/* Policies List */}
-        <div className="card-apple">
+        <div className="card">
           <div style={{ padding: 'var(--spacing-6)' }}>
-            <h2 className="text-apple-title3 mb-4" style={{ color: 'var(--foreground)' }}>
+            <h2 className="heading-md mb-4" style={{ color: 'var(--foreground)' }}>
               Current Policies ({policies.length})
             </h2>
 
             {policies.length === 0 ? (
               <div className="text-center" style={{ padding: 'var(--spacing-8) 0' }}>
                 <FileText size={48} className="mx-auto mb-4" style={{ color: 'var(--muted-foreground)' }} />
-                <p className="text-apple-body mb-4" style={{ color: 'var(--muted-foreground)' }}>No policies uploaded yet</p>
+                <p className="body-text mb-4" style={{ color: 'var(--muted-foreground)' }}>No policies uploaded yet</p>
                 <Button onClick={() => setShowUploadModal(true)}>
                   <Upload size={20} style={{ marginRight: 'var(--spacing-2)' }} />
                   Upload Your First Policy
@@ -226,7 +226,7 @@ export default function PoliciesPage() {
                 {policies.map((policy) => (
                   <div
                     key={policy.id}
-                    className="card-apple"
+                    className="card"
                     style={{
                       padding: 'var(--spacing-4)',
                       transition: 'all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1)',
@@ -236,9 +236,9 @@ export default function PoliciesPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-apple-title3" style={{ color: 'var(--foreground)' }}>{policy.title}</h3>
+                          <h3 className="heading-md" style={{ color: 'var(--foreground)' }}>{policy.title}</h3>
                           {policy.isActive && (
-                            <span className="badge-apple" style={{
+                            <span className="badge" style={{
                               background: 'var(--success)',
                               color: 'white',
                               fontSize: '12px'
@@ -248,7 +248,7 @@ export default function PoliciesPage() {
                           )}
                         </div>
 
-                        <div className="flex flex-wrap gap-4 text-apple-footnote" style={{ color: 'var(--muted-foreground)' }}>
+                        <div className="flex flex-wrap gap-4 caption" style={{ color: 'var(--muted-foreground)' }}>
                           <div className="flex items-center gap-1">
                             <Tag size={14} />
                             <span className="capitalize">{policy.jurisdiction}</span>
@@ -291,19 +291,19 @@ export default function PoliciesPage() {
             background: 'rgba(0, 0, 0, 0.5)',
             backdropFilter: 'blur(20px)'
           }}>
-            <div className="card-apple elevation-3 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div style={{ padding: 'var(--spacing-6)' }}>
-                <h2 className="text-apple-title2 mb-6" style={{ color: 'var(--foreground)' }}>Upload Policy</h2>
+                <h2 className="heading-lg mb-6" style={{ color: 'var(--foreground)' }}>Upload Policy</h2>
 
                 {/* Upload Method Selection */}
                 <div className="mb-6">
-                  <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                     Upload Method
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => setUploadMethod('text')}
-                      className={`transition-apple ${
+                      className={`transition-colors ${
                         uploadMethod === 'text'
                           ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
                           : 'bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--secondary-hover)]'
@@ -315,11 +315,11 @@ export default function PoliciesPage() {
                       }}
                     >
                       <FileText size={20} className="mx-auto mb-1" />
-                      <span className="text-apple-caption1">Paste Text</span>
+                      <span className="caption">Paste Text</span>
                     </button>
                     <button
                       onClick={() => setUploadMethod('url')}
-                      className={`transition-apple ${
+                      className={`transition-colors ${
                         uploadMethod === 'url'
                           ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
                           : 'bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--secondary-hover)]'
@@ -331,11 +331,11 @@ export default function PoliciesPage() {
                       }}
                     >
                       <LinkIcon size={20} className="mx-auto mb-1" />
-                      <span className="text-apple-caption1">From URL</span>
+                      <span className="caption">From URL</span>
                     </button>
                     <button
                       onClick={() => setUploadMethod('file')}
-                      className={`transition-apple ${
+                      className={`transition-colors ${
                         uploadMethod === 'file'
                           ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
                           : 'bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--secondary-hover)]'
@@ -347,14 +347,14 @@ export default function PoliciesPage() {
                       }}
                     >
                       <Upload size={20} className="mx-auto mb-1" />
-                      <span className="text-apple-caption1">Upload File</span>
+                      <span className="caption">Upload File</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Title */}
                 <div className="mb-4">
-                  <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                     Policy Title *
                   </label>
                   <input
@@ -362,20 +362,20 @@ export default function PoliciesPage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g., School District Bullying Prevention Policy"
-                    className="input-apple text-apple-body"
+                    className="field body-text"
                   />
                 </div>
 
                 {/* Jurisdiction: where the policy comes from */}
                 <div className="mb-4">
-                  <label htmlFor="jurisdiction" className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label htmlFor="jurisdiction" className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                     Jurisdiction *
                   </label>
                   <select
                     id="jurisdiction"
                     value={jurisdiction}
                     onChange={(e) => setJurisdiction(e.target.value)}
-                    className="input-apple text-apple-body"
+                    className="field body-text"
                   >
                     {POLICY_JURISDICTIONS.map((value) => (
                       <option key={value} value={value}>
@@ -383,21 +383,21 @@ export default function PoliciesPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-apple-caption2 mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                  <p className="caption mt-1" style={{ color: 'var(--muted-foreground)' }}>
                     Who issued it. District and school policies should implement the federal and state requirements.
                   </p>
                 </div>
 
                 {/* Category: what the policy is about */}
                 <div className="mb-4">
-                  <label htmlFor="category" className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label htmlFor="category" className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                     Category *
                   </label>
                   <select
                     id="category"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="input-apple text-apple-body"
+                    className="field body-text"
                   >
                     {POLICY_CATEGORIES.map((value) => (
                       <option key={value} value={value}>
@@ -405,27 +405,27 @@ export default function PoliciesPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-apple-caption2 mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                  <p className="caption mt-1" style={{ color: 'var(--muted-foreground)' }}>
                     What it covers. Incident classification matches on this to decide which policies apply.
                   </p>
                 </div>
 
                 {/* Effective Date */}
                 <div className="mb-4">
-                  <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                     Effective Date *
                   </label>
                   <input
                     type="date"
                     value={effectiveDate}
                     onChange={(e) => setEffectiveDate(e.target.value)}
-                    className="input-apple text-apple-body"
+                    className="field body-text"
                   />
                 </div>
 
                 {/* Keywords */}
                 <div className="mb-4">
-                  <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                     Keywords (comma-separated)
                   </label>
                   <input
@@ -433,21 +433,21 @@ export default function PoliciesPage() {
                     value={keywords}
                     onChange={(e) => setKeywords(e.target.value)}
                     placeholder="e.g., bullying, harassment, Title IX"
-                    className="input-apple text-apple-body"
+                    className="field body-text"
                   />
                 </div>
 
                 {/* Content Input (varies by method) */}
                 {uploadMethod === 'text' && (
                   <div className="mb-4">
-                    <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                       Policy Content *
                     </label>
                     <textarea
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
                       placeholder="Paste the full policy text here..."
-                      className="textarea-apple"
+                      className="field field-textarea"
                       style={{
                         width: '100%',
                         height: '256px',
@@ -461,7 +461,7 @@ export default function PoliciesPage() {
 
                 {uploadMethod === 'url' && (
                   <div className="mb-4">
-                    <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                       Policy URL *
                     </label>
                     <input
@@ -469,9 +469,9 @@ export default function PoliciesPage() {
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
                       placeholder="https://example.com/policy.txt"
-                      className="input-apple text-apple-body"
+                      className="field body-text"
                     />
-                    <p className="text-apple-caption1 mt-2" style={{ color: 'var(--muted-foreground)' }}>
+                    <p className="caption mt-2" style={{ color: 'var(--muted-foreground)' }}>
                       URL must point to a text-based document
                     </p>
                   </div>
@@ -479,16 +479,16 @@ export default function PoliciesPage() {
 
                 {uploadMethod === 'file' && (
                   <div className="mb-4">
-                    <label className="block text-apple-subheadline font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                       Policy File *
                     </label>
                     <input
                       type="file"
                       accept=".txt,.md"
                       onChange={(e) => setFile(e.target.files?.[0] || null)}
-                      className="input-apple text-apple-body"
+                      className="field body-text"
                     />
-                    <p className="text-apple-caption1 mt-2" style={{ color: 'var(--muted-foreground)' }}>
+                    <p className="caption mt-2" style={{ color: 'var(--muted-foreground)' }}>
                       Supported formats: .txt, .md
                     </p>
                   </div>
