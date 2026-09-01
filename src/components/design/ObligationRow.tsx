@@ -48,7 +48,7 @@ export function ObligationRow({
   };
 
   return (
-    <div className="flex gap-[18px] border-b border-input px-5 py-[18px] last:border-b-0">
+    <div className="flex flex-col gap-3 border-b border-input px-5 py-[18px] last:border-b-0 sm:flex-row sm:gap-[18px]">
       <DeadlineClock
         dueDate={obligation.dueDate}
         status={obligation.status}
@@ -83,7 +83,7 @@ export function ObligationRow({
           type="button"
           onClick={handleDone}
           disabled={busy}
-          className="flex-none self-start rounded-[12px] bg-text px-[14px] py-[9px] text-[13px] font-medium leading-none text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="inline-flex min-h-[44px] flex-none items-center self-start rounded-[12px] bg-text px-[14px] text-[13px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {busy ? 'Saving…' : 'Mark done'}
         </button>

@@ -37,8 +37,8 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Right side navigation */}
-        <div className="flex items-center gap-2">
+        {/* Right side navigation — desktop */}
+        <div className="hidden items-center gap-2 md:flex">
           {/* Chat Link */}
           <Link href="/chat" className="navbar-link">
             Chat
@@ -116,10 +116,13 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu Button (for future responsive support) */}
+        {/* Mobile menu button */}
         <button
+          type="button"
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isMobileMenuOpen}
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="hidden transition-apple p-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-none bg-transparent cursor-pointer"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center border-none bg-transparent p-2 text-[var(--muted-foreground)] transition-apple hover:text-[var(--foreground)] md:hidden"
         >
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>

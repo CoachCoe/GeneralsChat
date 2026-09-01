@@ -43,3 +43,16 @@ test.describe('Navigation', () => {
     expect(response.status()).toBe(401);
   });
 });
+
+test.describe('Policy library', () => {
+  test('a non-admin can read the library but not manage it', async ({ page }) => {
+    await page.goto('/policies');
+    await expect(page.getByRole('heading', { name: 'Policy library', level: 1 })).toBeVisible();
+
+    // Seeded fixtures include federal, state and district policies.
+    await expect(page.getByText('Policy JICK: Bullying Prevention')).toBeVisible();
+
+    // Management stays admin-only; a reporter gets no route into it.
+    await expect(page.getByRole('link', { name: 'Manage policies' })).toHaveCount(0);
+  });
+});

@@ -115,7 +115,7 @@ export default function HomePage() {
 
         <Link
           href="/chat"
-          className="w-fit rounded-[12px] bg-text px-4 py-[11px] text-[14px] font-medium leading-none text-bg transition-opacity hover:opacity-90"
+          className="inline-flex min-h-[44px] w-fit items-center rounded-[12px] bg-text px-4 text-[14px] font-medium text-bg transition-opacity hover:opacity-90"
         >
           Report an incident
         </Link>

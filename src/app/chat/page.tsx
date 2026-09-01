@@ -45,6 +45,20 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // The sidebar is 260px and defaulted open, which left 115px for the
+  // conversation on a phone -- the composer was effectively unreachable.
+  // Collapse it below the md breakpoint; it is still togglable. (design 1i)
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 767px)');
+    const apply = (matches: boolean) => {
+      if (matches) setSidebarOpen(false);
+    };
+    apply(narrow.matches);
+    const onChange = (e: MediaQueryListEvent) => apply(e.matches);
+    narrow.addEventListener('change', onChange);
+    return () => narrow.removeEventListener('change', onChange);
+  }, []);
   const [incidentId, setIncidentId] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [previousChats, setPreviousChats] = useState<Chat[]>([]);
