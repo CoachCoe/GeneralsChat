@@ -69,3 +69,34 @@ describe('describeDeadline', () => {
     expect(fromString.label).toBe(fromDate.label);
   });
 });
+
+describe('interval carry', () => {
+  const MINUTE = 60_000;
+
+  // Rounding each unit independently let Math.round return 60, so the last
+  // thirty seconds of every hour rendered a time that does not exist -- on the
+  // app's most prominent element, in tabular mono precisely so it reads
+  // cleanly. Every existing case in this file sits comfortably inside its
+  // unit, so none of them crossed a carry. (TEST-36)
+  it('carries 60 minutes into an hour rather than rendering 60m', () => {
+    expect(describeDeadline(at(59.5 * MINUTE), 'pending', null, NOW).label).toBe('in 1h');
+    expect(describeDeadline(at(59 * MINUTE + 31_000), 'pending', null, NOW).label).toBe('in 1h');
+  });
+
+  it('carries 60 minutes into a day rather than rendering 23h 60m', () => {
+    expect(
+      describeDeadline(at(23 * HOUR + 59.5 * MINUTE), 'pending', null, NOW).label
+    ).toBe('in 1d');
+  });
+
+  it('still reports the minute below the carry', () => {
+    expect(describeDeadline(at(59 * MINUTE), 'pending', null, NOW).label).toBe('in 59m');
+    expect(describeDeadline(at(23 * HOUR + 59 * MINUTE), 'pending', null, NOW).label).toBe(
+      'in 23h 59m'
+    );
+  });
+
+  it('never renders zero minutes for an interval that has not elapsed', () => {
+    expect(describeDeadline(at(20_000), 'pending', null, NOW).label).toBe('in 1m');
+  });
+});

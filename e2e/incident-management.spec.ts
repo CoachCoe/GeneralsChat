@@ -1,4 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'fs';
+
+/**
+ * Ids of rows owned by the *other* user, written by global-setup. A test that
+ * must prove it cannot reach something needs the real id of that something.
+ */
+function seededIds(): { adminIncidentId: string; adminObligationId: string } {
+  return JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8'));
+}
 
 /**
  * Seeded fixtures make every assertion unconditional.
@@ -107,6 +116,22 @@ test.describe('Incident management', () => {
   });
 
   test('does not expose another user\'s incident by id', async ({ page }) => {
+    // This used to assert only that the *list* omitted it, which the test above
+    // already covers -- so deleting incidentScope from the by-id handlers left
+    // it green while every reporter could read and rewrite every incident in
+    // the district. That is SEC-7. Attempt the id itself. (TEST-28)
+    const { adminIncidentId } = seededIds();
+
+    const read = await page.request.get(`/api/incidents/${adminIncidentId}`);
+    expect(read.status()).toBe(404);
+
+    const write = await page.request.patch(`/api/incidents/${adminIncidentId}`, {
+      data: { status: 'closed' },
+    });
+    expect(write.status()).toBe(404);
+
+    // 404 and not 403: an id must not be confirmed to someone who may not read
+    // it. And the list must still omit it.
     const all = await page.request.get('/api/incidents');
     const { incidents } = await all.json();
     expect(incidents.some((i: { title: string }) => i.title === ADMIN_ONLY)).toBe(false);
@@ -153,15 +178,24 @@ test.describe('Obligation queue', () => {
   });
 
   test('a reporter cannot discharge another user\'s obligation', async ({ page }) => {
-    const list = await page.request.get('/api/obligations');
-    const { obligations } = await list.json();
-    // Every obligation returned is on an incident this user filed; an id from
-    // outside that scope must not be updatable.
-    const foreign = await page.request.patch('/api/obligations/does-not-exist-id', {
+    // This used to PATCH 'does-not-exist-id', which 404s whether or not the
+    // handler scopes through the incident -- so removing that scope, and
+    // letting any user discharge any obligation in the district, left the test
+    // green. The fixture now seeds an obligation on the admin's incident so
+    // there is a real foreign row to attempt. (TEST-27)
+    const { adminObligationId } = seededIds();
+
+    const foreign = await page.request.patch(`/api/obligations/${adminObligationId}`, {
       data: { status: 'completed' },
     });
     expect(foreign.status()).toBe(404);
-    expect(Array.isArray(obligations)).toBe(true);
+
+    // It is not enough that the call was refused: the row must be untouched.
+    const list = await page.request.get('/api/obligations');
+    const { obligations } = await list.json();
+    expect(
+      obligations.some((o: { id: string }) => o.id === adminObligationId)
+    ).toBe(false);
   });
 
   test('shows the empty state when nothing is outstanding', async ({ page }) => {
@@ -258,7 +292,14 @@ test.describe('Incident summary', () => {
   });
 
   test('does not summarise another user\'s incident', async ({ page }) => {
-    const gen = await page.request.post('/api/incidents/does-not-exist/summary');
+    // A real foreign id, not a nonexistent one: generating a summary reads the
+    // whole transcript, so an unscoped handler here discloses the most of any
+    // route in the app. (TEST-28)
+    const { adminIncidentId } = seededIds();
+    const gen = await page.request.post(`/api/incidents/${adminIncidentId}/summary`);
     expect(gen.status()).toBe(404);
+
+    const missing = await page.request.post('/api/incidents/does-not-exist/summary');
+    expect(missing.status()).toBe(404);
   });
 });
