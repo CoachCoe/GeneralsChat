@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@/generated/prisma';
 import { logError } from './logger';
+import { checkRateLimit } from './rate-limit';
 
 /**
  * Error Handling Utilities
@@ -288,6 +289,30 @@ export function rateLimitError(): NextResponse {
     } as ApiError,
     { status: 429 }
   );
+}
+
+/**
+ * Handler-side rate-limit guard. Returns a 429 to return, or null to continue.
+ *
+ * Lives here rather than in `rate-limit.ts` because `middleware.ts` imports the
+ * counter, and middleware runs on the Edge runtime: pulling this file in would
+ * drag Prisma into that bundle and fail the build. The counter stays pure; the
+ * response shape stays with the other response helpers. (SEC-23)
+ *
+ * Keyed by user id rather than address, because these routes are authenticated
+ * and the thing being bounded is what one account can spend. A school's shared
+ * NAT would otherwise put every administrator in the building on one counter.
+ */
+export function enforceRateLimit(
+  key: string,
+  { limit, windowMs }: { limit: number; windowMs: number }
+): NextResponse | null {
+  const result = checkRateLimit(key, limit, windowMs);
+  if (result.allowed) return null;
+
+  const response = rateLimitError();
+  response.headers.set('Retry-After', String(result.retryAfterSeconds));
+  return response;
 }
 
 /**

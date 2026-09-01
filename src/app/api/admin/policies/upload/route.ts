@@ -19,6 +19,8 @@ import { requireRole } from '@/lib/session';
 import { policyFacetsSchema } from '@/lib/validation';
 import { validationError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
+import { enforceRateLimit } from '@/lib/errors';
+import { RATE_LIMITS } from '@/lib/rate-limit';
 
 /** Formats the documentProcessor can actually parse. */
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
@@ -30,6 +32,9 @@ export async function POST(request: NextRequest) {
     // mistake must not silently expose policy or prompt mutation. (SEC-6)
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
+
+    const limited = enforceRateLimit(`policy-upload:${guard.user.id}`, RATE_LIMITS.UPLOAD);
+    if (limited) return limited;
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
