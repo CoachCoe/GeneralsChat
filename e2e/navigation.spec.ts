@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { RATE_LIMITS } from '../src/lib/rate-limit';
 
 test.describe('Navigation', () => {
   test('navigates to the main pages from the navbar', async ({ page }) => {
@@ -78,6 +79,38 @@ test.describe('Navigation', () => {
     const response = await anonymous.request.get('/api/health');
     expect(response.status()).toBe(200);
     expect(await response.json()).toEqual({ status: 'ok' });
+    await anonymous.close();
+  });
+
+  test('the sign-in endpoint refuses a flood, and says nothing about the account', async ({
+    browser,
+  }) => {
+    // The one unauthenticated write path. bcrypt at cost 12 runs even for an
+    // address with no account, so each attempt costs ~0.25s of blocking CPU on
+    // a single event loop -- a few hundred a minute take the app down for every
+    // administrator, and password guessing was unbounded. (SEC-11, SEC-23)
+    const anonymous = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+
+    let sawRateLimit = false;
+    let status = 0;
+    for (let i = 0; i < RATE_LIMITS.SIGN_IN.limit + 3; i++) {
+      const response = await anonymous.request.post('/api/auth/callback/credentials', {
+        form: { email: `flood-${i}@example.org`, password: 'wrong-password' },
+        maxRedirects: 0,
+      });
+      status = response.status();
+      if (status === 429) {
+        sawRateLimit = true;
+        // Tells the caller when to come back, and nothing else.
+        expect(Number(response.headers()['retry-after'])).toBeGreaterThan(0);
+        const body = await response.json();
+        expect(body.code).toBe('RATE_LIMIT_EXCEEDED');
+        expect(JSON.stringify(body)).not.toContain('flood-');
+        break;
+      }
+    }
+
+    expect(sawRateLimit, `expected a 429 within the window, last status ${status}`).toBe(true);
     await anonymous.close();
   });
 

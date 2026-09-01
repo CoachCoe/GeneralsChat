@@ -306,9 +306,12 @@ saying it could not find the rule, instead of asserting one.
 
 Still open, and worth knowing before you deploy:
 
-- **No rate limiting** on the LLM endpoints. They are authenticated now, so
-  this is a cost and abuse concern rather than an open door, but a single
-  signed-in user can still run up the Anthropic bill.
+- **Rate limiting is in-process, not shared.** Sign-in is limited by client
+  address in `middleware.ts`; chat, summaries and uploads are limited by user
+  id in their handlers. The counters live in the server's memory, which is
+  exact at one replica and wrong at more than one — with N replicas the
+  effective limit becomes N times what is configured. It degrades quietly, so
+  move it to a shared store *before* raising `maxReplicas`.
 - **DNS rebinding** is not fully mitigated in the policy URL fetch; the
   hostname allowlist described in SEC-4 is the real fix.
 - **Upload size limits** reject oversized files but do not prevent memory

@@ -10,6 +10,8 @@ import {
   attachmentUploadsDir,
 } from '@/lib/uploads';
 import { incidentScope, requireUser } from '@/lib/session';
+import { enforceRateLimit } from '@/lib/errors';
+import { RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * Deliberately excludes .html/.svg/.xhtml: these files are served from
@@ -25,6 +27,9 @@ export async function POST(request: NextRequest) {
   try {
     const guard = await requireUser();
     if (!guard.ok) return guard.response;
+
+    const limited = enforceRateLimit(`upload:${guard.user.id}`, RATE_LIMITS.UPLOAD);
+    if (limited) return limited;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;

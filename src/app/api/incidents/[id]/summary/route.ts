@@ -4,6 +4,8 @@ import { createErrorResponse, notFoundError, successResponse, validationError } 
 import { requireUser } from '@/lib/session';
 import { generateIncidentSummary } from '@/lib/ai/incident-summary';
 import { recordAudit } from '@/lib/audit';
+import { enforceRateLimit } from '@/lib/errors';
+import { RATE_LIMITS } from '@/lib/rate-limit';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,6 +23,9 @@ export async function POST(request: NextRequest, { params }: Params) {
     logRequest('POST', '/api/incidents/[id]/summary');
     const guard = await requireUser();
     if (!guard.ok) return guard.response;
+
+    const limited = enforceRateLimit(`summary:${guard.user.id}`, RATE_LIMITS.CHAT);
+    if (limited) return limited;
 
     const { id } = await params;
     const result = await generateIncidentSummary(id, guard.user);
