@@ -4,6 +4,7 @@ import { ragSystem } from '@/lib/ai/rag';
 import { requireRole } from '@/lib/session';
 import { policyFacetsSchema } from '@/lib/validation';
 import { validationError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit';
 
 // GET /api/admin/policies - List all policies
 export async function GET() {
@@ -77,6 +78,13 @@ export async function POST(request: NextRequest) {
         isActive: true,
         version: 1
       }
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'policy',
+      entityId: policy.id,
+      details: { title: policy.title, jurisdiction: policy.jurisdiction, category: policy.category },
     });
 
     // Indexed through the RAG system, which applies the documented 1000-word /

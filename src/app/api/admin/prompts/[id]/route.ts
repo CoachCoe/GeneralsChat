@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 
 type Params = {
   params: Promise<{
@@ -50,6 +51,16 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const body = await request.json();
     const { name, content, description, isActive } = body;
 
+    // Captured before the write. This row is loaded as the system prompt for
+    // every consultation, so an edit here changes the mandated-reporting advice
+    // the district gives -- and SystemPrompt carries only updatedAt, no prior
+    // content and no actor. Without the previous text the change is not
+    // reconstructable afterwards. (SEC-20)
+    const before = await prisma.systemPrompt.findUnique({
+      where: { id },
+      select: { name: true, content: true, isActive: true },
+    });
+
     // If activating this prompt, deactivate all others
     if (isActive) {
       await prisma.systemPrompt.updateMany({
@@ -66,6 +77,19 @@ export async function PUT(request: NextRequest, { params }: Params) {
         ...(description !== undefined && { description }),
         ...(isActive !== undefined && { isActive })
       }
+    });
+
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'updated',
+      entity: 'systemPrompt',
+      entityId: id,
+      details: {
+        name: prompt.name,
+        activated: isActive === true && before?.isActive !== true,
+        contentChanged: content !== undefined && content !== before?.content,
+        previousContent: before?.content,
+      },
     });
 
     return NextResponse.json({ prompt });
@@ -101,6 +125,14 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     await prisma.systemPrompt.delete({
       where: { id }
+    });
+
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'deleted',
+      entity: 'systemPrompt',
+      entityId: id,
+      details: { name: prompt?.name, previousContent: prompt?.content },
     });
 
     return NextResponse.json({ success: true });

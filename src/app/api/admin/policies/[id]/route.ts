@@ -4,6 +4,7 @@ import { ragSystem } from '@/lib/ai/rag';
 import { requireRole } from '@/lib/session';
 import { policyFacetsSchema } from '@/lib/validation';
 import { validationError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit';
 
 type Params = {
   params: Promise<{
@@ -79,6 +80,19 @@ export async function PUT(request: NextRequest, { params }: Params) {
         ...(metadata !== undefined && { metadata: JSON.stringify(metadata) })
       }
     });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'updated',
+      entity: 'policy',
+      entityId: id,
+      details: {
+        title: policy.title,
+        jurisdiction: policy.jurisdiction,
+        category: policy.category,
+        isActive: policy.isActive,
+        contentChanged: content !== undefined,
+      },
+    });
 
     // If content was updated, re-index. Purges the vector store as well as the
     // DB rows -- deleteMany alone left stale Chroma entries behind (SPEC-15) --
@@ -124,6 +138,12 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     // Remaining chunks (if any) are removed by CASCADE.
     await prisma.policy.delete({
       where: { id }
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'deleted',
+      entity: 'policy',
+      entityId: id,
     });
 
     return NextResponse.json({ success: true });

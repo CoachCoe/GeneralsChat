@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 
 // GET /api/admin/prompts - List all prompts
 export async function GET() {
@@ -68,6 +69,13 @@ export async function POST(request: NextRequest) {
         createdBy: guard.user.id,
         isActive: false // New prompts start as inactive
       }
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'systemPrompt',
+      entityId: prompt.id,
+      details: { name: prompt.name },
     });
 
     return NextResponse.json({ prompt }, { status: 201 });

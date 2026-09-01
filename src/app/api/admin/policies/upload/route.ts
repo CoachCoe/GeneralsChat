@@ -17,6 +17,7 @@ import {
 import { requireRole } from '@/lib/session';
 import { policyFacetsSchema } from '@/lib/validation';
 import { validationError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit';
 
 /** Formats the documentProcessor can actually parse. */
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
@@ -143,6 +144,13 @@ export async function POST(request: NextRequest) {
         isActive: true,
         version: 1
       }
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'policy',
+      entityId: policy.id,
+      details: { title: policy.title, jurisdiction: policy.jurisdiction, category: policy.category },
     });
 
     // Indexed through the RAG system, which applies the documented 1000-word /

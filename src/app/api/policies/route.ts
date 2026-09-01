@@ -14,6 +14,7 @@ import {
 import { requireRole, requireUser } from '@/lib/session';
 import { policyFacetsSchema } from '@/lib/validation';
 import { validationError } from '@/lib/errors';
+import { recordAudit } from '@/lib/audit';
 
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
 
@@ -119,6 +120,13 @@ export async function POST(request: NextRequest) {
         effectiveDate: effectiveDate ? new Date(effectiveDate) : new Date(),
         isActive: true,
       },
+    });
+    await recordAudit({
+      userId: guard.user.id,
+      action: 'created',
+      entity: 'policy',
+      entityId: policy.id,
+      details: { title: policy.title, jurisdiction: policy.jurisdiction, category: policy.category },
     });
 
     // Add to RAG system for search with metadata

@@ -206,21 +206,21 @@ export default function PoliciesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen" style={{ background: 'var(--background)' }}>
+      <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
         <Navbar />
         <div className="flex items-center justify-center h-screen">
-          <p className="body-text" style={{ color: 'var(--muted-foreground)' }}>Loading...</p>
+          <p className="body-text" style={{ color: 'var(--color-text-muted)' }}>Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--background)' }}>
+    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
       <Navbar />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="heading-xl" style={{ color: 'var(--foreground)' }}>Policy Management</h1>
+          <h1 className="heading-xl" style={{ color: 'var(--color-text)' }}>Policy Management</h1>
           <Button onClick={() => setShowUploadModal(true)}>
             <Upload size={20} style={{ marginRight: 'var(--spacing-2)' }} />
             Upload Policy
@@ -230,14 +230,14 @@ export default function PoliciesPage() {
         {/* Policies List */}
         <div className="card">
           <div style={{ padding: 'var(--spacing-6)' }}>
-            <h2 className="heading-md mb-4" style={{ color: 'var(--foreground)' }}>
+            <h2 className="heading-md mb-4" style={{ color: 'var(--color-text)' }}>
               Current Policies ({policies.length})
             </h2>
 
             {policies.length === 0 ? (
               <div className="text-center" style={{ padding: 'var(--spacing-8) 0' }}>
-                <FileText size={48} className="mx-auto mb-4" style={{ color: 'var(--muted-foreground)' }} />
-                <p className="body-text mb-4" style={{ color: 'var(--muted-foreground)' }}>No policies uploaded yet</p>
+                <FileText size={48} className="mx-auto mb-4" style={{ color: 'var(--color-text-muted)' }} />
+                <p className="body-text mb-4" style={{ color: 'var(--color-text-muted)' }}>No policies uploaded yet</p>
                 <Button onClick={() => setShowUploadModal(true)}>
                   <Upload size={20} style={{ marginRight: 'var(--spacing-2)' }} />
                   Upload Your First Policy
@@ -258,10 +258,10 @@ export default function PoliciesPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="heading-md" style={{ color: 'var(--foreground)' }}>{policy.title}</h3>
+                          <h3 className="heading-md" style={{ color: 'var(--color-text)' }}>{policy.title}</h3>
                           {policy.isActive && (
                             <span className="badge" style={{
-                              background: 'var(--success)',
+                              background: 'var(--color-met)',
                               color: 'white',
                               fontSize: '12px'
                             }}>
@@ -270,7 +270,7 @@ export default function PoliciesPage() {
                           )}
                         </div>
 
-                        <div className="flex flex-wrap gap-4 caption" style={{ color: 'var(--muted-foreground)' }}>
+                        <div className="flex flex-wrap gap-4 caption" style={{ color: 'var(--color-text-muted)' }}>
                           <div className="flex items-center gap-1">
                             <Tag size={14} />
                             <span className="capitalize">{policy.jurisdiction}</span>
@@ -315,11 +315,11 @@ export default function PoliciesPage() {
           }}>
             <div className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div style={{ padding: 'var(--spacing-6)' }}>
-                <h2 className="heading-lg mb-6" style={{ color: 'var(--foreground)' }}>Upload Policy</h2>
+                <h2 className="heading-lg mb-6" style={{ color: 'var(--color-text)' }}>Upload Policy</h2>
 
                 {/* Upload Method Selection */}
                 <div className="mb-6">
-                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                     Upload Method
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -327,13 +327,13 @@ export default function PoliciesPage() {
                       onClick={() => setUploadMethod('text')}
                       className={`transition-colors ${
                         uploadMethod === 'text'
-                          ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
-                          : 'bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--secondary-hover)]'
+                          ? 'bg-[var(--color-text)] text-[var(--color-bg)]'
+                          : 'bg-[var(--color-input)] text-[var(--color-text)] hover:bg-[var(--color-line)]'
                       }`}
                       style={{
                         padding: 'var(--spacing-3)',
-                        borderRadius: 'var(--radius)',
-                        border: uploadMethod === 'text' ? 'none' : '0.5px solid var(--border)'
+                        borderRadius: 'var(--radius-control)',
+                        border: uploadMethod === 'text' ? 'none' : '0.5px solid var(--color-line)'
                       }}
                     >
                       <FileText size={20} className="mx-auto mb-1" />
@@ -343,13 +343,13 @@ export default function PoliciesPage() {
                       onClick={() => setUploadMethod('url')}
                       className={`transition-colors ${
                         uploadMethod === 'url'
-                          ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
-                          : 'bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--secondary-hover)]'
+                          ? 'bg-[var(--color-text)] text-[var(--color-bg)]'
+                          : 'bg-[var(--color-input)] text-[var(--color-text)] hover:bg-[var(--color-line)]'
                       }`}
                       style={{
                         padding: 'var(--spacing-3)',
-                        borderRadius: 'var(--radius)',
-                        border: uploadMethod === 'url' ? 'none' : '0.5px solid var(--border)'
+                        borderRadius: 'var(--radius-control)',
+                        border: uploadMethod === 'url' ? 'none' : '0.5px solid var(--color-line)'
                       }}
                     >
                       <LinkIcon size={20} className="mx-auto mb-1" />
@@ -359,13 +359,13 @@ export default function PoliciesPage() {
                       onClick={() => setUploadMethod('file')}
                       className={`transition-colors ${
                         uploadMethod === 'file'
-                          ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
-                          : 'bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--secondary-hover)]'
+                          ? 'bg-[var(--color-text)] text-[var(--color-bg)]'
+                          : 'bg-[var(--color-input)] text-[var(--color-text)] hover:bg-[var(--color-line)]'
                       }`}
                       style={{
                         padding: 'var(--spacing-3)',
-                        borderRadius: 'var(--radius)',
-                        border: uploadMethod === 'file' ? 'none' : '0.5px solid var(--border)'
+                        borderRadius: 'var(--radius-control)',
+                        border: uploadMethod === 'file' ? 'none' : '0.5px solid var(--color-line)'
                       }}
                     >
                       <Upload size={20} className="mx-auto mb-1" />
@@ -376,7 +376,7 @@ export default function PoliciesPage() {
 
                 {/* Title */}
                 <div className="mb-4">
-                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                     Policy Title *
                   </label>
                   <input
@@ -390,7 +390,7 @@ export default function PoliciesPage() {
 
                 {/* Jurisdiction: where the policy comes from */}
                 <div className="mb-4">
-                  <label htmlFor="jurisdiction" className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label htmlFor="jurisdiction" className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                     Jurisdiction *
                   </label>
                   <select
@@ -405,14 +405,14 @@ export default function PoliciesPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="caption mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                  <p className="caption mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     Who issued it. District and school policies should implement the federal and state requirements.
                   </p>
                 </div>
 
                 {/* Category: what the policy is about */}
                 <div className="mb-4">
-                  <label htmlFor="category" className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label htmlFor="category" className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                     Category *
                   </label>
                   <select
@@ -427,14 +427,14 @@ export default function PoliciesPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="caption mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                  <p className="caption mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     What it covers. Incident classification matches on this to decide which policies apply.
                   </p>
                 </div>
 
                 {/* Effective Date */}
                 <div className="mb-4">
-                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                     Effective Date *
                   </label>
                   <input
@@ -447,7 +447,7 @@ export default function PoliciesPage() {
 
                 {/* Keywords */}
                 <div className="mb-4">
-                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                  <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                     Keywords (comma-separated)
                   </label>
                   <input
@@ -462,7 +462,7 @@ export default function PoliciesPage() {
                 {/* Content Input (varies by method) */}
                 {uploadMethod === 'text' && (
                   <div className="mb-4">
-                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                       Policy Content *
                     </label>
                     <textarea
@@ -483,7 +483,7 @@ export default function PoliciesPage() {
 
                 {uploadMethod === 'url' && (
                   <div className="mb-4">
-                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                       Policy URL *
                     </label>
                     <input
@@ -493,7 +493,7 @@ export default function PoliciesPage() {
                       placeholder="https://example.com/policy.txt"
                       className="field body-text"
                     />
-                    <p className="caption mt-2" style={{ color: 'var(--muted-foreground)' }}>
+                    <p className="caption mt-2" style={{ color: 'var(--color-text-muted)' }}>
                       URL must point to a text-based document
                     </p>
                   </div>
@@ -501,7 +501,7 @@ export default function PoliciesPage() {
 
                 {uploadMethod === 'file' && (
                   <div className="mb-4">
-                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                       Policy File *
                     </label>
                     <input
@@ -510,7 +510,7 @@ export default function PoliciesPage() {
                       onChange={(e) => setFile(e.target.files?.[0] || null)}
                       className="field body-text"
                     />
-                    <p className="caption mt-2" style={{ color: 'var(--muted-foreground)' }}>
+                    <p className="caption mt-2" style={{ color: 'var(--color-text-muted)' }}>
                       Supported formats: .txt, .md
                     </p>
                   </div>
