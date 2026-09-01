@@ -17,11 +17,16 @@
 >
 > The attorney persona survives only in `generateChatSummary`.
 >
-> Which of these is authoritative is an open product question
-> (SPEC-32 in `docs/audit/2026-08-31-findings.md`) and was deliberately not
-> resolved by the audit. The "Test Results — VERIFIED WORKING" section below
-> describes output the shipped prompt steers away from. Line-number citations
-> in this file are also stale (SPEC-25).
+> **Decision (single-user pilot):** deferred. The `SystemPrompt` row is
+> authoritative at runtime, and locking the persona down is not worth doing
+> before there is more than one operator — the risk SPEC-32 describes is an
+> untrusted admin rewriting mandated-reporting guidance, which does not apply
+> when the only admin is the person running the pilot. Revisit before a second
+> admin account exists.
+>
+> The "Test Results — VERIFIED WORKING" section below describes output the
+> shipped prompt steers away from. Line-number citations in this file are also
+> stale (SPEC-25).
 
 # Lawyer Persona & End-of-Chat Summary - Implementation Complete
 

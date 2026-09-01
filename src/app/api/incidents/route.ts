@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const reporterId = searchParams.get('reporterId');
+    const hasPendingActions = searchParams.get('hasPendingActions') === 'true';
     // Clamped: unbounded parseInt allowed ?limit=1000000 to dump the whole
     // incident table in one request, and ?limit=abc to reach Prisma as
     // `take: NaN`. (SEC-12)
@@ -35,9 +36,18 @@ export async function GET(request: NextRequest) {
 
     // Reporters see only what they filed; investigators and admins see all.
     // The reporterId query param can narrow that but never widen it. (SEC-7)
-    const where: { status?: string; reporterId?: string } = {
+    const where: {
+      status?: string;
+      reporterId?: string;
+      complianceActions?: { some: { status: string } };
+    } = {
       ...incidentScope(guard.user),
     };
+    // "Pending" means outstanding compliance actions, not an incident status.
+    // Incident.status has no such value and never did. (FLOW-12b)
+    if (hasPendingActions) {
+      where.complianceActions = { some: { status: 'pending' } };
+    }
     if (status) {
       where.status = status;
     }

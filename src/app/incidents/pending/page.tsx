@@ -47,14 +47,12 @@ export default function PendingIncidentsPage() {
 
   const fetchIncidents = async () => {
     try {
-      // NOTE: "pending" is not a value any code path writes to Incident.status
-      // (see FLOW-12 / SPEC-12 in docs/audit/2026-08-31-findings.md), so this
-      // page returns nothing today. The fix is deliberately NOT applied here:
-      // the homepage card for this route reads "Pending Actions", which may
-      // mean incidents with open ComplianceAction rows rather than an incident
-      // status at all. That is open question FLOW-12b and needs a product
-      // decision, not a guess.
-      const response = await fetch('/api/incidents?status=pending');
+      // Incidents with outstanding compliance actions. This page used to query
+      // `?status=pending`, a value nothing ever writes to Incident.status, so
+      // it was permanently empty -- while the homepage card sending users here
+      // reads "Pending Actions". Compliance actions are what carry the
+      // reporting deadlines, so those are what "pending" means. (FLOW-12b)
+      const response = await fetch('/api/incidents?hasPendingActions=true');
       const data = await response.json();
       
       if (data.error) {

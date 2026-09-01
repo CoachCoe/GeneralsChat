@@ -451,3 +451,47 @@ remote production database — that is the maintainer's call.
 
 typecheck PASS · lint PASS (0 errors, 2 warnings) · build PASS ·
 **`npm test` 23/23, exit 0**.
+
+---
+
+# Addendum 3 — pilot decisions
+
+## SPEC-32 — deferred by decision
+
+The maintainer is starting a **single-user test**, so the persona-authority
+question is punted. The `SystemPrompt` row remains authoritative at runtime and
+the `/admin/prompt` editor stays as-is.
+
+This is a reasonable call at this stage: the risk SPEC-32 describes is an
+untrusted admin silently rewriting the prompt that governs mandated-reporting
+advice. With one operator who *is* the admin, there is no untrusted party. It
+should be revisited before a second admin account exists, because at that point
+the prompt becomes a privileged, unaudited control surface.
+
+Recorded in `LAWYER_PERSONA_UPDATE.md` as well, so the discrepancy between that
+document and the shipped prompt is explained rather than left dangling.
+
+## FLOW-12b — resolved
+
+"Pending" means **outstanding compliance actions**, not an incident status.
+`Incident.status` has no such value and never did, which is why
+`/incidents/pending` was permanently empty while the homepage card sending
+users there reads "Pending Actions". Compliance actions carry the reporting
+deadlines, so they are what the page is about.
+
+`GET /api/incidents?hasPendingActions=true` filters on
+`complianceActions: { some: { status: 'pending' } }`, and the page uses it.
+
+This was the last user-visible dead end: a pilot user clicking a homepage card
+and landing on a permanently empty list.
+
+## Still open going into the pilot
+
+| # | Item | Pilot impact |
+|---|---|---|
+| SPEC-34 | Which policy-upload endpoint is canonical | Low — `/admin/policies` works; the duplicate is an internal tidiness issue. |
+| SPEC-35 | Whether `/api/incidents/[id]/summary` should persist | Medium — a generated summary is lost on refresh from the incident page. |
+| SEC-11 | No rate limiting | Low with one user; matters before wider rollout. |
+| REPO-1 | CI not applied | Low for a pilot, but the suite is now CI-ready. |
+| — | Unit-test layer | Low; e2e covers the journeys. |
+| — | `PolicyChunk` re-index against production | **Do this before the pilot** if the existing rows are being kept. |
