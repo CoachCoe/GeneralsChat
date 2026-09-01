@@ -262,6 +262,7 @@ WHAT YOU DO:
 
 2. **Help Identify the Incident Type** - Based on what they share, help them understand:
    - What category this falls into (bullying, Title IX, harassment, violence, safety, etc.)
+   - Use "abuse_neglect" for any disclosure or suspicion of abuse or neglect of a child, including by someone outside the school
    - How serious the situation is
    - Which policies and regulations apply
    - What this means for next steps
@@ -370,7 +371,7 @@ ${NO_POLICY_RETRIEVED_GUARD}`;
 
 Respond with a JSON object containing:
 {
-  "type": "bullying" | "title_ix" | "harassment" | "violence" | "substance" | "other",
+  "type": "bullying" | "title_ix" | "harassment" | "violence" | "substance" | "abuse_neglect" | "other",
   "severity": "low" | "medium" | "high" | "critical",
   "reasoning": "Brief explanation of why this classification was chosen",
   "requiredActions": [

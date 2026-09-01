@@ -20,6 +20,17 @@ export const INCIDENT_TYPES = [
   'harassment',
   'violence',
   'substance',
+  /**
+   * Suspected abuse or neglect -- a disclosure about a child's home life, or
+   * an injury a staff member has reason to think was not accidental.
+   *
+   * Added because the taxonomy had no value for it, so "a student told the
+   * counsellor her stepfather hits her" classified as `other`. That is the
+   * highest-stakes report this tool will ever handle, on the shortest clock
+   * (RSA 169-C:29 requires it immediately, not within a window), and it was
+   * the one incident type with no category of its own. (OQ-3)
+   */
+  'abuse_neglect',
   'other',
 ] as const;
 export type IncidentType = (typeof INCIDENT_TYPES)[number];
@@ -31,6 +42,7 @@ export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
   harassment: 'Harassment',
   violence: 'Violence',
   substance: 'Substance',
+  abuse_neglect: 'Abuse / neglect',
   other: 'Other',
 };
 
@@ -193,6 +205,12 @@ const INCIDENT_TYPE_CATEGORIES: Record<IncidentType, PolicyCategory[]> = {
   harassment: ['discrimination', 'title_ix', 'bullying'],
   violence: ['school_safety', 'discipline', 'emergency_operations'],
   substance: ['discipline', 'student_health'],
+  // Deliberately narrow. The governing local policy is the district's
+  // reporting procedure (JLF), and widening this would dilute retrieval for
+  // the one question that matters here: report to whom, by when. With no
+  // mandatory_reporting policy loaded, retrieval returns nothing and the
+  // no-retrieval guard fires -- which is the honest answer, not a failure.
+  abuse_neglect: ['mandatory_reporting'],
   other: [],
 };
 
