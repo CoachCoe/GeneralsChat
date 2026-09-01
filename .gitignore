@@ -51,3 +51,7 @@ src/generated/
 *.tmp
 *.temp
 e2e/.auth/
+
+# Azure deployment config: names, and the only copy of the DB password.
+deploy/azure/.env
+deploy/azure/.provisioned

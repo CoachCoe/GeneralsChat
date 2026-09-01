@@ -62,6 +62,19 @@ test.describe('Navigation', () => {
     }
   });
 
+  test('the health probe is reachable without a session and says nothing else', async ({
+    browser,
+  }) => {
+    // Container platforms probe without credentials, so this is the one route
+    // outside the deny-by-default gate. It must stay reachable, and it must
+    // stay uninformative -- no version, no environment, no dependency status.
+    const anonymous = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const response = await anonymous.request.get('/api/health');
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toEqual({ status: 'ok' });
+    await anonymous.close();
+  });
+
   test('signing out ends the session', async ({ page, context }) => {
     await page.goto('/');
     await page.getByText('Settings').click();

@@ -23,14 +23,28 @@ services:
       timeout: 5s
       retries: 10
 
+  # Migrations run to completion before the app starts, the same ordering the
+  # Azure deploy uses. The app image is lean and carries no Prisma CLI.
+  migrate:
+    build:
+      context: .
+      target: migrator
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/generalschat?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
   app:
     build: .
     ports:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/generalschat?schema=public
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY must be set}
-      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set - generate with: openssl rand -base64 32}
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY must be set}"
+      # Quoted: the message contains ': ', which makes an unquoted value invalid
+      # YAML. This file had never parsed, so `docker compose up` had never run.
+      AUTH_SECRET: "${AUTH_SECRET:?AUTH_SECRET must be set - generate with openssl rand -base64 32}"
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       AUTH_TRUST_HOST: "true"
       # Optional: enables vector search instead of the keyword fallback.
@@ -42,6 +56,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:

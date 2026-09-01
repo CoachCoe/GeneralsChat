@@ -1,0 +1,89 @@
+# Rendered by deploy.sh (envsubst) and applied with `az containerapp create/update --yaml`.
+#
+# Declarative because volume mounts and probes cannot be expressed with the
+# imperative `az containerapp` flags, and because a deployment you can read in
+# one file is one you can review.
+location: ${LOCATION}
+properties:
+  managedEnvironmentId: ${ENVIRONMENT_ID}
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: true
+      targetPort: 3000
+      transport: auto
+      allowInsecure: false
+    registries:
+      - server: ${ACR_SERVER}
+        username: ${ACR_USER}
+        passwordSecretRef: acr-password
+    secrets:
+      - name: acr-password
+        value: ${ACR_PASS}
+      - name: database-url
+        value: ${DATABASE_URL}
+      - name: auth-secret
+        value: ${AUTH_SECRET}
+      - name: anthropic-key
+        value: ${ANTHROPIC_API_KEY}
+  template:
+    containers:
+      - name: app
+        image: ${APP_IMAGE}
+        resources:
+          cpu: 1.0
+          memory: 2Gi
+        env:
+          - name: DATABASE_URL
+            secretRef: database-url
+          - name: AUTH_SECRET
+            secretRef: auth-secret
+          - name: ANTHROPIC_API_KEY
+            secretRef: anthropic-key
+          # https, not the forwarded protocol: the ingress terminates TLS and
+          # the app sees plain http, and this value is what decides whether the
+          # session cookie is issued Secure. (SEC-28)
+          - name: NEXTAUTH_URL
+            value: https://${APP_FQDN}
+          - name: AUTH_TRUST_HOST
+            value: "true"
+          - name: UPLOADS_DIR
+            value: /app/uploads
+          - name: NODE_ENV
+            value: production
+        volumeMounts:
+          # Attachments are student records; policy source files are what
+          # `policies:reindex` re-extracts from. Both are runtime state. Without
+          # this mount they live in the container's writable layer and are
+          # destroyed on every revision, restart and scale event.
+          - volumeName: uploads
+            mountPath: /app/uploads
+        probes:
+          # Liveness only, and deliberately not a database check: a probe that
+          # fails when Postgres blips makes the platform restart a process that
+          # is working, turning a short outage into a restart loop.
+          - type: Liveness
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          - type: Readiness
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+    scale:
+      # One replica, deliberately. Scale-to-zero would make an administrator
+      # wait through a cold start mid-incident, and more than one replica needs
+      # the uploads share to be genuinely concurrent-safe and the session store
+      # to be shared — neither has been established. Revisit with evidence.
+      minReplicas: 1
+      maxReplicas: 1
+    volumes:
+      - name: uploads
+        storageType: AzureFile
+        storageName: ${STORAGE_MOUNT_NAME}
