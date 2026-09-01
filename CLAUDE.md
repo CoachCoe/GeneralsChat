@@ -88,9 +88,16 @@ deadline the policy sets. `Mark done` is their only state change.
 Tokens live in `src/app/theme.css`. There is no `globals.css` — it was deleted,
 and its patterns should not come back.
 
-- **Colour is earned.** It means a deadline state and nothing else: overdue
-  (red), attention (amber), met (green). No brand accent — it would compete with
-  the only signal the UI is allowed to raise its voice with.
+- **Colour is earned.** It means a deadline state — overdue (red), attention
+  (amber), met (green) — or a coverage gap (amber). Nothing else. No brand
+  accent, and never severity, error states or decoration: those would compete
+  with the only signal the UI is allowed to raise its voice with.
+
+  A coverage gap is on this list because it is the same class of signal as a
+  deadline: an actionable compliance warning the administrator has to do
+  something about. It was a documented design decision that this rule
+  contradicted; the rule was widened rather than the components repainted.
+  (OQ-1)
 - **Three fonts, three jobs.** DM Serif Display for titles and answers, DM Sans
   for body and obligation titles, JetBrains Mono with tabular numerals for every
   time, id and count — digits must not jitter as a countdown ticks.

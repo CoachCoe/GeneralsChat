@@ -99,3 +99,24 @@ describe('guaranteedCategoriesFor', () => {
     }
   });
 });
+
+describe('abuse and neglect', () => {
+  // The taxonomy had no value for this, so a disclosure about a child's home
+  // life classified as `other` -- the highest-stakes report this tool handles,
+  // on the shortest clock, in the bucket that means "we could not tell". (OQ-3)
+
+  it('is a first-class incident type', () => {
+    expect(INCIDENT_TYPES).toContain('abuse_neglect');
+  });
+
+  it('retrieves mandatory reporting, and is not diluted with unrelated categories', () => {
+    // Report to whom, by when, is the whole question here.
+    expect(categoriesForIncidentType('abuse_neglect')).toEqual(['mandatory_reporting']);
+  });
+
+  it('constrains the search rather than falling through to no filter', () => {
+    // `other` returns [] which callers treat as "no filter", so a keyword hit
+    // from any unrelated policy could be handed to the model as authority.
+    expect(categoriesForIncidentType('abuse_neglect')).not.toEqual([]);
+  });
+});

@@ -186,6 +186,74 @@ Three other things that were true and are no longer:
 
 ---
 
+## Decisions on the audit's open questions — 2026-09-01
+
+The 2026-09-01 audit logged five questions rather than guessing them. All five
+are now decided. Two are done; three are queued below.
+
+**OQ-1 — amber for coverage gaps: allowed. Done.** `CLAUDE.md` said colour meant
+a deadline state and nothing else; `theme.css` and the redesign brief recorded
+amber-for-gaps as deliberate. The rule was widened rather than the components
+repainted: a coverage gap is the same class of signal as a deadline — an
+actionable compliance warning — not decoration. The rule still bites, which is
+why severity chips and error states lost their colour in the audit (SPEC-44).
+
+**OQ-3 — `other` retrieval: the guarantee reading, confirmed. Taxonomy gap
+fixed.** `categoriesForIncidentType` stays empty as a *search filter*;
+`guaranteedCategoriesFor` supplies representation and coverage. Behind that
+sat a worse problem: the taxonomy had no value for abuse or neglect, so *"a
+student told the counsellor her stepfather hits her"* classified as `other` —
+the highest-stakes report this tool handles, on the shortest clock, in the
+bucket that means "we could not tell". `abuse_neglect` is now a first-class
+incident type, mapped narrowly to `mandatory_reporting`, and treated as
+CONFIDENTIAL.
+
+**OQ-5 — deadlines with no policy behind them: keep the obligation, keep the
+urgency, mark the provenance.** *(Queued — this is the B1 fix.)*
+
+Suppressing the obligation is the worst option: "you must report this to DCYF"
+is worth saying even when the library cannot cite a deadline, and *nothing*
+is how a mandated report gets missed. Dropping the countdown loses the urgency,
+which for a 24-hour report is the part that matters. So:
+
+- `ComplianceAction` gains `policyId`, `citation` and `deadlineSource`
+  (`'policy' | 'model'`). It carries none of these today, which is why this is
+  a schema change and not a UI tweak.
+- Two-phase classification: after retrieval, re-derive obligations with
+  `policyContext` — the parameter exists and is passed `undefined` today. A
+  deadline traceable to an excerpt is `policy`; everything else is `model`.
+- **A model-sourced deadline gets no red or amber countdown**, and the home
+  page's "N things are late" counts only policy-backed ones. That headline is
+  currently built on the model's recall of NH law, and it is the number in the
+  product that most looks like fact.
+- `ObligationRow` already renders an `AuthorityChip` and citation whenever they
+  are present. The data has simply never existed.
+
+Also fix `FLOW-35` alongside it: a failed classification should leave
+`incidentType` null so the next turn retries, rather than stamping `other`
+permanently with no way to correct it.
+
+**OQ-2 — canonical ingestion: `/api/admin/policies/upload`.** *(Queued.)*
+Delete `POST /api/policies`; keep `POST /api/admin/policies` for the paste-text
+path the admin UI uses. The deleted route is called by no client, sits outside
+the `/api/admin` prefix so `isAdminPath` does not cover it, and is the route
+SEC-3 exploited. It is documented in README, so this needs a doc change — that
+is the decision, not an obstacle. Standardise the uploads directory on one
+resolution at the same time (DEAD-62): there are four, and one makes
+`policies:reindex` re-copy the source file on every run.
+
+**OQ-4 — the admin-editable system prompt: invert it, but not yet.** *(Queued,
+lowest priority.)* The row replaces the in-code prompt for the chat path only —
+not `classifyIncident`, not `generateChatSummary` — so an admin editing "the
+system prompt" changes one of three calls and silently drops the
+citation-discipline and clarifying-question paragraphs. SEC-20 closed the
+accountability half. The structural fix is to make the row an *appended*
+district-context block with the compliance instructions in code. Until then the
+UI label overstates what it controls; with one admin, that mislabel is the real
+cost.
+
+---
+
 ## Next — gated on real use
 
 ### 6. Run a real incident end to end, and watch it — *maintainer*
