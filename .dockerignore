@@ -1,0 +1,36 @@
+# The build context is uploaded to the daemon and `COPY . .` lands in the
+# builder layer, so anything here that is secret or student-record material
+# leaks into an image someone may push to a registry.
+
+# Credentials. .env holds the production DATABASE_URL and API keys.
+.env
+.env.*
+!.env.example
+
+# Student records. Attachments and policy source documents live here; they are
+# runtime state on a mounted volume, never part of an image.
+uploads/
+data/
+
+# Rebuilt inside the image.
+node_modules/
+.next/
+src/generated/
+
+# Never needed at runtime.
+.git/
+.github/
+.claude/
+docs/
+e2e/
+test-results/
+playwright-report/
+sample-policies/
+*.md
+!README.md
+
+# Local noise.
+.DS_Store
+*.tsbuildinfo
+.vscode/
+.idea/
