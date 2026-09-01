@@ -98,6 +98,13 @@ class ClaudeService {
 
       this.client = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
+        // Optional override for a gateway, proxy, or a local stub during
+        // end-to-end tests. Anthropic calls are made server-side, so they
+        // cannot be intercepted from the browser (which is why the old
+        // page.route mock in e2e/ never worked -- TEST-3).
+        ...(process.env.ANTHROPIC_BASE_URL
+          ? { baseURL: process.env.ANTHROPIC_BASE_URL }
+          : {}),
       });
     }
 

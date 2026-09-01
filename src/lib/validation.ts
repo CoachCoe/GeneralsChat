@@ -14,7 +14,12 @@ const incidentStatusEnum = z.enum(INCIDENT_STATUSES);
 // Chat API schemas
 export const chatMessageSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty').max(5000, 'Message is too long'),
-  incidentId: z.string().optional(),
+  // `.nullish()`, not `.optional()`: the chat page holds incidentId in state
+  // initialised to null and JSON.stringify emits `"incidentId": null`, so a
+  // bare .optional() rejected the first message of every new conversation with
+  // a 400 -- the opening turn of the primary journey. Caught by the e2e suite
+  // once it had assertions that could fail.
+  incidentId: z.string().min(1).nullish(),
   // No userId: identity comes from the session. Accepting it from the client
   // meant an attacker could forge reports as any named user. (SEC-8)
 });
@@ -92,7 +97,12 @@ export const fileUploadSchema = z.object({
   filename: z.string().min(1, 'Filename is required'),
   fileType: z.string().min(1, 'File type is required'),
   fileSize: z.number().positive('File size must be positive').max(10 * 1024 * 1024, 'File is too large (max 10MB)'),
-  incidentId: z.string().optional(),
+  // `.nullish()`, not `.optional()`: the chat page holds incidentId in state
+  // initialised to null and JSON.stringify emits `"incidentId": null`, so a
+  // bare .optional() rejected the first message of every new conversation with
+  // a 400 -- the opening turn of the primary journey. Caught by the e2e suite
+  // once it had assertions that could fail.
+  incidentId: z.string().min(1).nullish(),
   uploadedBy: z.string().min(1, 'Uploader ID is required'),
 });
 

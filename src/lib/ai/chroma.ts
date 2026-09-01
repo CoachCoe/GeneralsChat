@@ -44,8 +44,14 @@ class ChromaService {
     // docker run -p 8000:8000 chromadb/chroma
     const chromaUrl = process.env.CHROMA_URL || 'http://localhost:8000';
 
+    // chromadb v3 takes host/port/ssl, not `path`. Passing `path` was silently
+    // ignored, so CHROMA_URL never took effect and the client always talked to
+    // its own default target.
+    const parsed = new URL(chromaUrl);
     this.client = new ChromaClient({
-      path: chromaUrl,
+      host: parsed.hostname,
+      port: parsed.port ? Number(parsed.port) : parsed.protocol === 'https:' ? 443 : 8000,
+      ssl: parsed.protocol === 'https:',
     });
   }
 
@@ -60,8 +66,14 @@ class ChromaService {
 
     try {
       // Try to get existing collection
+      // Embeddings are always supplied explicitly by embeddingsService, so no
+      // embedding function is wanted here. Omitting it made chromadb fall back
+      // to DefaultEmbeddingFunction, which throws
+      // "Cannot find module '@chroma-core/default-embed'" -- so every
+      // initialize() failed and vector search was dead in all environments.
       this.collection = await this.client.getOrCreateCollection({
         name: this.collectionName,
+        embeddingFunction: null,
         metadata: {
           description: 'Policy document embeddings for RAG system',
           'hnsw:space': 'cosine', // Use cosine similarity

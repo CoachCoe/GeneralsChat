@@ -44,12 +44,11 @@ function LoginForm() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <Image
-            src="/general-avatar.png"
+            src="/General.jpeg"
             alt=""
             width={72}
             height={72}
             className="rounded-full mb-4"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <h1 className="text-2xl font-semibold" style={{ color: 'var(--foreground)' }}>
             Sign in

@@ -453,7 +453,7 @@ export default function ChatPage() {
                   ))}
 
                   {isLoading && (
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div data-testid="chat-loading" role="status" aria-live="polite" style={{ display: 'flex', gap: '12px' }}>
                       <div style={{
                         width: '32px',
                         height: '32px',
@@ -546,6 +546,8 @@ export default function ChatPage() {
                 </button>
 
                 <textarea
+                  data-testid="chat-input"
+                  aria-label="Message"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -573,6 +575,9 @@ export default function ChatPage() {
                 />
 
                 <button
+                  data-testid="chat-send"
+                  type="button"
+                  aria-label="Send message"
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isLoading}
                   style={{
