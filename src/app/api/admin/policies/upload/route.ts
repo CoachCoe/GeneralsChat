@@ -10,6 +10,7 @@ import {
   assertIndexablePolicyText,
   assertWithinSizeLimit,
   maxUploadBytes,
+  readCappedFormData,
   safeUploadPath,
   UploadError,
   uploadErrorStatus,
@@ -36,7 +37,10 @@ export async function POST(request: NextRequest) {
     const limited = enforceRateLimit(`policy-upload:${guard.user.id}`, RATE_LIMITS.UPLOAD);
     if (limited) return limited;
 
-    const formData = await request.formData();
+    // Capped read, not `request.formData()`: the body is bounded before it is
+    // parsed, so an oversized POST costs the ceiling and not its own size.
+    // (SEC-10)
+    const formData = await readCappedFormData(request);
     const file = formData.get('file') as File | null;
     const url = formData.get('url') as string | null;
     const title = formData.get('title') as string;
