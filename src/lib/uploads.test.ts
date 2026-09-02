@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resolve, sep } from 'path';
 import {
   assertAllowedExtension,
@@ -9,6 +9,7 @@ import {
   assertWithinSizeLimit,
   DEFAULT_MAX_UPLOAD_BYTES,
   fileExtension,
+  readCappedFormData,
   safeUploadPath,
   UploadError,
 } from './uploads';
@@ -183,5 +184,140 @@ describe('uploads directory resolution', () => {
     for (const dir of [policyUploadsDir(), attachmentUploadsDir()]) {
       expect(dir.startsWith(uploadsRoot() + sep)).toBe(true);
     }
+  });
+});
+
+describe('readCappedFormData', () => {
+  // The hole this closes: both upload routes called `request.formData()` and
+  // then checked `file.size`. The check was accurate and useless -- parsing had
+  // already read the whole body into memory. Size limits rejected the file; the
+  // memory was spent either way. (SEC-10)
+
+  const original = process.env.MAX_FILE_SIZE;
+
+  // Small enough that a test can exceed it in a few kilobytes, so these run in
+  // milliseconds rather than allocating tens of megabytes.
+  const LIMIT = 4096;
+  const OVERHEAD = 64 * 1024;
+  const CEILING = LIMIT + OVERHEAD;
+  const CHUNK = 64 * 1024;
+
+  beforeEach(() => {
+    process.env.MAX_FILE_SIZE = String(LIMIT);
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.MAX_FILE_SIZE;
+    else process.env.MAX_FILE_SIZE = original;
+  });
+
+  /** A real multipart body, built the way the browser builds one. */
+  async function multipart(fileBytes: number) {
+    const form = new FormData();
+    form.set('incidentId', 'inc-1');
+    form.set('file', new File([new Uint8Array(fileBytes)], 'statement.pdf'));
+    const encoded = new Request('http://x/upload', { method: 'POST', body: form });
+    return {
+      headers: encoded.headers,
+      body: encoded.body,
+    };
+  }
+
+  /**
+   * A body that keeps producing megabytes and reports how many it got to emit.
+   * `declaredLength` is what the request *claims*, which is not necessarily
+   * what it sends -- an attacker controls both independently.
+   */
+  function endlessBody(chunks: number, declaredLength?: number) {
+    const emitted = { chunks: 0 };
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          if (emitted.chunks >= chunks) {
+            controller.close();
+            return;
+          }
+          emitted.chunks += 1;
+          controller.enqueue(new Uint8Array(CHUNK));
+        },
+      },
+      // highWaterMark 0 so the stream produces nothing until it is read from.
+      // At the default of 1 it eagerly fills a chunk on construction, and
+      // `emitted` would then count a byte nobody asked for.
+      { highWaterMark: 0 }
+    );
+    const headers = new Headers({
+      'content-type': 'multipart/form-data; boundary=----x',
+    });
+    if (declaredLength !== undefined) {
+      headers.set('content-length', String(declaredLength));
+    }
+    return { request: { headers, body }, emitted };
+  }
+
+  it('reads a body that fits, and returns its fields', async () => {
+    const form = await readCappedFormData(await multipart(1024));
+    expect(form.get('incidentId')).toBe('inc-1');
+    expect((form.get('file') as File).size).toBe(1024);
+  });
+
+  it('rejects a declared Content-Length over the ceiling with a 413', async () => {
+    const { request, emitted } = endlessBody(1000, CEILING + 1);
+    await expect(readCappedFormData(request)).rejects.toMatchObject({
+      status: 413,
+    });
+    // Rejected on the header alone: not one byte of the body was read.
+    expect(emitted.chunks).toBe(0);
+  });
+
+  it('rejects a body that exceeds the ceiling while declaring nothing', async () => {
+    // Chunked transfer encoding sends no Content-Length, so the header check
+    // cannot see this one coming. Only the counting stream can.
+    const { request } = endlessBody(1000);
+    await expect(readCappedFormData(request)).rejects.toMatchObject({
+      status: 413,
+    });
+  });
+
+  it('rejects a body that exceeds the ceiling while declaring it is small', async () => {
+    const { request } = endlessBody(1000, 512);
+    await expect(readCappedFormData(request)).rejects.toMatchObject({
+      status: 413,
+    });
+  });
+
+  /**
+   * The property the whole change exists for, and the one the old code did not
+   * have: what a request costs the process is decided by the ceiling, not by
+   * the client. A body claiming 512 bytes and sending 64MB must be stopped
+   * mid-flight, so how much gets read cannot depend on how much is offered.
+   */
+  it('reads the same bounded amount however much the body offers', async () => {
+    const small = endlessBody(200, 512); //  12MB on offer
+    const huge = endlessBody(20_000, 512); // 1.2GB on offer
+
+    await expect(readCappedFormData(small.request)).rejects.toMatchObject({ status: 413 });
+    await expect(readCappedFormData(huge.request)).rejects.toMatchObject({ status: 413 });
+
+    expect(huge.emitted.chunks).toBe(small.emitted.chunks);
+    // The ceiling plus the pipeline's own in-flight buffering -- a fixed
+    // overhead of a chunk or two, not a function of the 1.2GB offered.
+    expect(huge.emitted.chunks * CHUNK).toBeLessThan(CEILING + 4 * CHUNK);
+  });
+
+  it('rejects a request with no body at all', async () => {
+    const request = {
+      headers: new Headers({ 'content-type': 'multipart/form-data; boundary=--x' }),
+      body: null,
+    };
+    await expect(readCappedFormData(request)).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('reports a malformed body as a 400, not a 500', async () => {
+    const request = {
+      headers: new Headers({ 'content-type': 'multipart/form-data; boundary=----x' }),
+      body: new Response('not multipart at all').body,
+    };
+    await expect(readCappedFormData(request)).rejects.toMatchObject({ status: 400 });
   });
 });

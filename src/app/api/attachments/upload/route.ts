@@ -5,6 +5,7 @@ import { existsSync } from 'fs';
 import {
   assertAllowedExtension,
   assertWithinSizeLimit,
+  readCappedFormData,
   safeUploadPath,
   UploadError,
   attachmentUploadsDir,
@@ -31,7 +32,10 @@ export async function POST(request: NextRequest) {
     const limited = enforceRateLimit(`upload:${guard.user.id}`, RATE_LIMITS.UPLOAD);
     if (limited) return limited;
 
-    const formData = await request.formData();
+    // Capped read, not `request.formData()`: the body is bounded before it is
+    // parsed, so an oversized POST costs the ceiling and not its own size.
+    // (SEC-10)
+    const formData = await readCappedFormData(request);
     const file = formData.get('file') as File;
     const incidentId = formData.get('incidentId') as string;
 
@@ -54,7 +58,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate type and size before buffering the body. (SEC-5, SEC-10)
+    // Type, then the exact per-file limit. The memory bound was applied by
+    // readCappedFormData above; this is the limit itself. (SEC-5, SEC-10)
     const ext = assertAllowedExtension(file.name, ALLOWED_ATTACHMENT_EXTENSIONS);
     assertWithinSizeLimit(file);
 

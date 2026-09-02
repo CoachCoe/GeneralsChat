@@ -5,7 +5,7 @@ is meant to change; `docs/audit/` and `docs/history/` are dated records that
 should not be rewritten. This repo previously accumulated four status files that
 all drifted out of date, so keep this one current or delete it.
 
-Last reviewed: 2026-09-01. Context: entering a single-user pilot.
+Last reviewed: 2026-09-02. Context: entering a single-user pilot.
 
 ---
 
@@ -154,9 +154,10 @@ All 11 JICK sections (A–K) parse, 9 of them carrying their RSA reference.
 
 ---
 
-### Audit 2026-09-01 — **done, with one blocker deferred**
+### Audit 2026-09-01 — **done; all six blockers now closed**
 
-Six parallel read-only passes; 142 findings, 6 blockers. Five fixed. See
+Six parallel read-only passes; 142 findings, 6 blockers. Five fixed at the time,
+the sixth on 2026-09-02. See
 [`docs/audit/2026-09-01-findings.md`](./audit/2026-09-01-findings.md) and
 [`-work-completed.md`](./audit/2026-09-01-work-completed.md).
 
@@ -168,11 +169,11 @@ New Hampshire law. Until that is fixed, every countdown in the product is the
 model's guess, and `ComplianceAction` has no `policyId` to reconcile it
 against.
 
-The fix needs a product decision first — **OQ-5: what should the product do
+The fix needed a product decision first — **OQ-5: what should the product do
 when the library cannot support a deadline?** Suppress the obligation, show it
-without a countdown, or show it marked unverified. Settle that and the
-two-phase re-classification is straightforward. The UI has been corrected in
-the meantime so it no longer claims the deadline came from the policy.
+without a countdown, or show it marked unverified. **Decided and shipped
+2026-09-02**; the blocker is closed and the decision is recorded below. All six
+are now fixed.
 
 Three other things that were true and are no longer:
 
@@ -334,6 +335,37 @@ verified to fail when the limiter is removed.
 
 ---
 
+### ~~Upload memory bound (SEC-10)~~ — **done 2026-09-02**
+
+Both upload routes called `request.formData()` and *then* checked `file.size`,
+under a comment saying the check ran "before buffering the body". It did not.
+`formData()` reads the whole request into memory to parse it, so the size limit
+rejected an oversized file only after the process had already paid for it. The
+limit was accurate and bought nothing: a few concurrent multi-hundred-megabyte
+POSTs from one signed-in account could take the process down, which at the one
+replica Container Apps pins is every administrator.
+
+`readCappedFormData` in `src/lib/uploads.ts` now reads both bodies under a hard
+ceiling of the file limit plus a 64KB multipart envelope. Content-Length is
+checked first because it is free and rejects the honest case without reading a
+byte, but it is not sufficient on its own — it is absent under chunked transfer
+encoding and it can simply lie — so the body also goes through a counter that
+errors the stream the moment the ceiling is passed. Erroring is what makes it a
+bound rather than a measurement: the parser stops and we stop reading the
+socket.
+
+`assertWithinSizeLimit` stays, and its comment has been corrected to say what it
+actually is: the exact per-file limit, enforced once the part is parsed. The two
+do different jobs and the old comment claimed the second did the first's.
+
+Nine unit tests. The one that matters asserts the property the change exists
+for — a body offering 12MB and a body offering 1.2GB, both declaring 512 bytes,
+are read to exactly the same bounded point — so what a request costs is decided
+by the ceiling and not by the client. Verified to fail: removing the counting
+stream fails three, removing the Content-Length check fails one.
+
+---
+
 ## Next — gated on real use
 
 ### 6. Run a real incident end to end, and watch it — *maintainer*
@@ -343,24 +375,27 @@ than another week of building against assumptions, and the two most uncertain
 design questions — how reliably obligations can be attributed to a policy, and
 whether chat is the right intake at all — are exactly what it will answer.
 
-### 7. Link obligations to their source policy — *~half a day*
+### ~~7. Link obligations to their source policy~~ — **done 2026-09-02, by OQ-5**
 
-An administrator currently sees *"Notify the superintendent — in 3h 18m"* with
-no authority attached and no way to verify it. The whole proposition is *here is
-your obligation and here is the law behind it*.
+Everything this step asked for arrived with OQ-5 rather than after step 6:
+`policyId`, `citation` and `deadlineSource` on `ComplianceAction`, obligations
+derived in a second pass with the retrieved excerpts in hand, and
+`resolveProvenance` attributing each one to a numbered excerpt that was actually
+supplied. `ObligationRow` renders the `AuthorityChip` and the citation, which it
+could always do — the data had simply never existed.
 
-`AuthorityChip` is built and renders a citation the moment one exists. Needs
-`policyId` + `citation` on `ComplianceAction`, and the classifier attributing
-each action to one of the retrieved policies.
+It landed early because it is the same schema change: deciding what to do about
+a deadline with no policy behind it *requires* the row to be able to name the
+policy behind it. The sequencing argument was not wrong, it was answered — the
+citation is best-effort, because the alternative is dropping obligations.
 
-Step 5a makes this materially better than it would have been: an obligation can
-now cite the provision it came from rather than the policy, so the chip can read
-`JICK §D` instead of `Policy JICK`. The section label is already on the chunk
-the guidance was drawn from, so attribution has something precise to attach to.
-
-Deliberately after step 6: watching which obligations come back attributable
-decides whether the citation is a required field or best-effort. Building it
-blind risks designing for attribution that does not hold up.
+The half deliberately still waiting on step 6 is the harder one, restated here
+so it is not read as finished: attribution verifies that the excerpt exists and
+was supplied, **not** that the excerpt states the deadline the model attributed
+to it. A model citing a real provision for a number that provision does not
+contain still produces a `policy`-sourced row. Closing that means parsing the
+deadline out of the provision text, and that wants real incidents to calibrate
+against.
 
 ---
 
@@ -370,8 +405,8 @@ blind risks designing for attribution that does not hold up.
 
 | Item | Why it can wait, and why it can't wait forever |
 |---|---|
-| Rate limiting (SEC-11) | Irrelevant at one user; one signed-in account can still run up the Anthropic bill |
-| Upload OOM (SEC-10, partial) | Size limits reject oversized files, but `request.formData()` buffers the body first, so a large POST still lands in memory |
+| ~~Rate limiting (SEC-11, SEC-23)~~ | **Done 2026-09-02.** It turned out not to be a can-wait item: sign-in ran bcrypt at cost 12 even for an address with no account, so a few hundred attempts a minute made the app unavailable to every administrator. Sign-in is limited by address in `middleware.ts`, chat and uploads by user id. The counters are per-process, so they must move to a shared store before `maxReplicas` is raised |
+| ~~Upload OOM (SEC-10)~~ | **Done 2026-09-02.** `readCappedFormData` bounds both upload bodies before they are parsed, by Content-Length and then by a counting stream that errors past the ceiling. Recorded above |
 | DNS rebinding (SEC-4, partial) | Needs a hostname allowlist, which is a decision about permitted policy sources |
 | ~~Unit tests~~ | **Done 2026-09-01.** Vitest, 79 tests over the pure logic: `describeDeadline`, `splitIntoChunks`, `cleanText`, `buildCoverageReport`, the upload path guards, the zod schemas, and the incident→category mapping. `npm run test:unit` runs in under a second; `npm test` runs unit then e2e, and CI runs unit before installing a browser. Writing them found three real bugs — see the audit record |
 
