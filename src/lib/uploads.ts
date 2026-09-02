@@ -41,9 +41,13 @@ export function fileExtension(originalName: string): string {
 }
 
 /**
- * Rejects before the body is buffered into memory. `file.size` is set by
- * the runtime from the multipart part, so this does not require reading
- * the file first.
+ * The exact per-file limit, checked once the part is in hand.
+ *
+ * This does NOT bound memory on its own: `file.size` is only known after the
+ * multipart body has been parsed, and parsing buffers it. Reaching this
+ * function at all means the bytes were already read. `readCappedFormData` is
+ * what stops an oversized body before that happens; this is what enforces the
+ * limit precisely afterwards. (SEC-10)
  */
 export function assertWithinSizeLimit(file: File): void {
   const limit = maxUploadBytes();
@@ -52,6 +56,82 @@ export function assertWithinSizeLimit(file: File): void {
       `File exceeds the ${Math.floor(limit / (1024 * 1024))}MB upload limit`,
       413
     );
+  }
+}
+
+/**
+ * The multipart envelope around the file: boundary lines, per-part headers,
+ * and the handful of small text fields that travel with it (`incidentId`, or
+ * a policy's title and facets). Generous on purpose -- the ceiling here only
+ * has to bound memory, and `assertWithinSizeLimit` enforces the real limit on
+ * the file itself once it has been parsed.
+ */
+const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+
+/** What `readCappedFormData` needs of a Request. Both routes pass a NextRequest. */
+interface MultipartRequest {
+  headers: Headers;
+  body: ReadableStream<Uint8Array> | null;
+}
+
+/**
+ * Reads a multipart body under a hard byte ceiling.
+ *
+ * Both upload routes called `request.formData()` and then checked `file.size`,
+ * with a comment claiming the check ran "before buffering the body". It did
+ * not: `formData()` reads the whole request into memory first, so the size
+ * limit rejected an oversized file only after paying for it. A few concurrent
+ * multi-hundred-megabyte POSTs from one signed-in account were enough to take
+ * the process down, which on a single-replica deployment is every
+ * administrator. (SEC-10)
+ *
+ * Content-Length is checked first because it is free and rejects the honest
+ * case without reading a byte. It is not sufficient on its own -- it is absent
+ * under chunked transfer encoding and it can simply lie -- so the body is also
+ * piped through a counter that errors the moment the ceiling is passed. The
+ * bound then holds regardless of what the header claimed, and the parser never
+ * sees more than the ceiling.
+ */
+export async function readCappedFormData(request: MultipartRequest): Promise<FormData> {
+  const limit = maxUploadBytes();
+  const ceiling = limit + MULTIPART_OVERHEAD_BYTES;
+  const tooLarge = () =>
+    new UploadError(
+      `Upload exceeds the ${Math.floor(limit / (1024 * 1024))}MB limit`,
+      413
+    );
+
+  const declared = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > ceiling) throw tooLarge();
+
+  const body = request.body;
+  if (!body) throw new UploadError('Expected a multipart upload body', 400);
+
+  let seen = 0;
+  let exceeded = false;
+  const counter = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      seen += chunk.byteLength;
+      if (seen > ceiling) {
+        // Erroring the stream is what makes this a bound rather than a
+        // measurement: the parser stops, and we stop reading the socket.
+        exceeded = true;
+        controller.error(tooLarge());
+        return;
+      }
+      controller.enqueue(chunk);
+    },
+  });
+
+  try {
+    return await new Response(body.pipeThrough(counter), {
+      headers: { 'content-type': request.headers.get('content-type') ?? '' },
+    }).formData();
+  } catch (error) {
+    // The parser wraps the stream's error, so the flag is what survives.
+    if (exceeded) throw tooLarge();
+    if (error instanceof UploadError) throw error;
+    throw new UploadError('Could not read the upload', 400);
   }
 }
 
