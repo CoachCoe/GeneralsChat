@@ -1,8 +1,11 @@
 import { execSync } from 'child_process';
+import { mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@/generated/prisma';
 import { parsePolicySections } from '../../src/lib/policy-sections';
 import { splitPolicyIntoSectionedChunks } from '../../src/lib/utils/documentProcessor';
+import { attachmentUploadsDir } from '../../src/lib/uploads';
 
 export const TEST_PASSWORD = 'e2e-test-password-1';
 
@@ -22,6 +25,16 @@ export const TEST_USERS = {
 export interface SeededIds {
   adminIncidentId: string;
   adminObligationId: string;
+  /**
+   * One attachment per user, with real bytes on disk. `CLAUDE.md` names
+   * attachments an invariant -- "Attachments are student records ... served only
+   * through `GET /api/attachments/[id]`, which re-checks session and ownership"
+   * -- and no test created an `Attachment` row of any kind, so the ownership
+   * check, the 404-not-403 response, the containment assertion and the
+   * three response headers were all unexercised. (B10, TEST-30)
+   */
+  reporterAttachmentId: string;
+  adminAttachmentId: string;
   /** The reporter's own open incident, for assertions about its own page. */
   reporterIncidentId: string;
   closedIncidentId: string;
@@ -269,11 +282,52 @@ export async function resetDatabase(): Promise<SeededIds> {
       include: { complianceActions: true },
     });
 
+    // Attachments, with bytes actually on disk so the download path is real.
+    // The directory is the one the app resolves, so a test asserting the file
+    // is not reachable under public/ is asserting the deployed arrangement.
+    const uploadsDir = attachmentUploadsDir();
+    mkdirSync(uploadsDir, { recursive: true });
+
+    const attachmentFixtures = [
+      {
+        storedName: 'e2e-reporter-statement.txt',
+        filename: 'witness-statement.txt',
+        body: 'E2E fixture: witness statement filed by the reporter.',
+        incidentId: openIncident.id,
+        uploadedBy: reporter.id,
+      },
+      {
+        storedName: 'e2e-admin-statement.txt',
+        filename: 'title-ix-notes.txt',
+        body: 'E2E fixture: Title IX notes filed by the admin.',
+        incidentId: adminIncident.id,
+        uploadedBy: admin.id,
+      },
+    ];
+
+    const attachmentIds: Record<string, string> = {};
+    for (const fixture of attachmentFixtures) {
+      writeFileSync(join(uploadsDir, fixture.storedName), fixture.body, 'utf8');
+      const row = await prisma.attachment.create({
+        data: {
+          filename: fixture.filename,
+          filePath: fixture.storedName,
+          fileType: 'text/plain',
+          fileSize: Buffer.byteLength(fixture.body),
+          incidentId: fixture.incidentId,
+          uploadedBy: fixture.uploadedBy,
+        },
+      });
+      attachmentIds[fixture.storedName] = row.id;
+    }
+
     return {
       adminIncidentId: adminIncident.id,
       adminObligationId: adminIncident.complianceActions[0].id,
       reporterIncidentId: openIncident.id,
       closedIncidentId: closedIncident.id,
+      reporterAttachmentId: attachmentIds['e2e-reporter-statement.txt'],
+      adminAttachmentId: attachmentIds['e2e-admin-statement.txt'],
     };
   } finally {
     await prisma.$disconnect();

@@ -203,6 +203,56 @@ test.describe('Obligation queue', () => {
     ).toBe(false);
   });
 
+  test('the four remaining scoped lookups all refuse a foreign incident id', async ({ page }) => {
+    // `incidentScope` is applied at eight by-id lookups. Four had a
+    // falsifiable test after the TEST-27/TEST-28 fix; these four had none, so
+    // deleting `...incidentScope(guard.user)` from any of them left the whole
+    // suite green.
+    //
+    // Two of them are the worst ones to leave uncovered: GET
+    // /api/chat/[incidentId] returns a whole conversation transcript, and POST
+    // /api/chat accepts an incidentId and would append a turn to another
+    // reporter's incident -- and then classify it. (B11, TEST-52)
+    const { adminIncidentId } = seededIds();
+
+    // GET /api/chat/[incidentId] -- the transcript.
+    const transcript = await page.request.get(`/api/chat/${adminIncidentId}`);
+    expect(transcript.status()).toBe(404);
+    expect(await transcript.text()).not.toContain('Only the admin filed this one');
+
+    // POST /api/chat -- appending to someone else's incident.
+    const append = await page.request.post('/api/chat', {
+      data: { message: 'Appending to an incident I did not file.', incidentId: adminIncidentId },
+    });
+    expect(append.status()).toBe(404);
+
+    // POST /api/chat/summary -- summarising someone else's transcript.
+    const summary = await page.request.post('/api/chat/summary', {
+      data: { incidentId: adminIncidentId },
+    });
+    expect(summary.status()).toBe(404);
+
+    // POST /api/attachments/upload -- attaching to someone else's incident.
+    const upload = await page.request.post('/api/attachments/upload', {
+      multipart: {
+        incidentId: adminIncidentId,
+        file: {
+          name: 'note.txt',
+          mimeType: 'text/plain',
+          buffer: Buffer.from('should never be attached'),
+        },
+      },
+    });
+    expect(upload.status()).toBe(404);
+
+    // Refusal is not enough: the foreign incident must be unchanged. Its own
+    // turn count and attachment count are the observable part, and a reporter
+    // cannot read them -- so assert instead that nothing new is visible to the
+    // reporter under any of its ids.
+    const readBack = await page.request.get(`/api/incidents/${adminIncidentId}`);
+    expect(readBack.status()).toBe(404);
+  });
+
   test('records where each deadline came from, and only counts the backed ones', async ({
     page,
   }) => {

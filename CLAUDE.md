@@ -33,14 +33,25 @@ Give the URL an explicit role. Prisma does not fall back to the OS user the way
 `psql` does, so a userless URL fails migrate with `P1010: User was denied
 access` while `psql -l` on the same database works fine.
 
-**`.env` points at production.** There is no local database in this checkout —
-`DATABASE_URL` in `.env` is the hosted Postgres the pilot runs on. Any script
-run without an explicit override writes to real data. `npm test` is safe by
-construction (its setup refuses a database whose name lacks `test`), but the
-`policies:*` and `prisma` commands are not, and neither are
-`scripts/test-phase3.ts` and `scripts/test-rag.ts`, which create and delete
-`User`, `Incident`, `Conversation` and `Policy` rows despite the `test-`
-prefix. They take whatever `.env` gives them. Re-indexing against production with an unmigrated schema is what once
+**`.env` points at production.** `DATABASE_URL` in `.env` is the hosted
+Postgres the pilot runs on, so any script run without an explicit override
+writes to real data. `npm test` is safe by construction — its setup refuses a
+database whose name lacks `test`.
+
+The `policies:*` and `prisma` commands are **not** safe, and take whatever
+`.env` gives them. These now carry the same `test`-in-the-name guard the e2e
+setup has, and refuse to run against anything else:
+
+| Script | What it does |
+|---|---|
+| `npm run incidents:clear` | Deletes **every** incident, conversation, attachment, compliance action and audit-log row. Dry run unless `--apply` |
+| `scripts/test-rag.ts` | Creates an *active* district bullying policy, which competes with the real JICK for every bullying query |
+| `scripts/test-phase3.ts` | Creates and deletes `User`, `Incident` and `Conversation` rows |
+| `scripts/migrate-chat-titles.ts` | Rewrites `Incident` titles in place |
+
+The `test-` prefix on the first three does not mean they are tests; they are not
+part of any gate. The guard lives in `scripts/support/require-test-database.ts`.
+(B7, B8) Re-indexing against production with an unmigrated schema is what once
 left every policy with zero chunks and retrieval silently returning nothing.
 Prefer `npm run policies:reindex` with no flag — it is a dry run — and read what
 it says it would do before passing `--apply`.
