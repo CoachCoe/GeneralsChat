@@ -74,6 +74,21 @@ function extractJsonObject(raw: string): string {
 }
 
 /**
+ * Parse a classification out of a raw model response, or throw.
+ *
+ * Exported so the parse boundary is testable without a client. The behaviour
+ * that matters is the *throwing*: this used to be inlined in
+ * `classifyIncident`, whose catch returned a fabricated `other` / `medium`
+ * classification carrying two invented 24-hour obligations, which the chat
+ * route then wrote to the incident permanently. There is no way to distinguish
+ * that record from a genuine "we could not tell", and no endpoint to correct
+ * it. (B1)
+ */
+export function parseClassification(raw: string): ClassificationResult {
+  return classificationSchema.parse(JSON.parse(extractJsonObject(raw)));
+}
+
+/**
  * Claude AI Service
  *
  * Handles all interactions with Anthropic's Claude API
@@ -514,9 +529,7 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
     );
 
     try {
-      const classification = classificationSchema.parse(
-        JSON.parse(extractJsonObject(response.content))
-      );
+      const classification = parseClassification(response.content);
 
       const duration = Date.now() - startTime;
       logAIOperation('classifyIncident', this.model, undefined, duration);
@@ -530,18 +543,25 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
         duration,
       });
 
-      // Return a safe default
-      return {
-        type: 'other',
-        severity: 'medium',
-        reasoning: 'Unable to automatically classify. Manual review required.',
-        requiredActions: [
-          { description: 'Review incident details', dueInHours: 24 },
-          { description: 'Contact administrator', dueInHours: 24 },
-        ],
-        timeline: ['Immediate: Begin investigation'],
-        stakeholders: ['Administrator', 'Reporter'],
-      };
+      // No default. This used to return `other` / `medium` with two invented
+      // 24-hour obligations, and the caller wrote that to the incident
+      // permanently -- so a response the model returned unparseably became
+      // indistinguishable from a genuine "we could not tell", carrying two
+      // deadlines no policy and no model had actually stated.
+      //
+      // FLOW-35 deleted the equivalent default one layer up, in
+      // IncidentClassifier, and recorded why: "a plausible-looking safe default
+      // is exactly what someone would re-wire." The throw belonged here too --
+      // the model call above sits outside this try, so only an unparseable or
+      // schema-invalid *response* reaches this catch, which is precisely the
+      // case zod was added for. Throwing lets IncidentClassifier wrap it in
+      // ClassificationUnavailableError, which leaves incidentType null so the
+      // next turn retries. (B1)
+      throw new Error(
+        `Claude returned a classification that could not be parsed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 
