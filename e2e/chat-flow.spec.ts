@@ -308,3 +308,46 @@ test.describe('Classification and library scope', () => {
     await expect(note).toContainText('title ix');
   });
 });
+
+test.describe('A failed turn', () => {
+  test('is not rendered as the assistant speaking, and says nothing was written', async ({
+    page,
+  }) => {
+    // A failure used to be appended as a `type: 'general'` message with
+    // apology text -- same component, same place, same avatar as real
+    // guidance. `generateSchoolComplianceResponse` was changed to throw rather
+    // than return filler precisely so a failed call could not be mistaken for
+    // guidance (FLOW-7); the client was reintroducing it visually. It was also
+    // client-only, so a reload left the question with no answer and no
+    // explanation. (FLOW-53)
+    await page.goto('/chat');
+
+    await page.route('**/api/chat', route =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'The compliance assistant is temporarily unavailable.' }),
+      })
+    );
+
+    const question = 'A student disclosed abuse at home this morning.';
+    await page.getByTestId('chat-input').fill(question);
+    await page.getByRole('button', { name: 'Send message' }).click();
+
+    // Reported as a failure, with the endpoint's own message.
+    const failure = page.getByTestId('chat-error');
+    await expect(failure).toBeVisible();
+    await expect(failure).toContainText('temporarily unavailable');
+
+    // Not as guidance. The old apology text must not appear anywhere.
+    await expect(page.getByText("I'm sorry, I'm experiencing technical difficulties")).toHaveCount(
+      0
+    );
+    // And no sources block, which is what makes a turn look like an answer.
+    await expect(page.getByTestId('chat-sources')).toHaveCount(0);
+
+    // The unsent text is recoverable rather than lost.
+    await failure.getByRole('button', { name: 'Put my message back' }).click();
+    await expect(page.getByTestId('chat-input')).toHaveValue(question);
+  });
+});

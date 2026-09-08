@@ -156,3 +156,28 @@ test.describe('Policy library', () => {
     await expect(page.getByRole('link', { name: 'Manage policies' })).toHaveCount(0);
   });
 });
+
+test.describe('Security response headers', () => {
+  // There were none. This app holds incident records about minors and renders
+  // model output as markdown, so it is a prompt-injection sink with a browser
+  // attached. (SEC-38)
+  test('every page carries a CSP that bounds where data can go', async ({ page }) => {
+    const response = await page.goto('/');
+    const headers = response?.headers() ?? {};
+
+    const csp = headers['content-security-policy'];
+    expect(csp).toBeDefined();
+    // The two that matter most: where a page may send data, and whether it can
+    // be framed by a site building a clickjacked "Mark done".
+    expect(csp).toContain("connect-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    // Anything not named must be refused rather than inherit a default.
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("object-src 'none'");
+
+    expect(headers['x-content-type-options']).toBe('nosniff');
+    expect(headers['x-frame-options']).toBe('DENY');
+    // The path carries an incident id, so it must not travel in a Referer.
+    expect(headers['referrer-policy']).toBe('same-origin');
+  });
+});
