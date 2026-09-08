@@ -415,6 +415,12 @@ const KIND_TONE: Record<TimelineEvent['kind'], string> = {
 function TimelineRow({ event }: { event: TimelineEvent }) {
   const mounted = useMounted();
   const isAttachment = event.kind === 'attachment';
+  // Guidance and summaries are markdown -- the prompt asks the model for
+  // `## headers` and bold, and the timeline was rendering the literal
+  // characters, which is the bug GuidanceBlock was written for and this view
+  // never picked up. The reporter's own words stay plain text: they are user
+  // input, not markup, and must not be reinterpreted as formatting.
+  const isModelOutput = event.kind === 'exchange' && event.meta !== 'user';
   return (
     <div className="flex gap-3 rounded-[12px] border border-line bg-surface px-4 py-3">
       <span className={`mt-2 h-2 w-2 flex-none rounded-full ${KIND_TONE[event.kind]}`} aria-hidden />
@@ -446,6 +452,8 @@ function TimelineRow({ event }: { event: TimelineEvent }) {
             >
               {event.body}
             </a>
+          ) : isModelOutput ? (
+            <GuidanceBlock>{event.body}</GuidanceBlock>
           ) : (
             <p className="whitespace-pre-wrap text-[14px] leading-[1.6] text-text-tertiary">
               {event.body}

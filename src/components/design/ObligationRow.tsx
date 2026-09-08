@@ -50,53 +50,60 @@ export function ObligationRow({
   };
 
   return (
-    <div className="flex flex-col gap-3 border-b border-input px-5 py-[18px] last:border-b-0 sm:flex-row sm:gap-[18px]">
-      <DeadlineClock
-        dueDate={obligation.dueDate}
-        status={obligation.status}
-        completedAt={obligation.completedAt}
-        verified={obligation.deadlineSource !== 'model'}
-      />
+    // Container query, not `sm:`. The same row renders in the wide queue on the
+    // home page and in the 340px aside on an incident -- and a viewport
+    // breakpoint cannot tell those apart, so at any desktop width the aside got
+    // the three-column row layout and squeezed the description to one word per
+    // line. `@sm` (24rem) measures the space the row actually has.
+    <div className="@container border-b border-input last:border-b-0">
+      <div className="flex flex-col gap-3 px-5 py-[18px] @sm:flex-row @sm:gap-[18px]">
+        <DeadlineClock
+          dueDate={obligation.dueDate}
+          status={obligation.status}
+          completedAt={obligation.completedAt}
+          verified={obligation.deadlineSource !== 'model'}
+        />
 
-      <div className="flex flex-1 flex-col gap-1.5">
-        <span
-          className={`text-[16px] font-medium leading-[1.4] ${
-            done ? 'text-text-muted line-through' : 'text-text'
-          }`}
-        >
-          {obligation.description || obligation.actionType}
-        </span>
-
-        {obligation.incidentTitle && showIncident && (
-          <span className="text-[12px] text-text-muted">{obligation.incidentTitle}</span>
-        )}
-
-        {obligation.deadlineSource === 'model' && !done && (
-          <span className="text-[12px] leading-[1.4] text-text-muted">
-            Deadline not found in the loaded policy — confirm it before acting.
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span
+            className={`text-[16px] font-medium leading-[1.4] ${
+              done ? 'text-text-muted line-through' : 'text-text'
+            }`}
+          >
+            {obligation.description || obligation.actionType}
           </span>
-        )}
 
-        {(obligation.jurisdiction || obligation.citation) && (
-          <div className="flex items-center gap-2">
-            {obligation.jurisdiction && <AuthorityChip jurisdiction={obligation.jurisdiction} />}
-            {obligation.citation && (
-              <span className="text-[12px] text-text-muted">{obligation.citation}</span>
-            )}
-          </div>
+          {obligation.incidentTitle && showIncident && (
+            <span className="text-[12px] text-text-muted">{obligation.incidentTitle}</span>
+          )}
+
+          {obligation.deadlineSource === 'model' && !done && (
+            <span className="text-[12px] leading-[1.4] text-text-muted">
+              Deadline not found in the loaded policy — confirm it before acting.
+            </span>
+          )}
+
+          {(obligation.jurisdiction || obligation.citation) && (
+            <div className="flex items-center gap-2">
+              {obligation.jurisdiction && <AuthorityChip jurisdiction={obligation.jurisdiction} />}
+              {obligation.citation && (
+                <span className="text-[12px] text-text-muted">{obligation.citation}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {onDone && !done && (
+          <button
+            type="button"
+            onClick={handleDone}
+            disabled={busy}
+            className="inline-flex min-h-[44px] flex-none items-center self-start rounded-[12px] bg-text px-[14px] text-[13px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? 'Saving…' : 'Mark done'}
+          </button>
         )}
       </div>
-
-      {onDone && !done && (
-        <button
-          type="button"
-          onClick={handleDone}
-          disabled={busy}
-          className="inline-flex min-h-[44px] flex-none items-center self-start rounded-[12px] bg-text px-[14px] text-[13px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? 'Saving…' : 'Mark done'}
-        </button>
-      )}
     </div>
   );
 }
