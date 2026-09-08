@@ -347,7 +347,23 @@ class ClaudeService {
 
       return activePrompt?.content || null;
     } catch (error) {
-      console.warn('Failed to fetch active system prompt from database:', error);
+      // A database error and "no profile configured" both returned null, so a
+      // transient Postgres blip silently swapped the district's tuned advisor
+      // profile for the built-in default -- mid-conversation, with nothing in
+      // the structured log and nothing on screen. The administrator gets
+      // differently-worded guidance about a statutory obligation and has no
+      // way to know why.
+      //
+      // Still degrades rather than failing the request: guidance with the
+      // default profile is better than no guidance, and CORE_DIRECTIVES and
+      // the retrieval guards are in code and unaffected either way. But it is
+      // now recorded through the logger rather than console.warn, at error
+      // level, so it is visible in whatever consumes the structured stream.
+      // (FLOW-77, MT-5)
+      logError(error as Error, {
+        operation: 'getAdvisorProfile',
+        note: 'falling back to the built-in advisor profile for this call',
+      });
       return null;
     }
   }
@@ -672,7 +688,11 @@ ${policyContext}`;
       // A parse failure must not invent obligations. Returning none leaves the
       // first-pass ones in place, recorded as model-sourced, which is what they
       // are.
-      console.error('deriveObligations: could not parse response', error);
+      logError(error as Error, {
+        operation: 'deriveObligations',
+        note: 'unparseable response; first-pass obligations stand, recorded as model-sourced',
+        rawLength: response.content.length,
+      });
       return { obligations: [], usage: response.usage };
     }
   }
@@ -818,39 +838,12 @@ Examples:
     }
   }
 
-  /**
-   * Stream a response (for real-time chat)
-   */
-  async *streamResponse(
-    messages: ClaudeMessage[],
-    systemPrompt?: string
-  ): AsyncGenerator<string, void, unknown> {
-    try {
-      const client = this.getClient();
-      const stream = await client.messages.create({
-        model: this.model,
-        max_tokens: this.maxTokens,
-        system: systemPrompt,
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        stream: true,
-      });
+  // streamResponse is gone with its only caller, LLMService.streamResponse.
+  // That caller built a guidance prompt that bypassed buildSystemPrompt, so it
+  // carried neither CORE_DIRECTIVES nor the retrieval guard, and it yielded
+  // apology text into the stream on failure. Nothing streams today; a future
+  // streaming path must go through buildSystemPrompt. (SPEC-58, SEC-40)
 
-      for await (const event of stream) {
-        if (
-          event.type === 'content_block_delta' &&
-          event.delta.type === 'text_delta'
-        ) {
-          yield event.delta.text;
-        }
-      }
-    } catch (error) {
-      console.error('Claude streaming error:', error);
-      throw new Error(`Failed to stream Claude response: ${error}`);
-    }
-  }
 }
 
 export const claudeService = new ClaudeService();

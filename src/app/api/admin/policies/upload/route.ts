@@ -24,7 +24,13 @@ import { enforceRateLimit } from '@/lib/errors';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 
 /** Formats the documentProcessor can actually parse. */
-const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.doc'] as const;
+// `.doc` is not here. The extractor read the legacy OLE2 binary as UTF-8, so
+// the "policy text" it produced was mojibake that got chunked and became
+// retrievable, citable policy. Rejecting at the boundary gives the operator a
+// message they can act on rather than a silently corrupt library entry.
+// Attachments still accept `.doc`: those are stored and served back verbatim,
+// never extracted or retrieved. (FLOW-72)
+const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx'] as const;
 
 // POST /api/admin/policies/upload - Upload policy file or fetch from URL
 export async function POST(request: NextRequest) {
@@ -134,6 +140,15 @@ export async function POST(request: NextRequest) {
     // Create policy
     const keywordsArray = keywords ? keywords.split(',').map(k => k.trim()) : [];
 
+    // Created inactive. Indexing happens after the row exists -- it needs the
+    // id -- and `addPolicyDocument` writes through the global client, so the
+    // two cannot share a transaction. If indexing then failed, the old code
+    // left an **active** policy with zero chunks behind a 500: invisible to
+    // retrieval, but counted as loaded by the library page, and exactly the
+    // state `policy-coverage.ts` exists to warn about ("a row with no chunks
+    // is invisible to retrieval, so counting it would claim coverage the
+    // system cannot deliver"). Activating only after the chunks land means a
+    // failure leaves nothing that claims coverage. (FLOW-73)
     const policy = await prisma.policy.create({
       data: {
         title,
@@ -147,7 +162,7 @@ export async function POST(request: NextRequest) {
           uploadedVia: file ? 'file' : 'url',
           originalSource: url || file?.name,
         }),
-        isActive: true,
+        isActive: false,
         version: 1
       }
     });
@@ -169,17 +184,41 @@ export async function POST(request: NextRequest) {
     // directly left `embedding` null and Chroma untouched, making
     // admin-uploaded policies invisible to vector search.
     // (FLOW-22, FLOW-23, SPEC-9, DEAD-11)
-    await ragSystem.addPolicyDocument(policy.id, content, {
-      title,
-      jurisdiction: policy.jurisdiction,
-      category: policy.category,
-      effectiveDate,
-      keywords: keywordsArray,
-    });
+    let chunksCreated = 0;
+    try {
+      await ragSystem.addPolicyDocument(policy.id, content, {
+        title,
+        jurisdiction: policy.jurisdiction,
+        category: policy.category,
+        effectiveDate,
+        keywords: keywordsArray,
+      });
 
-    const chunksCreated = await prisma.policyChunk.count({
-      where: { policyId: policy.id },
-    });
+      chunksCreated = await prisma.policyChunk.count({
+        where: { policyId: policy.id },
+      });
+
+      // A chunkless policy is unretrievable, so it must not go active. This is
+      // the same predicate `buildCoverageReport` uses to decide whether a row
+      // counts as coverage at all.
+      if (chunksCreated === 0) {
+        throw new UploadError(
+          'The document was stored but produced no searchable chunks, so it would be invisible to retrieval. It has not been activated.',
+          422
+        );
+      }
+
+      await prisma.policy.update({
+        where: { id: policy.id },
+        data: { isActive: true },
+      });
+    } catch (error) {
+      // Leave nothing behind that claims coverage it cannot deliver.
+      await prisma.policyChunk.deleteMany({ where: { policyId: policy.id } }).catch(() => {});
+      await prisma.policy.delete({ where: { id: policy.id } }).catch(() => {});
+      if (filePath) await unlink(filePath).catch(() => {});
+      throw error;
+    }
 
     return NextResponse.json({
       success: true,

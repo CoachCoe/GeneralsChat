@@ -53,10 +53,17 @@ export async function processDocument(filePath: string): Promise<ProcessedDocume
         break;
         
       case '.doc':
-        // For .doc files, we'd need a different library like 'mammoth' with doc support
-        // For now, we'll treat it as text
-        content = fileBuffer.toString('utf-8');
-        break;
+        // Refused, not guessed. This read the legacy OLE2 binary as UTF-8, so
+        // a .doc policy became mojibake -- and `cleanText` then tidied it into
+        // something that passed the "any words at all" check, was chunked, and
+        // became *retrievable policy text cited under the real policy's
+        // title*. An administrator asking about bullying could be shown binary
+        // noise attributed to Policy JICK. A confidently wrong citation is
+        // worse than no answer, so this fails with something the operator can
+        // act on instead. (FLOW-72)
+        throw new Error(
+          'Legacy .doc files cannot be read. Open it and save as .docx or PDF, then upload that.'
+        );
         
       case '.txt':
         content = fileBuffer.toString('utf-8');

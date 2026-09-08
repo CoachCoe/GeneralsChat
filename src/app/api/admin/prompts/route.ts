@@ -1,3 +1,5 @@
+import { createPromptSchema, formatValidationErrors, validateRequest } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
@@ -46,15 +48,18 @@ export async function POST(request: NextRequest) {
     if (!guard.ok) return guard.response;
 
     const body = await request.json();
-    const { name, content, description } = body;
 
-    // Validation
-    if (!name || !content) {
-      return NextResponse.json(
-        { error: 'Name and content are required' },
-        { status: 400 }
-      );
+    // Through the schema written for this route, which sat unimported while
+    // the handler hand-rolled `if (!name || !content)`. That accepted a
+    // 10MB name, a one-character advisor profile, and a `content` of `{}` or
+    // `[]` -- both truthy -- straight into the row that is prepended to every
+    // consultation. `createPromptSchema` bounds the name at 100 characters and
+    // requires at least 10 characters of content. (SEC-36, FLOW-78)
+    const validation = validateRequest(createPromptSchema, body);
+    if (!validation.success) {
+      return validationError('Invalid prompt', formatValidationErrors(validation.errors));
     }
+    const { name, content, description } = validation.data;
 
     const prompt = await prisma.systemPrompt.create({
       data: {
