@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { incidentClassifier } from '@/lib/ai/classifier';
-import { DataSensitivity, INCIDENT_TYPE_LABELS, PolicyReference } from '@/types';
+import {
+  DataSensitivity,
+  INCIDENT_TYPE_LABELS,
+  type IncidentClassification,
+  PolicyReference,
+} from '@/types';
 import { logRequest, logResponse, logError } from '@/lib/logger';
 import { recordAudit } from '@/lib/audit';
 import { createErrorResponse, validationError, notFoundError } from '@/lib/errors';
@@ -12,6 +17,7 @@ import { SUMMARY_SENDER } from '@/lib/ai/incident-summary';
 import { incidentScope, requireUser } from '@/lib/session';
 import { actionTypeFor, ClassificationUnavailableError } from '@/lib/ai/classifier';
 import { resolveProvenance } from '@/lib/obligation-provenance';
+import { dueDateFromHours } from '@/lib/deadline';
 import { claudeService } from '@/lib/ai/claude-service';
 import { enforceRateLimit } from '@/lib/errors';
 import { RATE_LIMITS } from '@/lib/rate-limit';
@@ -130,48 +136,46 @@ export async function POST(request: NextRequest) {
       content: conv.message,
     }));
 
-    // Classify incident if this is the first substantive message
-    let classification = null;
+    // Classify incident if this is the first substantive message, or if a
+    // previous turn classified it but never got as far as its obligations.
+    //
+    // The gate used to be `!incident.incidentType` alone. That field is written
+    // in phase one, before retrieval and before the obligations exist, so any
+    // failure in between left the incident classified with zero
+    // ComplianceAction rows -- and `complianceAction.create` appears nowhere
+    // else in the tree, so nothing ever retried. The incident looked complete:
+    // a classified abuse_neglect report with an empty obligation queue, which
+    // reads as "nothing is required of you". OQ-5 names that outcome directly:
+    // "*nothing* is how a mandated report gets missed."
+    //
+    // Both halves are now written in one transaction (see `commitClassification`
+    // below) so the stamp cannot outlive the obligations, and this gate also
+    // retries an incident left in that state by an earlier deploy. (B2)
+    //
     // Previously `conversations.length === 0 && message.length > 50`. Both had
     // to hold in the same request, but the first is only true on turn one --
     // so a short opening message (SYSTEM_STATUS's own example, "A student was
     // bullied today", is 27 chars) skipped classification permanently, leaving
     // incidentType, severity, timeline null and zero ComplianceAction rows.
     // (FLOW-18, SPEC-10)
-    if (!incident.incidentType) {
+    let classification = null;
+
+    const obligationCount = await prisma.complianceAction.count({
+      where: { incidentId: incident.id },
+    });
+
+    if (!incident.incidentType || obligationCount === 0) {
       try {
         classification = await incidentClassifier.classifyIncident(message, {
           incidentId: incident.id,
           reporterId: userId,
         });
 
-        const typeLabel = INCIDENT_TYPE_LABELS[classification.type] || 'Incident';
-
-        // Enhance title with incident type
-        const enhancedTitle = incident.title.startsWith(typeLabel)
-          ? incident.title
-          : `${typeLabel}: ${incident.title}`;
-
-        // Update incident with classification and enhanced title
-        await prisma.incident.update({
-          where: { id: incident.id },
-          data: {
-            title: enhancedTitle,
-            incidentType: classification.type,
-            severity: classification.severity,
-            timeline: JSON.stringify(classification.timeline),
-            metadata: JSON.stringify({
-              classification,
-              stakeholders: classification.stakeholders,
-            }),
-          },
-        });
-
-        // Obligations are NOT created here. Classification runs before
-        // retrieval -- its categories are what retrieval filters on -- so at
-        // this point no policy has been consulted and any deadline would be
-        // the model's recall of state law. They are created after retrieval,
-        // below. (OQ-5)
+        // Nothing is written yet. Classification runs before retrieval -- its
+        // categories are what retrieval filters on -- so at this point no
+        // policy has been consulted and any deadline would be the model's
+        // recall of state law. The classification and the obligations it
+        // implies are committed together after retrieval, below. (OQ-5, B2)
       } catch (error) {
         if (!(error instanceof ClassificationUnavailableError)) throw error;
         // Leave incidentType null so the next turn retries. The guidance call
@@ -205,9 +209,10 @@ export async function POST(request: NextRequest) {
     );
 
     // Phase two: now that policy has been retrieved, derive the obligations
-    // from it and record where each deadline actually came from. (OQ-5)
+    // from it and record where each deadline actually came from, and commit
+    // them together with the classification that implied them. (OQ-5, B2)
     if (classification) {
-      await createObligations(incident.id, message, policyContext, references, classification);
+      await commitClassification(incident, message, policyContext, references, classification);
     }
 
     const { content: response, usage } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
@@ -278,7 +283,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Create an incident's obligations from the policy that was actually retrieved.
+ * Commit a classification and the obligations it implies, in one transaction.
  *
  * Two passes, because the ordering is forced: classification produces the
  * categories retrieval filters on, so it cannot see policy, and its deadlines
@@ -296,46 +301,74 @@ export async function POST(request: NextRequest) {
  * as model-sourced, which is exactly what they are: losing the obligation
  * entirely would be worse, because "you must report this to DCYF" is worth
  * saying even when no deadline can be attributed. (OQ-5)
+ *
+ * Why one transaction: `incidentType` used to be written in phase one, before
+ * this function ran. Anything that threw in between -- a timeout inside
+ * `deriveObligations`, which guards its parse but not its model call -- left the
+ * incident classified with zero obligations. The caller only classifies when
+ * `incidentType` is null, and `complianceAction.create` exists nowhere else, so
+ * nothing retried: a classified report with an empty obligation queue, which
+ * reads as "nothing is required of you". The model call is made *before* the
+ * transaction opens, so no database work is held open across it. (B2)
  */
-async function createObligations(
-  incidentId: string,
+async function commitClassification(
+  incident: { id: string; title: string },
   message: string,
   policyContext: string,
   references: PolicyReference[],
-  classification: { requiredActions: { type: string; description: string; dueDate: Date }[] }
+  classification: IncidentClassification
 ): Promise<void> {
+  // Outside the transaction: this is a network call, and holding a database
+  // transaction open across one ties up a connection for the model's latency.
   const { obligations } = await claudeService.deriveObligations(message, policyContext);
 
-  if (obligations.length > 0) {
-    for (const obligation of obligations) {
-      const provenance = resolveProvenance(obligation.sourceExcerpt, references);
-
-      await prisma.complianceAction.create({
-        data: {
-          incidentId,
+  const rows =
+    obligations.length > 0
+      ? obligations.map(obligation => ({
+          incidentId: incident.id,
           actionType: actionTypeFor(obligation.description),
           description: obligation.description,
-          dueDate: new Date(Date.now() + obligation.dueInHours * 60 * 60 * 1000),
+          dueDate: dueDateFromHours(obligation.dueInHours),
           status: 'pending',
-          ...provenance,
-        },
-      });
-    }
-    return;
-  }
+          ...resolveProvenance(obligation.sourceExcerpt, references),
+        }))
+      : classification.requiredActions.map(action => ({
+          incidentId: incident.id,
+          actionType: action.type,
+          description: action.description,
+          dueDate: action.dueDate,
+          status: 'pending',
+          deadlineSource: 'model' as const,
+          policyId: null,
+          citation: null,
+        }));
 
-  for (const action of classification.requiredActions) {
-    await prisma.complianceAction.create({
+  const typeLabel = INCIDENT_TYPE_LABELS[classification.type] || 'Incident';
+  const enhancedTitle = incident.title.startsWith(typeLabel)
+    ? incident.title
+    : `${typeLabel}: ${incident.title}`;
+
+  await prisma.$transaction(async tx => {
+    await tx.incident.update({
+      where: { id: incident.id },
       data: {
-        incidentId,
-        actionType: action.type,
-        description: action.description,
-        dueDate: action.dueDate,
-        status: 'pending',
-        deadlineSource: 'model',
+        title: enhancedTitle,
+        incidentType: classification.type,
+        severity: classification.severity,
+        timeline: JSON.stringify(classification.timeline),
+        metadata: JSON.stringify({
+          classification,
+          stakeholders: classification.stakeholders,
+        }),
       },
     });
-  }
+
+    // Replace rather than append. The caller re-classifies an incident that
+    // has a type but no obligations, and it also re-runs if a previous
+    // transaction was rolled back after a partial write.
+    await tx.complianceAction.deleteMany({ where: { incidentId: incident.id } });
+    await tx.complianceAction.createMany({ data: rows });
+  });
 }
 
 function determineDataSensitivity(message: string, incident: any): DataSensitivity {

@@ -17,6 +17,22 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+/**
+ * Turn the model's `dueInHours` into the deadline everything else is computed
+ * from.
+ *
+ * This one expression is the product. Every countdown, every "N overdue" count
+ * and every red chip is derived from its output, and it existed inline in two
+ * places -- `IncidentClassifier` and the chat route's obligation writer -- with
+ * no test reading a `dueDate` produced from a `dueInHours` anywhere in either
+ * suite. Changing `* 60 * 60 * 1000` to `* 60 * 1000` turned a 24-hour
+ * mandatory-report clock into 24 minutes with all 210 tests green. It is one
+ * function with one test now so that cannot happen quietly. (B6)
+ */
+export function dueDateFromHours(hours: number, now: Date = new Date()): Date {
+  return new Date(now.getTime() + hours * HOUR);
+}
+
 /** Hours within which something counts as demanding attention today. */
 export const ATTENTION_WINDOW_HOURS = 24;
 

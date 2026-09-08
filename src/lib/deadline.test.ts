@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeDeadline, ATTENTION_WINDOW_HOURS } from './deadline';
+import { describeDeadline, ATTENTION_WINDOW_HOURS, dueDateFromHours } from './deadline';
 
 /**
  * How a remaining interval reads is the product, not a formatting detail. A bug
@@ -98,5 +98,50 @@ describe('interval carry', () => {
 
   it('never renders zero minutes for an interval that has not elapsed', () => {
     expect(describeDeadline(at(20_000), 'pending', null, NOW).label).toBe('in 1m');
+  });
+});
+
+describe('dueDateFromHours', () => {
+  // The one expression every countdown, every "N overdue" count and every red
+  // chip is derived from. It was inline in two places with nothing reading its
+  // output, so a unit error of 60x passed the whole suite. (B6)
+  const now = new Date('2026-09-08T09:00:00Z');
+
+  it('adds whole hours', () => {
+    expect(dueDateFromHours(24, now).toISOString()).toBe('2026-09-09T09:00:00.000Z');
+    expect(dueDateFromHours(1, now).toISOString()).toBe('2026-09-08T10:00:00.000Z');
+  });
+
+  it('adds hours, not minutes -- a 24-hour report is due tomorrow, not in 24 minutes', () => {
+    const due = dueDateFromHours(24, now);
+    expect(due.getTime() - now.getTime()).toBe(24 * 60 * 60 * 1000);
+    expect(due.getTime() - now.getTime()).not.toBe(24 * 60 * 1000);
+  });
+
+  it('adds hours, not days', () => {
+    const due = dueDateFromHours(240, now);
+    expect(due.toISOString()).toBe('2026-09-18T09:00:00.000Z');
+    expect(due.getTime() - now.getTime()).toBe(10 * 24 * 60 * 60 * 1000);
+  });
+
+  it('handles a fractional hour', () => {
+    expect(dueDateFromHours(0.5, now).toISOString()).toBe('2026-09-08T09:30:00.000Z');
+  });
+
+  it('composes with describeDeadline so a 24-hour deadline reads as demanding attention today', () => {
+    const due = dueDateFromHours(24, now);
+    // 24h is exactly the attention window, so it is included, not "pending".
+    // The label coarsens to days at exactly 24h, which is the intended
+    // far-term rule -- minute precision there is noise.
+    expect(describeDeadline(due, 'pending', null, now).state).toBe('attention');
+    expect(describeDeadline(due, 'pending', null, now).label).toBe('in 1d');
+    // One minute inside the window is where precision starts to matter.
+    expect(describeDeadline(dueDateFromHours(23, now), 'pending', null, now).label).toBe('in 23h');
+  });
+
+  it('composes with describeDeadline so a 10-day deadline is not urgent', () => {
+    const due = dueDateFromHours(240, now);
+    expect(describeDeadline(due, 'pending', null, now).state).toBe('pending');
+    expect(describeDeadline(due, 'pending', null, now).label).toBe('in 10d');
   });
 });
