@@ -5,9 +5,14 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { StateBlock } from '@/components/design/StateBlock';
-import { ObligationRow, type Obligation } from '@/components/design/ObligationRow';
+import { ObligationRow } from '@/components/design/ObligationRow';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
-import { describeDeadline, DEADLINE_COLOR } from '@/lib/deadline';
+import {
+  deadlineColor,
+  type DeadlineState,
+  describeDeadline,
+  isPolicyBacked,
+} from '@/lib/deadline';
 import { INCIDENT_TYPE_LABELS } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 
@@ -33,6 +38,15 @@ interface Action {
   status: string;
   dueDate: string | null;
   completedAt: string | null;
+  /**
+   * Whether a retrieved policy states this deadline. `GET /api/incidents/[id]`
+   * has always returned it -- `complianceActions` is a raw include -- but this
+   * interface omitted it, so the "N overdue" pill, the stamp bar and the
+   * timeline all painted a model-recalled deadline red while the obligation
+   * row 150 lines away dimmed the same one. (B5)
+   */
+  deadlineSource: string | null;
+  citation: string | null;
 }
 
 interface Incident {
@@ -56,6 +70,13 @@ type TimelineEvent = {
   title: string;
   body?: string;
   meta?: string;
+  /**
+   * The deadline state this rung represents, and whether a policy states it.
+   * Only obligation rungs carry them; `kind` alone used to decide the colour,
+   * which made every open obligation amber regardless of when it was due. (B5)
+   */
+  state?: DeadlineState;
+  deadlineSource?: string | null;
 };
 
 /**
@@ -179,7 +200,16 @@ export default function IncidentDetailPage() {
   const actions = incident.complianceActions ?? [];
   const open = actions.filter(a => a.status !== 'completed');
   const done = actions.length - open.length;
-  const overdue = open.filter(a => a.dueDate && new Date(a.dueDate).getTime() < Date.now());
+  // Counted the way the home page counts it: a headline number stating that
+  // something is legally late must rest on a deadline a retrieved policy
+  // actually states. Unverified ones are still listed below, and still say on
+  // their own row that they need confirming. (OQ-5, B5)
+  const overdue = open.filter(
+    a =>
+      isPolicyBacked(a.deadlineSource) &&
+      a.dueDate &&
+      new Date(a.dueDate).getTime() < Date.now()
+  );
   const closed = incident.status === 'closed';
 
   const events: TimelineEvent[] = [
@@ -219,6 +249,8 @@ export default function IncidentDetailPage() {
             : 'upcoming') as TimelineEvent['kind'],
         title: a.description || a.actionType,
         meta: `${info.label}${info.absolute ? ` · ${info.absolute}` : ''}`,
+        state: info.state,
+        deadlineSource: a.deadlineSource,
       };
     }),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
@@ -327,7 +359,7 @@ export default function IncidentDetailPage() {
               {actions.map(a => (
                 <ObligationRow
                   key={a.id}
-                  obligation={{ ...a, incidentId: incident.id } as Obligation}
+                  obligation={{ ...a, incidentId: incident.id }}
                   onDone={markObligationDone}
                 />
               ))}
@@ -409,8 +441,28 @@ const KIND_TONE: Record<TimelineEvent['kind'], string> = {
   attachment: 'bg-line-strong',
   met: 'bg-met',
   missed: 'bg-overdue',
-  upcoming: 'bg-attention',
+  // Neutral by default. This was `bg-attention`, which made every open
+  // obligation amber whatever its deadline said -- so a dot due in three weeks
+  // read as urgently as one due this afternoon. An `upcoming` rung earns amber
+  // only when describeDeadline actually returned `attention` and a policy
+  // states the deadline; `dotTone` below decides. (B5, SPEC-44)
+  upcoming: 'bg-line-strong',
 };
+
+/**
+ * The dot's colour. Obligation rungs consult the same rule as every other
+ * deadline surface; everything else keeps its structural tone.
+ */
+function dotTone(event: TimelineEvent): string {
+  if (!event.state) return KIND_TONE[event.kind];
+  if (event.state === 'met') return KIND_TONE.met;
+  if (!isPolicyBacked(event.deadlineSource)) return KIND_TONE.exchange;
+  return event.state === 'overdue'
+    ? KIND_TONE.missed
+    : event.state === 'attention'
+      ? 'bg-attention'
+      : KIND_TONE.exchange;
+}
 
 function TimelineRow({ event }: { event: TimelineEvent }) {
   const mounted = useMounted();
@@ -423,7 +475,7 @@ function TimelineRow({ event }: { event: TimelineEvent }) {
   const isModelOutput = event.kind === 'exchange' && event.meta !== 'user';
   return (
     <div className="flex gap-3 rounded-[12px] border border-line bg-surface px-4 py-3">
-      <span className={`mt-2 h-2 w-2 flex-none rounded-full ${KIND_TONE[event.kind]}`} aria-hidden />
+      <span className={`mt-2 h-2 w-2 flex-none rounded-full ${dotTone(event)}`} aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-2">
           <span className="text-[15px] font-medium text-text">{event.title}</span>
@@ -437,11 +489,12 @@ function TimelineRow({ event }: { event: TimelineEvent }) {
                 })
               : '\u00a0'}
           </span>
-          {event.kind === 'missed' && (
-            <span className={`tabular text-[12px] ${DEADLINE_COLOR.overdue}`}>{event.meta}</span>
-          )}
-          {event.kind === 'upcoming' && (
-            <span className={`tabular text-[12px] ${DEADLINE_COLOR.attention}`}>{event.meta}</span>
+          {(event.kind === 'missed' || event.kind === 'upcoming') && event.state && (
+            <span
+              className={`tabular text-[12px] ${deadlineColor(event.state, event.deadlineSource ?? undefined)}`}
+            >
+              {event.meta}
+            </span>
           )}
         </div>
         {event.body && (

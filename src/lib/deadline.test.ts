@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { describeDeadline, ATTENTION_WINDOW_HOURS, dueDateFromHours } from './deadline';
+import {
+  ATTENTION_WINDOW_HOURS,
+  deadlineColor,
+  describeDeadline,
+  dueDateFromHours,
+  isPolicyBacked,
+} from './deadline';
 
 /**
  * How a remaining interval reads is the product, not a formatting detail. A bug
@@ -143,5 +149,71 @@ describe('dueDateFromHours', () => {
     const due = dueDateFromHours(240, now);
     expect(describeDeadline(due, 'pending', null, now).state).toBe('pending');
     expect(describeDeadline(due, 'pending', null, now).label).toBe('in 10d');
+  });
+});
+
+describe('isPolicyBacked', () => {
+  // The server said `=== 'policy'` and the client said `!== 'model'` over a
+  // free-text column with a 'model' default. Those are complements only while
+  // exactly two values exist. (B5, DEAD-82)
+  it('is true only for the recorded policy value', () => {
+    expect(isPolicyBacked('policy')).toBe(true);
+  });
+
+  it('is false for the model value, for null, and for undefined', () => {
+    expect(isPolicyBacked('model')).toBe(false);
+    expect(isPolicyBacked(null)).toBe(false);
+    expect(isPolicyBacked(undefined)).toBe(false);
+  });
+
+  it('treats an unrecognised value as unverified, not as policy-backed', () => {
+    // The safe direction: a value added to the column later must not earn a red
+    // countdown by default.
+    expect(isPolicyBacked('Policy')).toBe(false);
+    expect(isPolicyBacked('statute')).toBe(false);
+    expect(isPolicyBacked('')).toBe(false);
+  });
+});
+
+describe('deadlineColor', () => {
+  // OQ-5: "A model-sourced deadline gets no red or amber countdown." This lived
+  // only inside DeadlineClock, so the obligation row was dimmed while the
+  // "N overdue" pill above it, the incidents-list countdown and the timeline
+  // dots painted the same row red from the same data. (B5)
+  it('gives a policy-backed deadline the colour its state has earned', () => {
+    expect(deadlineColor('overdue', 'policy')).toBe('text-overdue');
+    expect(deadlineColor('attention', 'policy')).toBe('text-attention');
+    expect(deadlineColor('pending', 'policy')).toBe('text-text-secondary');
+  });
+
+  it('withholds red from an unverified overdue deadline', () => {
+    expect(deadlineColor('overdue', 'model')).toBe('text-text-tertiary');
+    expect(deadlineColor('overdue', null)).toBe('text-text-tertiary');
+  });
+
+  it('withholds amber from an unverified deadline due today', () => {
+    expect(deadlineColor('attention', 'model')).toBe('text-text-tertiary');
+  });
+
+  it('keeps green for a completed obligation whatever its provenance', () => {
+    // "This was done" is a fact about the administrator's own action, not a
+    // claim about a policy, so it is not withheld.
+    expect(deadlineColor('met', 'model')).toBe('text-met');
+    expect(deadlineColor('met', 'policy')).toBe('text-met');
+    expect(deadlineColor('met', null)).toBe('text-met');
+  });
+
+  it('falls back to the state colour when the caller has no provenance to offer', () => {
+    expect(deadlineColor('overdue')).toBe('text-overdue');
+    expect(deadlineColor('attention')).toBe('text-attention');
+  });
+
+  it('never returns red or amber for any unverified, uncompleted state', () => {
+    const shouty = ['text-overdue', 'text-attention'];
+    for (const state of ['overdue', 'attention', 'pending'] as const) {
+      for (const source of ['model', null, '', 'something-new'] as const) {
+        expect(shouty).not.toContain(deadlineColor(state, source));
+      }
+    }
   });
 });

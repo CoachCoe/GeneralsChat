@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { ObligationRow, type Obligation } from '@/components/design/ObligationRow';
 import { StateBlock } from '@/components/design/StateBlock';
+import { isPolicyBacked } from '@/lib/deadline';
 import { useMounted } from '@/lib/useMounted';
 
 interface Counts {
@@ -69,7 +70,7 @@ export default function HomePage() {
   // applies to its tallies. Counting an unverified deadline here would put a
   // guess in the largest text on the page. Those obligations are still listed
   // below, and say on their own row that they need confirming. (OQ-5)
-  const verified = open.filter(o => o.deadlineSource !== 'model');
+  const verified = open.filter(o => isPolicyBacked(o.deadlineSource));
 
   const overdue = verified.filter(o => due(o) !== null && due(o)! < now);
   const today = verified.filter(

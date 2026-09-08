@@ -128,3 +128,44 @@ export const DEADLINE_COLOR: Record<DeadlineState, string> = {
   met: 'text-met',
   pending: 'text-text-secondary',
 };
+
+/**
+ * Whether a deadline is traceable to a policy the system actually retrieved.
+ *
+ * `deadlineSource` is a free-text column with a `'model'` default, so this asks
+ * the question in one place rather than leaving callers to pick between
+ * `=== 'policy'` and `!== 'model'`. Those are complements only while exactly two
+ * values exist, and they were already being used interchangeably on the server
+ * and the client. Anything that is not the recorded policy value is unverified,
+ * which is the safe direction: a new value added later reads as unverified
+ * rather than silently earning a red countdown. (B5, DEAD-82)
+ */
+export function isPolicyBacked(deadlineSource: string | null | undefined): boolean {
+  return deadlineSource === 'policy';
+}
+
+/**
+ * The colour a deadline has earned.
+ *
+ * OQ-5: "A model-sourced deadline gets no red or amber countdown." Red and
+ * amber are claims about a statutory clock, and a deadline the loaded library
+ * does not state has not earned one -- so an unverified deadline is dimmed
+ * instead. `met` keeps its green either way: "this was done" is a fact about
+ * the administrator's own action, not about a policy.
+ *
+ * This existed only inside `DeadlineClock`, so the obligation row was dimmed
+ * while the "N overdue" pill in the header above it, the incidents-list
+ * countdown and the timeline dots all painted the same row red from the same
+ * data. One helper, one rule, one test. (B5)
+ */
+export function deadlineColor(
+  state: DeadlineState,
+  deadlineSource?: string | null
+): string {
+  // `undefined` means the caller has no provenance to offer -- the fixture
+  // rows and the completed states -- and is treated as verified so nothing
+  // regresses to grey. Callers that *have* the field must pass it.
+  if (deadlineSource === undefined) return DEADLINE_COLOR[state];
+  if (state === 'met') return DEADLINE_COLOR[state];
+  return isPolicyBacked(deadlineSource) ? DEADLINE_COLOR[state] : 'text-text-tertiary';
+}

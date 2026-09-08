@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { SegmentedTabs } from '@/components/design/SegmentedTabs';
 import { StateBlock } from '@/components/design/StateBlock';
-import { describeDeadline, DEADLINE_COLOR } from '@/lib/deadline';
+import { deadlineColor, describeDeadline } from '@/lib/deadline';
 import { useMounted } from '@/lib/useMounted';
 import { CATEGORY_LABELS, INCIDENT_TYPE_LABELS } from '@/types';
 
@@ -16,6 +16,13 @@ interface Action {
   description: string | null;
   status: string;
   dueDate: string | null;
+  /**
+   * Whether a retrieved policy states this deadline. The endpoint has always
+   * returned it -- `complianceActions` is a raw include -- but this interface
+   * omitted it, so the countdown below could not consult it and painted a
+   * model-recalled deadline red. (B5)
+   */
+  deadlineSource: string | null;
 }
 
 interface Incident {
@@ -195,7 +202,7 @@ function IncidentRow({ incident }: { incident: Incident }) {
       className="flex flex-col gap-3 border-b border-input px-5 py-4 transition-colors last:border-b-0 hover:bg-input/40 sm:flex-row sm:items-center sm:gap-5"
     >
       <div className="flex w-[110px] flex-none flex-col gap-0.5">
-        <span className={`tabular text-[14px] font-medium leading-none ${DEADLINE_COLOR[deadline.state]}`}>
+        <span className={`tabular text-[14px] font-medium leading-none ${deadlineColor(deadline.state, next?.deadlineSource ?? undefined)}`}>
           {mounted ? deadline.label : '\u00a0'}
         </span>
         {next?.description && (
