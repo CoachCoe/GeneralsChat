@@ -98,8 +98,11 @@ function LoginForm() {
             />
           </div>
 
+          {/* Not red: an error is not a deadline state, and colour in this UI
+              means a deadline state or a coverage gap and nothing else.
+              `role="alert"` is what makes this an error. (SPEC-54) */}
           {error && (
-            <p role="alert" className="text-[14px] text-overdue">
+            <p role="alert" className="text-[14px] text-text">
               {error}
             </p>
           )}

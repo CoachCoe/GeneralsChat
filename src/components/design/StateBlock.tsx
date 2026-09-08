@@ -27,11 +27,15 @@ export function StateBlock({
           aria-hidden
         />
       )}
-      <span
-        className={`font-display text-[26px] leading-[1.2] tracking-[-0.02em] ${
-          variant === 'error' ? 'text-overdue' : 'text-text'
-        }`}
-      >
+      {/*
+        Not red. An error state is not a deadline state, and `CLAUDE.md` names
+        it: colour "means a deadline state ... or a coverage gap (amber).
+        Nothing else ... never severity, error states or decoration." A red
+        "Could not load your obligations" competes with the red that means
+        something is legally late, on the same screen. The `role="alert"` and
+        the copy carry it instead. (SPEC-54, FLOW-62)
+      */}
+      <span className="font-display text-[26px] leading-[1.2] tracking-[-0.02em] text-text">
         {title}
       </span>
       {body && <p className="max-w-[46ch] text-[15px] leading-[1.65] text-text-tertiary">{body}</p>}
