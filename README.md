@@ -301,8 +301,20 @@ environment; `docker-compose.yml` will refuse to start without `AUTH_SECRET`.
 
 ## Security status
 
-An audit on 2026-08-31 found 153 issues; a second on 2026-09-01 found 142
-more. The 2026-08-31 blockers are all fixed: authentication and authorization,
+Three audits so far: 2026-08-31 (153 issues), 2026-09-01 (142) and 2026-09-08
+(119, of which 12 were blockers — **all fixed**; see
+[`docs/audit/2026-09-08-work-completed.md`](docs/audit/2026-09-08-work-completed.md)).
+
+The most recent found **no security blockers**: no cross-user data access, no
+auth bypass, no path traversal, and no secret or student record anywhere in git
+history on any ref. What it did find is that the product's most load-bearing
+claims were its least verified ones — an unverified obligation that was already
+late was rendered in no queue group at all, the home headline stated "You're
+clear." from an empty array before the first fetch had resolved, and the
+`dueInHours → dueDate` conversion that every countdown derives from was read by
+no test anywhere, so a 60× error would have passed the whole suite.
+
+The 2026-08-31 blockers are all fixed: authentication and authorization,
 arbitrary file write on both upload paths, SSRF in the policy URL fetch,
 attachments served from `public/` with no access check, missing upload size and
 type limits, unvalidated write bodies and pagination, a production container
