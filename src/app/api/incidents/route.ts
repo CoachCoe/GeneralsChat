@@ -67,7 +67,13 @@ export async function GET(request: NextRequest) {
             },
           },
           complianceActions: {
-            where: { status: 'pending' },
+            // Everything not yet discharged, not just 'pending'. The status
+            // vocabulary includes 'in_progress' and 'overdue', and filtering
+            // to 'pending' alone meant the list's "N of M done" counted every
+            // in-progress obligation as *done* -- `M - pending` rather than
+            // `completed` -- and the soonest-deadline column skipped them.
+            // (FLOW-64)
+            where: { status: { not: 'completed' } },
             orderBy: { dueDate: 'asc' },
           },
           _count: {

@@ -178,6 +178,10 @@ function IncidentsPageContent() {
 
 function IncidentRow({ incident }: { incident: Incident }) {
   const mounted = useMounted();
+  // The endpoint now returns every non-completed action, so "N of M done" is
+  // M minus the outstanding ones -- which is the completed count. It used to
+  // fetch only `status: 'pending'`, so an in_progress obligation fell out of
+  // `openActions` and was counted as done. (FLOW-64)
   const openActions = incident.complianceActions.filter(a => a.status !== 'completed');
   const total = incident._count?.complianceActions ?? openActions.length;
   const done = Math.max(0, total - openActions.length);

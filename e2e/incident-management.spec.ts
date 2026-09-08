@@ -292,6 +292,13 @@ test.describe('Obligation queue', () => {
     expect(typeof backed[0].citation).toBe('string');
     for (const o of unverified) expect(o.citation).toBeNull();
 
+    // And the level of authority that imposes it. ObligationRow has always
+    // rendered an AuthorityChip when `jurisdiction` is present and no endpoint
+    // ever supplied it, so the chip had never rendered once. (SPEC-56)
+    expect(backed[0].jurisdiction).toBeTruthy();
+    expect(['federal', 'state', 'district', 'school']).toContain(backed[0].jurisdiction);
+    for (const o of unverified) expect(o.jurisdiction).toBeNull();
+
     // The tallies are assertions of fact about lateness, so they count only
     // deadlines a policy supports.
     expect(counts.unverified).toBe(

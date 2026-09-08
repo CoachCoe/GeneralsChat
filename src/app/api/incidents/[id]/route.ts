@@ -46,6 +46,10 @@ export async function GET(request: NextRequest, { params }: Params) {
         },
         complianceActions: {
           orderBy: { createdAt: 'desc' },
+          // Same join as GET /api/obligations: the level of authority that
+          // imposes each obligation, so ObligationRow's AuthorityChip has the
+          // field it has always rendered on and never received. (SPEC-56)
+          include: { policy: { select: { jurisdiction: true } } },
         },
       },
     });

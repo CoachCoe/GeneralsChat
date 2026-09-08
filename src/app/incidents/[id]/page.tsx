@@ -1,5 +1,6 @@
 'use client';
 
+import toast from 'react-hot-toast';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -47,6 +48,8 @@ interface Action {
    */
   deadlineSource: string | null;
   citation: string | null;
+  /** Joined through `policyId`, so the AuthorityChip can render. (SPEC-56) */
+  policy?: { jurisdiction: string } | null;
 }
 
 interface Incident {
@@ -119,14 +122,49 @@ export default function IncidentDetailPage() {
     fetchIncident();
   }, [fetchIncident]);
 
+  /**
+   * Every mutation on this page used to be `if (response.ok) { ... }` with no
+   * else. So a 401 from an expired session, a 429 from the rate limiter, a 503
+   * from the model, or a 404 from a scope check all produced *nothing*: the
+   * spinner stopped and the screen was unchanged.
+   *
+   * On `Mark done` that is the worst of them. The administrator clicks it, sees
+   * the row stay where it is, and has no way to tell "the click did not
+   * register" from "the obligation is still outstanding" -- on the control
+   * whose whole purpose is recording that a statutory obligation was
+   * discharged. Closing an incident and attaching a document had the same
+   * shape. (FLOW-65)
+   */
+  const reportFailure = async (response: Response, fallback: string) => {
+    if (response.status === 401) {
+      toast.error('Your session has expired. Sign in again.');
+      return;
+    }
+    let detail = '';
+    try {
+      const body = await response.json();
+      if (typeof body?.error === 'string') detail = body.error;
+    } catch {
+      // Not JSON. The fallback says enough.
+    }
+    toast.error(detail || fallback);
+  };
+
   const handleGenerateSummary = async () => {
     setGeneratingSummary(true);
     try {
       const response = await fetch(`/api/incidents/${incidentId}/summary`, { method: 'POST' });
-      if (response.ok) {
-        const data = await response.json();
-        setSummary(data.summary);
+      if (!response.ok) {
+        await reportFailure(response, 'Could not generate the summary. Try again.');
+        return;
       }
+      const data = await response.json();
+      setSummary(data.summary);
+      // The timeline renders summaries from the incident record, so the new
+      // row is invisible until the incident is re-read. (FLOW-67)
+      await fetchIncident();
+    } catch {
+      toast.error('Could not reach the server. Check your connection.');
     } finally {
       setGeneratingSummary(false);
     }
@@ -141,7 +179,18 @@ export default function IncidentDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: incident.status === 'closed' ? 'open' : 'closed' }),
       });
-      if (response.ok) await fetchIncident();
+      if (!response.ok) {
+        await reportFailure(
+          response,
+          incident.status === 'closed'
+            ? 'Could not reopen this incident.'
+            : 'Could not close this incident.'
+        );
+        return;
+      }
+      await fetchIncident();
+    } catch {
+      toast.error('Could not reach the server. Check your connection.');
     } finally {
       setUpdatingStatus(false);
     }
@@ -156,7 +205,13 @@ export default function IncidentDetailPage() {
       formData.append('file', file);
       formData.append('incidentId', incidentId);
       const response = await fetch('/api/attachments/upload', { method: 'POST', body: formData });
-      if (response.ok) await fetchIncident();
+      if (!response.ok) {
+        await reportFailure(response, 'Could not attach that file.');
+        return;
+      }
+      await fetchIncident();
+    } catch {
+      toast.error('Could not reach the server. Check your connection.');
     } finally {
       setUploadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -164,12 +219,22 @@ export default function IncidentDetailPage() {
   };
 
   const markObligationDone = async (id: string) => {
-    const response = await fetch(`/api/obligations/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'completed' }),
-    });
-    if (response.ok) await fetchIncident();
+    try {
+      const response = await fetch(`/api/obligations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      });
+      if (!response.ok) {
+        // Never silent. An administrator must not be left believing an
+        // obligation was recorded as discharged when it was not.
+        await reportFailure(response, 'Could not mark that obligation done. It is still outstanding.');
+        return;
+      }
+      await fetchIncident();
+    } catch {
+      toast.error('Could not reach the server. That obligation is still outstanding.');
+    }
   };
 
   if (loading) {
@@ -359,7 +424,11 @@ export default function IncidentDetailPage() {
               {actions.map(a => (
                 <ObligationRow
                   key={a.id}
-                  obligation={{ ...a, incidentId: incident.id }}
+                  obligation={{
+                    ...a,
+                    incidentId: incident.id,
+                    jurisdiction: a.policy?.jurisdiction ?? null,
+                  }}
                   onDone={markObligationDone}
                 />
               ))}
