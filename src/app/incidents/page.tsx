@@ -206,7 +206,7 @@ function IncidentRow({ incident }: { incident: Incident }) {
       className="flex flex-col gap-3 border-b border-input px-5 py-4 transition-colors last:border-b-0 hover:bg-input/40 sm:flex-row sm:items-center sm:gap-5"
     >
       <div className="flex w-[110px] flex-none flex-col gap-0.5">
-        <span className={`tabular text-[14px] font-medium leading-none ${deadlineColor(deadline.state, next?.deadlineSource ?? undefined)}`}>
+        <span className={`tabular text-[14px] font-medium leading-none ${deadlineColor(deadline.state, next ? (next.deadlineSource ?? 'model') : undefined)}`}>
           {mounted ? deadline.label : '\u00a0'}
         </span>
         {next?.description && (

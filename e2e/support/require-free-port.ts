@@ -43,16 +43,24 @@ export function checkPortFree(port: number): Promise<boolean> {
 
 const port = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 
-checkPortFree(port).then(free => {
-  if (free) return;
-  console.error(
-    `\nPort ${port} is already in use.\n\n` +
-      'The suite would then run against a server Playwright did not start --\n' +
-      'with that process\'s own DATABASE_URL and the real Anthropic API rather\n' +
-      'than the stub. If that process is this app started from .env, the browser\n' +
-      'would be driving the hosted pilot database.\n\n' +
-      'Stop that process, or pick another port:\n' +
-      `  PLAYWRIGHT_PORT=<free port> npm run test:e2e\n`
-  );
-  process.exit(1);
-});
+checkPortFree(port)
+  .then(free => {
+    if (free) return;
+    console.error(
+      `\nPort ${port} is already in use.\n\n` +
+        'The suite would then run against a server Playwright did not start --\n' +
+        "with that process's own DATABASE_URL and the real Anthropic API rather\n" +
+        'than the stub. If that process is this app started from .env, the\n' +
+        'browser would be driving the hosted pilot database.\n\n' +
+        'Stop that process, or pick another port:\n' +
+        `  PLAYWRIGHT_PORT=<free port> npm run test:e2e\n`
+    );
+    process.exit(1);
+  })
+  .catch((error: unknown) => {
+    // Any error other than "address in use" means the probe could not answer
+    // the question. Refuse rather than assume free -- an unhandled rejection
+    // here would let the run continue on toward whatever is on the port.
+    console.error(`\nCould not determine whether port ${port} is free: ${String(error)}`);
+    process.exit(1);
+  });

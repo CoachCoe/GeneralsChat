@@ -136,21 +136,22 @@ export async function POST(request: NextRequest) {
       content: conv.message,
     }));
 
-    // Classify incident if this is the first substantive message, or if a
-    // previous turn classified it but never got as far as its obligations.
+    // Classify incident if this is the first substantive message.
     //
-    // The gate used to be `!incident.incidentType` alone. That field is written
-    // in phase one, before retrieval and before the obligations exist, so any
-    // failure in between left the incident classified with zero
-    // ComplianceAction rows -- and `complianceAction.create` appears nowhere
-    // else in the tree, so nothing ever retried. The incident looked complete:
-    // a classified abuse_neglect report with an empty obligation queue, which
-    // reads as "nothing is required of you". OQ-5 names that outcome directly:
-    // "*nothing* is how a mandated report gets missed."
+    // `incidentType` is the gate, and it is now written in the same
+    // transaction as the obligations it implies (`commitClassification`), so
+    // anything that throws in between -- a timeout inside `deriveObligations`,
+    // which guards its parse but not its model call -- rolls the stamp back and
+    // this gate retries on the next turn. Before that, the stamp committed
+    // first and nothing ever re-derived: a classified incident with zero
+    // obligations, which looks complete. OQ-5 names that outcome directly:
+    // "*nothing* is how a mandated report gets missed." (B2)
     //
-    // Both halves are now written in one transaction (see `commitClassification`
-    // below) so the stamp cannot outlive the obligations, and this gate also
-    // retries an incident left in that state by an earlier deploy. (B2)
+    // The gate is deliberately *not* "or has no obligations". `requiredActions`
+    // is `z.array` with no minimum, so a model returning none is schema-valid
+    // and a genuinely obligation-free incident is a real state -- and that gate
+    // would re-classify it, at the cost of a model call, on every subsequent
+    // turn forever.
     //
     // Previously `conversations.length === 0 && message.length > 50`. Both had
     // to hold in the same request, but the first is only true on turn one --
@@ -160,11 +161,7 @@ export async function POST(request: NextRequest) {
     // (FLOW-18, SPEC-10)
     let classification = null;
 
-    const obligationCount = await prisma.complianceAction.count({
-      where: { incidentId: incident.id },
-    });
-
-    if (!incident.incidentType || obligationCount === 0) {
+    if (!incident.incidentType) {
       try {
         classification = await incidentClassifier.classifyIncident(message, {
           incidentId: incident.id,
@@ -363,9 +360,9 @@ async function commitClassification(
       },
     });
 
-    // Replace rather than append. The caller re-classifies an incident that
-    // has a type but no obligations, and it also re-runs if a previous
-    // transaction was rolled back after a partial write.
+    // Replace rather than append, so the write is idempotent: two concurrent
+    // first turns on the same incident both pass the gate, and the second must
+    // land a clean set rather than double the first's.
     await tx.complianceAction.deleteMany({ where: { incidentId: incident.id } });
     await tx.complianceAction.createMany({ data: rows });
   });
