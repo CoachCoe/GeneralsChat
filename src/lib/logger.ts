@@ -1,4 +1,5 @@
 import pino from 'pino';
+import pretty from 'pino-pretty';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -13,26 +14,38 @@ const isDevelopment = process.env.NODE_ENV === 'development';
  * - debug (20): Debug information
  * - trace (10): Very detailed information
  */
-const logger = pino({
-  level: process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info'),
-  transport: isDevelopment
-    ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'HH:MM:ss.l',
-          ignore: 'pid,hostname',
-          singleLine: false,
-        },
-      }
-    : undefined,
-  formatters: {
-    level: (label) => {
-      return { level: label.toUpperCase() };
+/**
+ * pino-pretty is attached as a destination stream, not as a `transport`.
+ *
+ * A transport runs the formatter in a worker thread spawned by thread-stream,
+ * whose worker path the Next bundler rewrites to `/ROOT/node_modules/...`. That
+ * file does not exist, so the worker died on the first log line and every
+ * `logger.*` call after it threw `the worker has exited` -- as an
+ * uncaughtException, from inside request handlers. Logging an error was enough
+ * to bury the error being logged. A destination stream formats in-process and
+ * has no worker to lose.
+ */
+const destination = isDevelopment
+  ? pretty({
+      colorize: true,
+      translateTime: 'HH:MM:ss.l',
+      ignore: 'pid,hostname',
+      singleLine: false,
+    })
+  : undefined;
+
+const logger = pino(
+  {
+    level: process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info'),
+    formatters: {
+      level: (label) => {
+        return { level: label.toUpperCase() };
+      },
     },
+    timestamp: pino.stdTimeFunctions.isoTime,
   },
-  timestamp: pino.stdTimeFunctions.isoTime,
-});
+  destination
+);
 
 /**
  * Create a child logger with additional context
