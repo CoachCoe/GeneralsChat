@@ -1,5 +1,6 @@
 'use client';
 
+import { safeCallbackUrl } from '@/lib/callback-url';
 import { Suspense, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,7 +9,14 @@ import Image from 'next/image';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
+  // Same-origin paths only. This was `searchParams.get('callbackUrl') || '/'`
+  // pushed straight into the router, so `/login?callbackUrl=https://evil/` sent
+  // the administrator off-site immediately after a successful sign-in -- on the
+  // one page where a convincing look-alike is worth the most, and reached by a
+  // link that is genuinely this app's domain. A protocol-relative `//evil.test`
+  // is off-site too, which is why the leading `//` is rejected as well as an
+  // absolute URL. (FLOW-55)
+  const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
