@@ -25,10 +25,11 @@ async function testClaude() {
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    console.log('📡 Sending test request to Claude 3.5 Sonnet...\n');
+    const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+    console.log(`📡 Sending test request to ${model}...\n`);
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model,
       max_tokens: 150,
       messages: [
         {
