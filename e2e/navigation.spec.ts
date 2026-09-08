@@ -155,6 +155,36 @@ test.describe('Policy library', () => {
     // Management stays admin-only; a reporter gets no route into it.
     await expect(page.getByRole('link', { name: 'Manage policies' })).toHaveCount(0);
   });
+
+  test('marks a policy that retrieval can never return', async ({ page }) => {
+    // The library rendered every row identically, so a policy with zero chunks
+    // -- from a failed index, or a re-index against an unmigrated schema, which
+    // is the state production was once in -- was indistinguishable from a
+    // fully indexed one. "5 active" over a library from which retrieval returns
+    // nothing. The fixture seeds exactly one such policy. (FLOW-74)
+    await page.goto('/policies');
+
+    const { policies } = await (await page.request.get('/api/policies')).json();
+    const unchunked = policies.filter(
+      (p: { _count?: { chunks: number } }) => (p._count?.chunks ?? 0) === 0
+    );
+    const chunked = policies.filter(
+      (p: { _count?: { chunks: number } }) => (p._count?.chunks ?? 0) > 0
+    );
+
+    // Both states must be present or this asserts nothing.
+    expect(unchunked.length).toBeGreaterThan(0);
+    expect(chunked.length).toBeGreaterThan(0);
+
+    for (const p of unchunked as { title: string }[]) {
+      const row = page.locator('div').filter({ hasText: p.title }).last();
+      await expect(row.getByText('not searchable')).toBeVisible();
+    }
+
+    // And a policy that *is* retrievable is not marked.
+    const goodRow = page.locator('div').filter({ hasText: chunked[0].title }).last();
+    await expect(goodRow.getByText('not searchable')).toHaveCount(0);
+  });
 });
 
 test.describe('Security response headers', () => {
