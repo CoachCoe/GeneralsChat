@@ -22,6 +22,9 @@ export const TEST_USERS = {
 export interface SeededIds {
   adminIncidentId: string;
   adminObligationId: string;
+  /** The reporter's own open incident, for assertions about its own page. */
+  reporterIncidentId: string;
+  closedIncidentId: string;
 }
 
 export async function resetDatabase(): Promise<SeededIds> {
@@ -180,19 +183,45 @@ export async function resetDatabase(): Promise<SeededIds> {
       },
     });
     // Obligations on the seeded open incident, so tests that exercise the
-    // queue do not depend on an earlier test having created some. One overdue,
-    // one upcoming.
+    // queue do not depend on an earlier test having created some.
+    //
+    // Three, covering the three states the queue treats differently. The
+    // fixture used to have two, both `deadlineSource: 'model'` by column
+    // default, and every obligation the chat flow creates during a run is in
+    // the future -- so `counts.overdue`, `counts.today` and the whole Overdue
+    // group were *always zero* in the suite. Inverting the overdue comparison
+    // or dropping the policy-backed filter from the tallies was invisible: the
+    // one number this product exists to produce had no test that could see it
+    // be wrong. It is also why B3 went unnoticed. (B12, TEST-31)
     const openIncident = await prisma.incident.findFirstOrThrow({
       where: { title: 'Bullying: Playground incident' },
+    });
+    const backingPolicy = await prisma.policy.findFirstOrThrow({
+      where: { title: 'Policy JICK: Bullying Prevention' },
     });
     await prisma.complianceAction.createMany({
       data: [
         {
+          // Policy-backed and late: the only row that may produce a red
+          // countdown, the "One thing is late." headline and counts.overdue.
+          incidentId: openIncident.id,
+          actionType: 'reporting',
+          description: 'Report the incident to the superintendent',
+          status: 'pending',
+          dueDate: new Date(Date.now() - 26 * 60 * 60 * 1000),
+          deadlineSource: 'policy',
+          policyId: backingPolicy.id,
+          citation: 'JICK §D — Procedures for Reporting Bullying (RSA 193-F:4, II(f) - (h))',
+        },
+        {
+          // Unverified and late. Must appear in the queue -- under its own
+          // heading, without red -- and must not be counted as late. (B3, B5)
           incidentId: openIncident.id,
           actionType: 'notification',
           description: 'Notify the parents of both students',
           status: 'pending',
           dueDate: new Date(Date.now() - 3 * 60 * 60 * 1000),
+          deadlineSource: 'model',
         },
         {
           incidentId: openIncident.id,
@@ -200,11 +229,12 @@ export async function resetDatabase(): Promise<SeededIds> {
           description: 'Complete the investigation summary',
           status: 'pending',
           dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+          deadlineSource: 'model',
         },
       ],
     });
 
-    await prisma.incident.create({
+    const closedIncident = await prisma.incident.create({
       data: {
         title: 'Harassment: Resolved hallway incident',
         description: 'Resolved after mediation.',
@@ -242,6 +272,8 @@ export async function resetDatabase(): Promise<SeededIds> {
     return {
       adminIncidentId: adminIncident.id,
       adminObligationId: adminIncident.complianceActions[0].id,
+      reporterIncidentId: openIncident.id,
+      closedIncidentId: closedIncident.id,
     };
   } finally {
     await prisma.$disconnect();

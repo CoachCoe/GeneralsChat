@@ -111,9 +111,15 @@ These are asserted by the suite; move them deliberately and update the tests in
 the same commit:
 
 `data-testid="chat-input" | chat-send | chat-loading | chat-sources |
-obligation-queue`, `aria-label="Send message"`, `nav[aria-label="Main"]`, the
-`Incidents` `<h1>`, and the button names `Close Incident` / `Reopen Incident` /
-`Generate Summary` / `Sign in` / `Sign out` / `Mark done`.
+obligation-queue | obligation-row`, `aria-label="Send message"`,
+`nav[aria-label="Main"]`, the `Incidents` `<h1>`, and the button names
+`Close Incident` / `Reopen Incident` / `Generate Summary` / `Sign in` /
+`Sign out` / `Mark done`.
+
+`obligation-row` exists so a test can assert the queue is **exhaustive** — that
+the number of rows rendered equals the number of open obligations the API
+reports. Three groups of filters used to drop unverified late rows on the floor
+and nothing could see it. (B3)
 
 ## Conventions
 

@@ -76,11 +76,42 @@ export default function HomePage() {
   const today = verified.filter(
     o => due(o) !== null && due(o)! >= now && due(o)! <= endOfToday.getTime()
   );
+
+  // The four groups partition `open`. They used to be three, and they did not:
+  // `overdue` and `today` were drawn from `verified` while `later` required a
+  // deadline after midnight or none at all, so an unverified obligation due
+  // before tonight matched none of them and was rendered nowhere -- it could
+  // not even be marked done. `deadlineSource` defaults to 'model', so with a
+  // thin library that is the common case, and the row that disappeared was
+  // always the urgent one: a 24-hour mandatory report with no citable
+  // provision vanished from the queue an administrator opens to find out what
+  // they are late on. The comment above still promised those rows were "listed
+  // below", and the subhead counted them.
+  //
+  // They get their own group rather than joining Overdue or Due today, because
+  // those headings are claims about a statutory clock and this deadline is not
+  // one. Neutral tone, so OQ-5's no-red-or-amber rule still holds. (B3, OQ-7)
+  const unconfirmedNow = open.filter(
+    o => !isPolicyBacked(o.deadlineSource) && due(o) !== null && due(o)! <= endOfToday.getTime()
+  );
   const later = open.filter(o => due(o) === null || due(o)! > endOfToday.getTime());
 
-  // The headline is the finding, not a page title.
-  const headline =
-    overdue.length > 0
+  // The headline is the finding, not a page title -- which is why it must not
+  // be stated from an empty array. `obligations` starts `[]` and `loading`
+  // starts true, so before the first fetch resolved this page asserted
+  // "You're clear. No obligations are outstanding." in 40px serif, and said
+  // the same thing permanently after a failed fetch -- including the 401 from
+  // an idle session timeout, where "Could not load your obligations" appeared
+  // *underneath* a 40px claim that nothing was outstanding. It is the most
+  // prominent sentence in the product and it is a claim about legal exposure.
+  // CLAUDE.md: "When in doubt, say the system does not know." (B4)
+  const settled = !loading && !error;
+
+  const headline = !settled
+    ? loading
+      ? 'Checking your obligations.'
+      : 'We could not check your obligations.'
+    : overdue.length > 0
       ? `${overdue.length === 1 ? 'One thing is' : `${overdue.length} things are`} late.`
       : today.length > 0
         ? `Nothing is late.`
@@ -92,8 +123,11 @@ export default function HomePage() {
       ? ` ${unverified === 1 ? 'One obligation has' : `${unverified} obligations have`} a deadline no loaded policy states.`
       : '';
 
-  const subhead =
-    (today.length > 0
+  const subhead = !settled
+    ? loading
+      ? '\u00a0'
+      : 'Nothing here is a statement about what you owe. Reload to try again.'
+    : (today.length > 0
       ? `${today.length === 1 ? 'One more is' : `${today.length} more are`} due today.`
       : overdue.length > 0
         ? 'Nothing else is due today.'
@@ -155,6 +189,12 @@ export default function HomePage() {
           <div className="flex flex-col gap-6" data-testid="obligation-queue">
             <Group title="Overdue" tone="text-overdue" items={overdue} onDone={markDone} />
             <Group title="Due today" tone="text-attention" items={today} onDone={markDone} />
+            <Group
+              title="Needs confirming"
+              tone="text-text-muted"
+              items={unconfirmedNow}
+              onDone={markDone}
+            />
             <Group title="Later" tone="text-text-muted" items={later} onDone={markDone} />
           </div>
         )}

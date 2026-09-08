@@ -5,7 +5,12 @@ import { readFileSync } from 'fs';
  * Ids of rows owned by the *other* user, written by global-setup. A test that
  * must prove it cannot reach something needs the real id of that something.
  */
-function seededIds(): { adminIncidentId: string; adminObligationId: string } {
+function seededIds(): {
+  adminIncidentId: string;
+  adminObligationId: string;
+  reporterIncidentId: string;
+  closedIncidentId: string;
+} {
   return JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8'));
 }
 
@@ -246,6 +251,160 @@ test.describe('Obligation queue', () => {
       ).length
     );
     expect(counts.open).toBeGreaterThanOrEqual(counts.unverified);
+  });
+
+  test('the home queue renders every open obligation, including unverified late ones', async ({
+    page,
+  }) => {
+    // The three groups did not partition the open set. `Overdue` and
+    // `Due today` were drawn from the policy-backed rows while `Later`
+    // required a deadline after midnight or none -- so an unverified
+    // obligation due before tonight matched none of them and rendered
+    // nowhere. It could not even be marked done. With `deadlineSource`
+    // defaulting to 'model', that was the common case, and the row that
+    // disappeared was the urgent one.
+    //
+    // Asserted as a relationship against the API rather than against fixture
+    // absolutes: earlier tests in this file discharge and create obligations,
+    // and the property that matters holds in any state. (B3)
+    await page.goto('/');
+
+    const { obligations } = await (
+      await page.request.get('/api/obligations?window=all&limit=100')
+    ).json();
+    const open = obligations.filter((o: { status: string }) => o.status !== 'completed');
+    expect(open.length).toBeGreaterThan(0);
+
+    const queue = page.getByTestId('obligation-queue');
+    await expect(queue).toBeVisible();
+
+    // Exhaustiveness: as many rows as there are open obligations. Under the
+    // old three-group filter this was short by every unverified row due
+    // before midnight.
+    await expect(queue.getByTestId('obligation-row')).toHaveCount(open.length);
+
+    // And specifically that an unverified, already-late row is among them,
+    // under a heading that does not claim a statutory clock.
+    const unverifiedLate = open.filter(
+      (o: { deadlineSource: string; dueDate: string | null }) =>
+        o.deadlineSource !== 'policy' && o.dueDate !== null && new Date(o.dueDate) < new Date()
+    );
+    expect(unverifiedLate.length).toBeGreaterThan(0);
+    await expect(queue.getByText('Needs confirming')).toBeVisible();
+    await expect(
+      queue.getByText(unverifiedLate[0].description, { exact: true }).first()
+    ).toBeVisible();
+  });
+
+  test('states lateness only for a deadline a policy backs, and dims the rest', async ({
+    page,
+  }) => {
+    // OQ-5: "A model-sourced deadline gets no red or amber countdown, and the
+    // home page's 'N things are late' counts only policy-backed ones."
+    //
+    // Both halves, asserted against live state. The fixture seeds one
+    // policy-backed overdue row and one unverified overdue row, so the count
+    // and the colour both have something to be wrong about. (B5, B12)
+    await page.goto('/');
+
+    const { obligations, counts } = await (
+      await page.request.get('/api/obligations?window=all&limit=100')
+    ).json();
+    const open = obligations.filter((o: { status: string }) => o.status !== 'completed');
+
+    const lateAndBacked = open.filter(
+      (o: { deadlineSource: string; dueDate: string | null }) =>
+        o.deadlineSource === 'policy' && o.dueDate !== null && new Date(o.dueDate) < new Date()
+    );
+    const lateAndUnverified = open.filter(
+      (o: { deadlineSource: string; dueDate: string | null }) =>
+        o.deadlineSource !== 'policy' && o.dueDate !== null && new Date(o.dueDate) < new Date()
+    );
+
+    // Something must actually be late and unverified, or the next assertion
+    // proves nothing.
+    expect(lateAndUnverified.length).toBeGreaterThan(0);
+
+    // The count of lateness counts only the backed ones. Dropping that filter
+    // would make this the sum of both lists.
+    expect(counts.overdue).toBe(lateAndBacked.length);
+
+    // No row without a policy behind its deadline is painted red or amber.
+    // This is the whole rule, asserted over every rendered row rather than one.
+    for (const o of lateAndUnverified as { description: string }[]) {
+      const row = page
+        .getByTestId('obligation-row')
+        .filter({ hasText: o.description })
+        .first();
+      await expect(row.locator('.text-overdue')).toHaveCount(0);
+      await expect(row.locator('.text-attention')).toHaveCount(0);
+    }
+
+    // And a backed late one is red, so the rule is a distinction and not a
+    // blanket suppression.
+    if (lateAndBacked.length > 0) {
+      const backedRow = page
+        .getByTestId('obligation-row')
+        .filter({ hasText: lateAndBacked[0].description })
+        .first();
+      await expect(backedRow.locator('.text-overdue').first()).toBeVisible();
+    }
+  });
+
+  test('the incident page does not call an unverified deadline late', async ({ page }) => {
+    // The incident header had its own count-of-lateness, computed with a raw
+    // date comparison over every open action and rendered in a red pill, while
+    // the obligation row 150 lines below dimmed the same deadline. (B5)
+    const { reporterIncidentId } = seededIds();
+
+    const incident = await (
+      await page.request.get(`/api/incidents/${reporterIncidentId}`)
+    ).json();
+    const actions = (incident.complianceActions ?? []) as {
+      status: string;
+      dueDate: string | null;
+      deadlineSource: string | null;
+    }[];
+    const open = actions.filter(a => a.status !== 'completed');
+    const lateAndBacked = open.filter(
+      a => a.deadlineSource === 'policy' && a.dueDate !== null && new Date(a.dueDate) < new Date()
+    );
+    const lateAndUnverified = open.filter(
+      a => a.deadlineSource !== 'policy' && a.dueDate !== null && new Date(a.dueDate) < new Date()
+    );
+    expect(lateAndUnverified.length).toBeGreaterThan(0);
+
+    await page.goto(`/incidents/${reporterIncidentId}`);
+
+    if (lateAndBacked.length > 0) {
+      await expect(page.getByText(`${lateAndBacked.length} overdue`)).toBeVisible();
+    }
+    // The number that would appear if provenance were ignored must not.
+    await expect(
+      page.getByText(`${lateAndBacked.length + lateAndUnverified.length} overdue`)
+    ).toHaveCount(0);
+  });
+
+  test('does not claim the administrator is clear before the obligations have loaded', async ({
+    page,
+  }) => {
+    // The headline and subhead were computed unconditionally from an empty
+    // array, so the page opened by asserting "You're clear. No obligations are
+    // outstanding." in 40px serif and said the same permanently after a failed
+    // fetch -- with "Could not load your obligations" underneath it. (B4)
+    await page.route('**/api/obligations**', route =>
+      route.fulfill({ status: 500, body: JSON.stringify({ error: 'nope' }) })
+    );
+    await page.goto('/');
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'We could not check your obligations.' })
+    ).toBeVisible();
+    await expect(page.getByText("You're clear.")).toHaveCount(0);
+    await expect(page.getByText('No obligations are outstanding.')).toHaveCount(0);
+    // The failure is still reported -- it just no longer sits under a 40px
+    // claim that nothing is outstanding.
+    await expect(page.getByText('Could not load your obligations', { exact: true })).toBeVisible();
   });
 
   test('tells the administrator when a deadline is not backed by loaded policy', async ({

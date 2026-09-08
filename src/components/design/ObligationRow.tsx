@@ -62,7 +62,14 @@ export function ObligationRow({
     // breakpoint cannot tell those apart, so at any desktop width the aside got
     // the three-column row layout and squeezed the description to one word per
     // line. `@sm` (24rem) measures the space the row actually has.
-    <div className="@container border-b border-input last:border-b-0">
+    <div
+      // A stable handle for "one obligation row", so a test can assert the
+      // queue is exhaustive -- that the number of rows rendered equals the
+      // number of open obligations the API reports. Three groups used to drop
+      // unverified late rows on the floor and nothing could see it. (B3)
+      data-testid="obligation-row"
+      className="@container border-b border-input last:border-b-0"
+    >
       <div className="flex flex-col gap-3 px-5 py-[18px] @sm:flex-row @sm:gap-[18px]">
         <DeadlineClock
           dueDate={obligation.dueDate}
