@@ -285,9 +285,15 @@ class ClaudeService {
   private maxTokens: number;
 
   constructor() {
-    // Using Claude 3.5 Sonnet (latest as of the code)
-    this.model = 'claude-sonnet-4-20250514';
-    this.maxTokens = 4096;
+    // Claude Sonnet 5. Override with ANTHROPIC_MODEL when a deployment needs to
+    // pin an older snapshot -- a retired id fails as a 404 not_found_error at
+    // request time, which surfaces to the administrator as a generic 503.
+    this.model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+    // Extended thinking spends this same budget before any answer tokens are
+    // produced, so 4096 was no longer a 4096-token answer -- a long guidance
+    // reply could exhaust it mid-reasoning and come back with `max_tokens` and
+    // no text.
+    this.maxTokens = 16384;
   }
 
   /**
@@ -337,9 +343,19 @@ class ClaudeService {
   async generateResponse(
     messages: ClaudeMessage[],
     systemPrompt?: string,
+    // No temperature. It is deprecated on current models -- sending any value
+    // but the default is rejected outright as an invalid_request_error, which
+    // is what silently broke classification: every incident stayed
+    // `Unclassified` with zero obligations because the call never landed.
     options?: {
       maxTokens?: number;
-      temperature?: number;
+      /**
+       * Turn extended thinking off. Reasoning tokens are drawn from the same
+       * `max_tokens` budget as the answer, so a budget sized for a 6-word title
+       * can be spent entirely on thinking and return no text at all. Set this
+       * wherever the budget is tight and the task needs no deliberation.
+       */
+      thinking?: 'disabled';
     }
   ): Promise<ClaudeResponse> {
     const startTime = Date.now();
@@ -352,7 +368,9 @@ class ClaudeService {
       const response = await client.messages.create({
         model: this.model,
         max_tokens: options?.maxTokens || this.maxTokens,
-        temperature: options?.temperature || 1.0,
+        ...(options?.thinking === 'disabled'
+          ? { thinking: { type: 'disabled' as const } }
+          : {}),
         system: systemPrompt,
         messages: messages.map(msg => ({
           role: msg.role,
@@ -361,17 +379,31 @@ class ClaudeService {
       });
 
       const duration = Date.now() - startTime;
-      const textContent = response.content[0];
+      // The answer is the text blocks, not block zero. Current models put a
+      // `thinking` block first, so reading content[0] returned '' and the
+      // empty string was stored as an assistant turn and rendered as a blank
+      // answer -- a failed call made to look like guidance, which is the
+      // failure mode FLOW-7 exists to prevent.
+      const answer = response.content
+        .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+        .map(block => block.text)
+        .join('');
+      if (!answer) {
+        throw new Error(
+          `Claude returned no text content (stop_reason: ${response.stop_reason ?? 'unknown'})`
+        );
+      }
+
       const totalTokens = response.usage.input_tokens + response.usage.output_tokens;
 
-      // Approximate cost calculation (Claude 3.5 Sonnet pricing)
+      // Approximate cost calculation (Sonnet pricing)
       // $3 per million input tokens, $15 per million output tokens
       const cost = (response.usage.input_tokens * 0.000003) + (response.usage.output_tokens * 0.000015);
 
       logAIOperation('generateResponse', this.model, totalTokens, duration, cost);
 
       return {
-        content: textContent.type === 'text' ? textContent.text : '',
+        content: answer,
         usage: {
           inputTokens: response.usage.input_tokens,
           outputTokens: response.usage.output_tokens,
@@ -478,8 +510,7 @@ ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
           content: `Classify this incident:\n\n${incidentDescription}`,
         },
       ],
-      systemPrompt,
-      { temperature: 0.3 } // Lower temperature for more consistent classification
+      systemPrompt
     );
 
     try {
@@ -537,7 +568,7 @@ Example: ["Question 1?", "Question 2?", "Question 3?"]`;
     const response = await this.generateResponse(
       [{ role: 'user', content: userMessage }],
       systemPrompt,
-      { temperature: 0.5, maxTokens: 500 }
+      { maxTokens: 500, thinking: 'disabled' }
     );
 
     try {
@@ -609,7 +640,7 @@ ${policyContext}`;
     const response = await this.generateResponse(
       [{ role: 'user', content: request }],
       systemPrompt,
-      { temperature: 0.2, maxTokens: 1500 }
+      { maxTokens: 8192 }
     );
 
     try {
@@ -705,7 +736,7 @@ naming a policy, and say that none could be retrieved for this incident.${buildC
     const response = await this.generateResponse(
       [{ role: 'user', content: summaryRequest }],
       finalSystemPrompt,
-      { temperature: 0.3, maxTokens: 2048 }
+      { maxTokens: 8192 }
     );
 
     return response;
@@ -739,7 +770,7 @@ Examples:
       const response = await this.generateResponse(
         [{ role: 'user', content: firstMessage }],
         systemPrompt,
-        { temperature: 0.5, maxTokens: 50 }
+        { maxTokens: 50, thinking: 'disabled' }
       );
 
       // Clean up the response
@@ -779,7 +810,6 @@ Examples:
       const stream = await client.messages.create({
         model: this.model,
         max_tokens: this.maxTokens,
-        temperature: 1.0,
         system: systemPrompt,
         messages: messages.map(msg => ({
           role: msg.role,

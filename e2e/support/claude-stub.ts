@@ -111,8 +111,17 @@ export function startClaudeStub(port: number): Promise<Server> {
           id: 'msg_stub',
           type: 'message',
           role: 'assistant',
-          model: 'claude-sonnet-4-20250514',
-          content: [{ type: 'text', text }],
+          model: 'claude-sonnet-5',
+          // A thinking block ahead of the text, because that is the shape the
+          // real API returns. The stub used to reply with a lone text block, so
+          // the suite passed while production read `content[0]`, found a
+          // thinking block, and stored an empty string as the assistant's
+          // answer. A stub that is easier to parse than the real thing tests
+          // the wrong system.
+          content: [
+            { type: 'thinking', thinking: '', signature: 'stub' },
+            { type: 'text', text },
+          ],
           stop_reason: 'end_turn',
           usage: { input_tokens: 120, output_tokens: 60 },
         })
