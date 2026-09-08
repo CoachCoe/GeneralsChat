@@ -126,7 +126,17 @@ oversight.
   holds anything real.
 - **Log retention and alerting.** Container Apps sends stdout to Log Analytics
   in the environment; nothing alerts on anything.
-- **Rate limiting.** Still open from the audit (SEC-11/SEC-23). The credentials
-  endpoint is public and unthrottled, and `bcrypt` at cost 12 blocks the event
-  loop for ~0.25s per attempt. Worth closing before this is reachable from the
-  open internet by anyone who knows the hostname.
+- **Rate limiting at more than one replica.** The limiter itself shipped on
+  2026-09-02: sign-in is limited by client address in `middleware.ts`, and
+  chat, summaries and uploads by user id in their handlers. But the counters
+  live in **this process's memory**, so they are exact at one replica — which
+  is what `containerapp.template.yaml` pins with `maxReplicas: 1` — and wrong
+  at more than one, where the effective limit becomes N times what is
+  configured. It degrades quietly rather than failing, so it must move to a
+  shared store *before* `maxReplicas` is raised.
+
+  Related: the sign-in limiter keys on the first `x-forwarded-for` entry, which
+  is client-written whenever an upstream appends rather than replaces. Behind
+  Container Apps ingress that is the real client address; behind no proxy at
+  all — the `docker-compose.yml` arrangement — it is attacker-supplied. Do not
+  expose that arrangement to the internet.

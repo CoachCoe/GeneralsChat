@@ -60,8 +60,8 @@ const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
  * This posted to `/api/policies`, whose POST handler OQ-2 deleted -- it was the
  * third of three ingestion routes, sat outside the `/api/admin` prefix the
  * middleware gates, and was the route SEC-3 exploited. So every upload this
- * script attempted returned 405, while README, POLICY_MAPPING.md and
- * QUICK_START_POLICY_UPLOAD.md all still recommended it, two of them as
+ * script attempted returned 405, while README, docs/policy-mapping.md and
+ * docs/policy-upload-quickstart.md all still recommended it, two of them as
  * RECOMMENDED. (DEAD-89, DOC-22)
  */
 const UPLOAD_URL = `${BASE_URL}/api/admin/policies/upload`;

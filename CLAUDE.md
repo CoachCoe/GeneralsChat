@@ -16,13 +16,23 @@ All four must pass. CI runs exactly these.
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint src scripts e2e
 npm run build
-npm test              # Playwright; starts its own server and stub
+npm test              # unit (vitest) then e2e (Playwright, own server + stub)
 ```
 
-`npm test` needs a Postgres whose database name contains `test` —
+`npm test` is `npm run test:unit && npm run test:e2e` — vitest over the pure
+logic first, then Playwright. CI runs the unit tests before installing a
+browser, so failing them costs nothing.
+
+The e2e half needs a Postgres whose database name contains `test` —
 `e2e/global-setup.ts` refuses to reset anything else, so a mistyped
 `DATABASE_URL` cannot wipe real data. It makes no billed API calls: Anthropic
 requests go to a local stub via `ANTHROPIC_BASE_URL`.
+
+It also needs its port free. `PLAYWRIGHT_PORT` defaults to 3100, and the first
+link of `webServer.command` refuses to start if anything is already listening
+there — otherwise the suite runs against a server Playwright did not start,
+with that process's own `DATABASE_URL` and the real API. Pass
+`PLAYWRIGHT_PORT=<free port>` if 3100 is taken.
 
 ```bash
 DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_test?schema=public" \
@@ -35,7 +45,17 @@ access` while `psql -l` on the same database works fine.
 
 **`.env` points at production.** `DATABASE_URL` in `.env` is the hosted
 Postgres the pilot runs on, so any script run without an explicit override
-writes to real data. `npm test` is safe by construction — its setup refuses a
+writes to real data — including `npm run dev`. Create a local database and
+always pass it explicitly:
+
+```bash
+DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_dev?schema=public" npm run dev
+```
+
+This file used to say "there is no local database in this checkout", which read
+as "there is nothing to point at" and left the obvious way to run the app
+pointing at real data about real minors. There is no local database *committed
+here*; make one. `npm test` is safe by construction — its setup refuses a
 database whose name lacks `test`.
 
 The `policies:*` and `prisma` commands are **not** safe, and take whatever
@@ -114,7 +134,12 @@ and its patterns should not come back.
   time, id and count — digits must not jitter as a countdown ticks.
 - **Authority is carried by brightness**, federal brightest to school dimmest,
   consistently. Not by colour.
-- The `.eyebrow` class is the only uppercase in the UI.
+- Uppercase is the eyebrow treatment and nothing else — small, letterspaced,
+  used to label a region rather than to shout. `.eyebrow` in `theme.css` is the
+  canonical form; a handful of sites (the incident-page status pills, the
+  timeline group labels) inline the same three properties instead of using the
+  class. That is a duplication to collapse, not a second treatment: if you want
+  uppercase anywhere else, you do not.
 
 ## Test contracts
 

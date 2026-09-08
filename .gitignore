@@ -25,9 +25,12 @@ data/
 # Uploads
 uploads/
 
-# IDE
+# IDE and agent config
 .vscode/
 .idea/
+# .dockerignore already excludes this; keep the two consistent so a local
+# agent config cannot be committed by accident.
+.claude/
 *.swp
 *.swo
 

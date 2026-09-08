@@ -148,12 +148,21 @@ The system references these forms in guidance:
 
 ## System Status
 
-✅ **Currently Loaded:**
-- Bullying Prevention (DISC-001)
-- Student Conduct on School Buses (JICC)
-- Title IX Policy Update (2025)
+**This section is not the source of truth.** What is actually loaded, and what
+to load next in the order that gates guidance, is in
+[`roadmap.md`](./roadmap.md); `npm run policies:coverage` reports it from the
+database. This file is the *mapping* — which policy belongs in which
+jurisdiction and category — and it drifted out of date as a status board.
 
-⏳ **Pending Upload:**
-- 17+ policy categories from your comprehensive framework
-- All related forms and procedures
-- MOU documents with police departments
+Two corrections worth stating rather than deleting, because the old text was
+actively misleading:
+
+- **"Bullying Prevention (DISC-001)" was never a real policy.** Its own text
+  called it `Policy Number: DISC-001`, a code that does not exist — it was
+  synthetic sample data, and it was deactivated on 2026-09-01 because it
+  competed with the real Policy JICK for every bullying query. The real JICK
+  and the SAU 24 investigation form are loaded in its place.
+- **`mandatory_reporting` has nothing loaded at all**, and it is retrieved for
+  *every* incident regardless of type. So no incident currently receives a
+  mandatory-reporting policy. It is the single highest-value document to load
+  next.
