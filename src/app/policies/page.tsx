@@ -21,6 +21,8 @@ interface Policy {
   category: string;
   effectiveDate: string;
   isActive: boolean;
+  /** Searchable chunks. Zero means retrieval can never return it. (FLOW-74) */
+  _count?: { chunks: number };
 }
 
 /**
@@ -72,8 +74,14 @@ export default function PoliciesPage() {
     [policies, jurisdiction]
   );
 
+  // Counted the way policy-coverage.ts counts it: a policy is coverage only if
+  // it is active *and has chunks*. This counted rows, so a district whose
+  // three local policies all had zero chunks got no thin-library warning at
+  // all -- the one state where the warning matters most. (FLOW-74)
   const localCount = policies.filter(
-    p => p.jurisdiction === 'district' || p.jurisdiction === 'school'
+    p =>
+      (p.jurisdiction === 'district' || p.jurisdiction === 'school') &&
+      (p._count?.chunks ?? 0) > 0
   ).length;
 
   return (
@@ -147,6 +155,17 @@ export default function PoliciesPage() {
               >
                 <AuthorityChip jurisdiction={policy.jurisdiction} />
                 <span className="min-w-0 flex-1 truncate text-[15px] text-text">{policy.title}</span>
+                {/*
+                  A policy with no chunks cannot be returned by retrieval, so
+                  listing it as an equal member of the library claims coverage
+                  the system cannot deliver -- "a missing local policy is
+                  information", and so is a present-but-unsearchable one. Amber
+                  because OQ-1 permits it for a coverage warning, which is
+                  exactly what this is. (FLOW-74)
+                */}
+                {(policy._count?.chunks ?? 0) === 0 && (
+                  <span className="text-[12px] font-medium text-attention">not searchable</span>
+                )}
                 <span className="text-[13px] text-text-tertiary">
                   {CATEGORY_LABELS[policy.category] ?? policy.category}
                 </span>

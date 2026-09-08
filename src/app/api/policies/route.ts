@@ -39,6 +39,13 @@ export async function GET(request: NextRequest) {
         category: true,
         effectiveDate: true,
         isActive: true,
+        // How many searchable chunks the policy has. A row with none is
+        // invisible to retrieval while still counting as a loaded policy to
+        // anyone reading the library -- which is the state production was once
+        // in, after a re-index against an unmigrated schema left every policy
+        // at zero chunks and nobody could tell from this page. It leaks
+        // nothing: a count, not content and not a path. (FLOW-74)
+        _count: { select: { chunks: true } },
       },
       orderBy: { createdAt: 'desc' },
     });

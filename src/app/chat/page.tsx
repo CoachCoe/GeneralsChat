@@ -577,7 +577,20 @@ export default function ChatPage() {
                               />
                             ) : (
                               <div className="text-[13px] text-text-muted">
-                                No matching district policy was found for this question.
+                                {/*
+                                  Says what is true. Zero citations means zero
+                                  chunks from *any* jurisdiction -- buildCitations
+                                  iterates every retrieved chunk regardless of
+                                  level -- so "no matching district policy" read
+                                  as "state and federal were consulted", when in
+                                  fact nothing was. The prompt side is careful
+                                  about this distinction; the UI collapsed it.
+                                  (FLOW-83)
+                                */}
+                                No policy text was retrieved for this question, at any level —
+                                district, state or federal. Anything above is general practice,
+                                not a citation. Confirm it with your compliance officer before
+                                acting on it.
                               </div>
                             )}
 
