@@ -11,6 +11,62 @@ export interface Provenance {
 
 const UNVERIFIED: Provenance = { deadlineSource: 'model', policyId: null, citation: null };
 
+/*
+ * A quantity followed by a unit of time: "24 hours", "within 5 school days",
+ * "ten (10) business days", "48-hour". The optional parenthetical is how
+ * policy text usually writes a number twice -- "five (5) school days" -- and
+ * the hyphen is how it writes an adjective, "the 24-hour reporting window".
+ *
+ * Spelled-out numbers are listed rather than matched generically because the
+ * bare word "days" must not qualify on its own: "school days" appears in
+ * plenty of provisions that set no clock at all.
+ */
+const QUANTITY = String.raw`\d+|one|two|three|four|five|six|seven|eight|nine|ten|` +
+  String.raw`eleven|twelve|fifteen|twenty|thirty|forty[- ]?five|sixty|ninety`;
+const TIME_UNIT = String.raw`hours?|days?|weeks?|months?`;
+const QUANTIFIED_TIME = new RegExp(
+  String.raw`\b(?:${QUANTITY})\b[\s\-\u2013\u2014]*(?:\([^)]*\)[\s\-]*)?` +
+    String.raw`(?:business|school|calendar|working)?[\s\-]*(?:${TIME_UNIT})\b`,
+  'i'
+);
+
+/*
+ * Deadlines that name no number. "Immediately" is as much a clock as "within
+ * 24 hours", and mandatory-reporting statutes are written in exactly these
+ * words, so a provision using them has stated a time limit.
+ */
+const IMMEDIACY =
+  /\b(?:immediately|promptly|forthwith|without delay|as soon as (?:possible|practicable|reasonably)|same[- ](?:school[- ])?day|end of the (?:next[- ])?(?:school[- ])?day|no later than)\b/i;
+
+/**
+ * Does this provision state a time limit at all?
+ *
+ * The question a deadline's provenance turns on. `resolveProvenance` could
+ * previously confirm only that the excerpt the model named was one it had been
+ * given -- not that the excerpt says anything about when. A model citing a real
+ * provision for a number that provision does not contain produced a
+ * policy-backed row, with the red countdown that goes with it, and OQ-5 said so
+ * in as many words: attribution "verifies that the excerpt exists and was
+ * supplied, **not** that the excerpt states the deadline the model attributed
+ * to it."
+ *
+ * This closes the half of that gap that needs no calibration. A provision
+ * containing no time expression whatsoever cannot be the source of a number of
+ * hours, whatever the model claims -- that is decidable from the text alone.
+ *
+ * **What it deliberately does not do** is check that the time it found is the
+ * time the model derived. An excerpt is up to a thousand characters and may
+ * carry several provisions, so a clock found anywhere in it satisfies this. The
+ * result is a check that only ever *downgrades*: a false positive here leaves
+ * today's behaviour untouched, and there is no input on which it can promote a
+ * model's guess to policy-backed. Matching the specific number to the specific
+ * obligation is the remaining half, and it still wants real incidents to
+ * calibrate against.
+ */
+export function statesATimeLimit(text: string): boolean {
+  return QUANTIFIED_TIME.test(text) || IMMEDIACY.test(text);
+}
+
 /**
  * Resolve the model's claim about where a deadline came from.
  *
@@ -38,7 +94,18 @@ export function resolveProvenance(
   if (!reference) return UNVERIFIED;
 
   return {
-    deadlineSource: 'policy',
+    /*
+     * The excerpt was supplied and the model named it. Whether it can support a
+     * *deadline* is a further question, and one the text answers: a provision
+     * stating no time limit at all did not produce a number of hours.
+     *
+     * The citation and policy id survive that demotion, because they are still
+     * true -- the obligation does rest on this provision, and an administrator
+     * checking the answer needs to be sent to it. Only the claim about the
+     * clock is withdrawn, which is exactly what `deadlineSource` governs: the
+     * countdown loses its red and reads as unverified. (OQ-5)
+     */
+    deadlineSource: statesATimeLimit(reference.text) ? 'policy' : 'model',
     policyId: reference.policyId,
     citation: reference.citation,
   };

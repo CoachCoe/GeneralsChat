@@ -448,7 +448,7 @@ export class RAGSystem {
               statute: chunk.sectionStatute ?? undefined,
             })
           : title;
-        references?.push({ n, policyId: chunk.policyId, citation: source });
+        references?.push({ n, policyId: chunk.policyId, citation: source, text: chunk.content });
         return `[${n}] ${source}\n${chunk.content}`;
       });
 
