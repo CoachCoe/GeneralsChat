@@ -89,6 +89,16 @@ interface Message {
   classification?: Classification | null;
 }
 
+/**
+ * One turn as GET /api/chat/[incidentId] returns it -- the stored record,
+ * whose timestamp is still a string. Typed rather than mapped through `any`,
+ * so renaming a field on either side of that boundary fails the build instead
+ * of silently dropping a turn's provenance.
+ */
+interface StoredMessage extends Omit<Message, 'timestamp'> {
+  timestamp: string;
+}
+
 interface Chat {
   id: string;
   title: string;
@@ -162,10 +172,12 @@ export default function ChatPage() {
 
       const data = await response.json();
       setIncidentId(data.incidentId);
-      setMessages(data.messages.map((m: any) => ({
-        ...m,
-        timestamp: new Date(m.timestamp)
-      })));
+      setMessages(
+        (data.messages as StoredMessage[]).map(m => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        }))
+      );
     } catch (error) {
       console.error('Error loading conversation:', error);
       toast.error('Failed to load conversation. Please try again.');
@@ -373,10 +385,22 @@ export default function ChatPage() {
               </div>
             ) : (
               previousChats.map((chat) => (
-                <div
+                // A button, not a clickable div: this is the only way back to
+                // a past incident, and on a div it was unreachable by keyboard
+                // and announced as nothing.
+                <button
                   key={chat.id}
+                  type="button"
+                  data-testid="chat-history-item"
+                  data-incident-id={chat.id}
+                  aria-current={incidentId === chat.id ? 'true' : undefined}
                   onClick={() => loadConversation(chat.id)}
                   style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    font: 'inherit',
+                    border: 'none',
                     padding: '10px 12px',
                     marginBottom: '4px',
                     borderRadius: '8px',
@@ -401,7 +425,7 @@ export default function ChatPage() {
                   }}>
                     {chat.title}
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>

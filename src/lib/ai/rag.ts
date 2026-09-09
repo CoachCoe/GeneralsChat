@@ -345,7 +345,7 @@ export class RAGSystem {
     const references: PolicyReference[] = [];
     const policyContext = this.buildJurisdictionContext(relevantChunks, references);
     const citations = this.buildCitations(relevantChunks);
-    const coverage = await this.assessCoverage(guaranteed);
+    const coverage = await this.coverageFor(context?.incidentType);
 
     return {
       response: policyContext,
@@ -448,7 +448,7 @@ export class RAGSystem {
               statute: chunk.sectionStatute ?? undefined,
             })
           : title;
-        references?.push({ n, policyId: chunk.policyId, citation: source });
+        references?.push({ n, policyId: chunk.policyId, citation: source, text: chunk.content });
         return `[${n}] ${source}\n${chunk.content}`;
       });
 
@@ -512,6 +512,23 @@ export class RAGSystem {
    * implicated category without a district or school policy is a gap, whether
    * or not federal or state authority exists above it.
    */
+  /**
+   * What the library does and does not cover for an incident of this type.
+   *
+   * Public because the chat history route needs the same answer when it
+   * rebuilds a stored conversation, and a second implementation of "which
+   * categories have no local policy" is exactly the drift policy-coverage.ts
+   * was written to avoid. Both callers reach `assessCoverage` through here, so
+   * a reloaded turn reports the gap the live turn reported.
+   *
+   * Derived from the incident type and the current library, not from what
+   * retrieval returned, so it is meaningful for a turn recorded weeks ago:
+   * what it answers is whether the district has a local policy *now*.
+   */
+  async coverageFor(incidentType?: string | null): Promise<PolicyCoverage> {
+    return this.assessCoverage(guaranteedCategoriesFor(incidentType));
+  }
+
   private async assessCoverage(categories: string[]): Promise<PolicyCoverage> {
     if (categories.length === 0) {
       return { categories, byCategory: {}, categoriesWithoutLocalPolicy: [] };
