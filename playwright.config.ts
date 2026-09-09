@@ -14,6 +14,8 @@ const BASE_URL = `http://localhost:${PORT}`;
 export const STORAGE_STATE = {
   admin: path.join(__dirname, 'e2e/.auth/admin.json'),
   reporter: path.join(__dirname, 'e2e/.auth/reporter.json'),
+  // Not a project: a session one test signs in as and then revokes.
+  revocable: path.join(__dirname, 'e2e/.auth/revocable.json'),
 };
 
 export default defineConfig({
