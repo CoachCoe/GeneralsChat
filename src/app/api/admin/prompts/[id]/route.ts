@@ -1,3 +1,5 @@
+import { formatValidationErrors, updatePromptSchema, validateRequest } from '@/lib/validation';
+import { validationError } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
@@ -49,7 +51,17 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     const { id } = await params;
     const body = await request.json();
-    const { name, content, description, isActive } = body;
+
+    // Through the schema written for this route, which sat unimported. The
+    // hand-rolled version spread whatever came in, so `content: 42` or
+    // `isActive: "yes"` reached Prisma, and an empty-string content replaced
+    // the advisor profile that is prepended to every consultation.
+    // (SEC-36, FLOW-78)
+    const validation = validateRequest(updatePromptSchema, body);
+    if (!validation.success) {
+      return validationError('Invalid prompt', formatValidationErrors(validation.errors));
+    }
+    const { name, content, description, isActive } = validation.data;
 
     // Captured before the write. This row is loaded as the system prompt for
     // every consultation, so an edit here changes the mandated-reporting advice

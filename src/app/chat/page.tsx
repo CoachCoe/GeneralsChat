@@ -46,6 +46,28 @@ function isSubjectOutsideLibrary(coverage: Coverage): boolean {
   return subject.every(c => coverage.categoriesWithoutLocalPolicy.includes(c));
 }
 
+/**
+ * A failed turn.
+ *
+ * Not a `Message`. A failure used to be appended as `type: 'general'` with
+ * apology text, rendered by the same component, in the same place, behind the
+ * same avatar as real guidance -- so the administrator saw the assistant
+ * speaking. It was also client-only, so on reload the apology vanished while
+ * their own question remained, leaving a question with no answer and no
+ * explanation.
+ *
+ * `generateSchoolComplianceResponse` was changed to throw rather than return
+ * filler text precisely so that a failed call could never be mistaken for
+ * guidance (FLOW-7); the client was reintroducing it visually. This renders as
+ * a notice about the request, keeps the unsent text so it is not lost, and
+ * says plainly that nothing was written. (FLOW-53, FLOW-43)
+ */
+interface SendFailure {
+  message: string;
+  retryable: boolean;
+  unsent: string;
+}
+
 interface Message {
   id: string;
   type: 'user' | 'general';
@@ -69,6 +91,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sendError, setSendError] = useState<SendFailure | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // The sidebar is 260px and defaulted open, which left 115px for the
@@ -158,6 +181,7 @@ export default function ChatPage() {
     setMessages(prev => [...prev, userMessage]);
     const currentInput = inputValue;
     setInputValue('');
+    setSendError(null);
     setIsLoading(true);
 
     try {
@@ -173,7 +197,26 @@ export default function ChatPage() {
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
+        // Read the endpoint's own message where it has one: a 429 says when to
+        // retry and a 503 names the outage, and both are more useful than a
+        // generic apology.
+        let detail = '';
+        try {
+          const body = await response.json();
+          if (typeof body?.error === 'string') detail = body.error;
+        } catch {
+          // Not JSON.
+        }
+        setSendError({
+          message:
+            response.status === 401
+              ? 'Your session has expired. Sign in again to continue.'
+              : detail ||
+                'The assistant could not answer. Nothing has been added to this incident.',
+          retryable: response.status !== 401,
+          unsent: currentInput,
+        });
+        return;
       }
 
       const data = await response.json();
@@ -194,15 +237,12 @@ export default function ChatPage() {
         classification: data.classification
       };
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error calling API:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'general',
-        content: "I'm sorry, I'm experiencing technical difficulties. Please try again in a moment.",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+    } catch {
+      setSendError({
+        message: 'Could not reach the server. Nothing has been added to this incident.',
+        retryable: true,
+        unsent: currentInput,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -537,7 +577,20 @@ export default function ChatPage() {
                               />
                             ) : (
                               <div className="text-[13px] text-text-muted">
-                                No matching district policy was found for this question.
+                                {/*
+                                  Says what is true. Zero citations means zero
+                                  chunks from *any* jurisdiction -- buildCitations
+                                  iterates every retrieved chunk regardless of
+                                  level -- so "no matching district policy" read
+                                  as "state and federal were consulted", when in
+                                  fact nothing was. The prompt side is careful
+                                  about this distinction; the UI collapsed it.
+                                  (FLOW-83)
+                                */}
+                                No policy text was retrieved for this question, at any level —
+                                district, state or federal. Anything above is general practice,
+                                not a citation. Confirm it with your compliance officer before
+                                acting on it.
                               </div>
                             )}
 
@@ -563,6 +616,49 @@ export default function ChatPage() {
                       </div>
                     </div>
                   ))}
+
+                  {sendError && !isLoading && (
+                    <div
+                      role="alert"
+                      data-testid="chat-error"
+                      style={{
+                        border: '1px solid var(--color-line-strong)',
+                        borderRadius: '12px',
+                        padding: '14px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        background: 'var(--color-surface)',
+                      }}
+                    >
+                      <span style={{ fontSize: '15px', color: 'var(--color-text)' }}>
+                        {sendError.message}
+                      </span>
+                      {sendError.retryable && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text = sendError.unsent;
+                            setSendError(null);
+                            setInputValue(text);
+                          }}
+                          style={{
+                            alignSelf: 'flex-start',
+                            minHeight: '36px',
+                            padding: '0 12px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--color-line-strong)',
+                            background: 'transparent',
+                            color: 'var(--color-text)',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Put my message back
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {isLoading && (
                     <div data-testid="chat-loading" role="status" aria-live="polite" style={{ display: 'flex', gap: '12px' }}>

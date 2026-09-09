@@ -1,3 +1,4 @@
+import { requireTestDatabase } from './support/require-test-database';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { claudeService } from '../src/lib/ai/claude-service';
@@ -19,6 +20,9 @@ config({ path: resolve(__dirname, '../.env') });
  */
 
 async function testPhase3() {
+  // Creates and deletes User, Incident and Conversation rows. (B8)
+  requireTestDatabase('scripts/test-phase3.ts');
+
   console.log('🚀 Phase 3: Claude API Integration Test\n');
   console.log('═══════════════════════════════════════════════════════════\n');
 

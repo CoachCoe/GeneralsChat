@@ -129,3 +129,23 @@ describe('extractKeywords', () => {
     expect(extractKeywords('Bullying BULLYING bullying')).toContain('bullying');
   });
 });
+
+describe('processDocument on a legacy .doc', () => {
+  // The extractor read the OLE2 binary as UTF-8, so a .doc policy became
+  // mojibake -- which cleanText then tidied into something that passed the
+  // "any words at all" check, was chunked, and became retrievable policy text
+  // cited under the real policy's title. (FLOW-72)
+  it('refuses the file rather than reading the binary as text', async () => {
+    const { mkdtempSync, writeFileSync } = await import('fs');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    const { processDocument } = await import('./documentProcessor');
+
+    const dir = mkdtempSync(join(tmpdir(), 'doc-test-'));
+    const file = join(dir, 'policy.doc');
+    // The OLE2 compound-file magic, followed by bytes that are not text.
+    writeFileSync(file, Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0x00, 0x00]));
+
+    await expect(processDocument(file)).rejects.toThrow(/\.docx or PDF/);
+  });
+});

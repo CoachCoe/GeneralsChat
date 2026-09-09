@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isPolicyBacked } from '@/lib/deadline';
 import { prisma } from '@/lib/db';
 import { incidentScope, requireUser } from '@/lib/session';
 import { createErrorResponse } from '@/lib/errors';
@@ -33,6 +34,14 @@ export async function GET(request: NextRequest) {
         incident: {
           select: { id: true, title: true, incidentType: true, severity: true },
         },
+        // The level of authority that imposes the obligation. `ObligationRow`
+        // has always rendered an `AuthorityChip` when `jurisdiction` is
+        // present, and no endpoint ever supplied it -- so the chip has never
+        // rendered once, and "authority is carried by brightness" was true of
+        // the policy library and of nothing else. `ComplianceAction` carries
+        // `policyId`, so this is a join, not a schema change. (SPEC-56,
+        // FLOW-60)
+        policy: { select: { jurisdiction: true } },
       },
       // Nulls last: an obligation with no deadline is real but not urgent.
       orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
@@ -51,6 +60,7 @@ export async function GET(request: NextRequest) {
       incidentType: action.incident.incidentType,
       deadlineSource: action.deadlineSource,
       citation: action.citation,
+      jurisdiction: action.policy?.jurisdiction ?? null,
     }));
 
     const now = Date.now();
@@ -66,7 +76,7 @@ export async function GET(request: NextRequest) {
     // stated would make it a confident assertion about a guess. Unverified
     // obligations are still listed, and still say they need confirming; they
     // just do not raise an alarm the system cannot substantiate. (OQ-5)
-    const backed = open.filter(o => o.deadlineSource === 'policy');
+    const backed = open.filter(o => isPolicyBacked(o.deadlineSource));
     const due = (o: (typeof obligations)[number]) =>
       o.dueDate ? new Date(o.dueDate).getTime() : null;
 

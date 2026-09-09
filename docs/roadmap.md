@@ -5,7 +5,7 @@ is meant to change; `docs/audit/` and `docs/history/` are dated records that
 should not be rewritten. This repo previously accumulated four status files that
 all drifted out of date, so keep this one current or delete it.
 
-Last reviewed: 2026-09-02. Context: entering a single-user pilot.
+Last reviewed: 2026-09-08. Context: entering a single-user pilot.
 
 ---
 
@@ -196,8 +196,15 @@ are now decided. Two are done; three are queued below.
 a deadline state and nothing else; `theme.css` and the redesign brief recorded
 amber-for-gaps as deliberate. The rule was widened rather than the components
 repainted: a coverage gap is the same class of signal as a deadline — an
-actionable compliance warning — not decoration. The rule still bites, which is
-why severity chips and error states lost their colour in the audit (SPEC-44).
+actionable compliance warning — not decoration.
+
+**Correction, 2026-09-08.** The last sentence of this entry used to read "which
+is why severity chips and error states lost their colour in the audit
+(SPEC-44)". They did not — SPEC-44 was never in the 2026-09-01 fix list, and all
+three sites were unchanged when the 2026-09-08 audit looked. They are repainted
+now, along with three green `--color-met` decorations on the admin pages and the
+button component's red `destructive` variant, none of which were in SPEC-44's
+list either. (SPEC-54)
 
 **OQ-3 — `other` retrieval: the guarantee reading, confirmed. Taxonomy gap
 fixed.** `categoriesForIncidentType` stays empty as a *search filter*;
@@ -366,6 +373,53 @@ stream fails three, removing the Content-Length check fails one.
 
 ---
 
+### Audit 2026-09-08 — **12 blockers found, 12 fixed**
+
+Six parallel read-only passes plus main-thread findings: 119 findings, 14 raw
+blockers collapsing to 12 distinct. See
+[`docs/audit/2026-09-08-findings.md`](./audit/2026-09-08-findings.md), the
+verbatim pass records in [`2026-09-08-passes/`](./audit/2026-09-08-passes/), and
+[`-work-completed.md`](./audit/2026-09-08-work-completed.md).
+
+Three themes, all variants of one thing — **the product's most load-bearing
+claims were the least verified**:
+
+1. **OQ-5 was honoured in one component and bypassed everywhere else.** An
+   unverified obligation overdue or due today was rendered in *no* group on the
+   home queue, so a 24-hour mandated report with no citable provision vanished
+   from the page an administrator opens to find out what they are late on. Every
+   surface except `DeadlineClock` painted and counted unverified deadlines red.
+   The home headline stated "You're clear. No obligations are outstanding." in
+   40px serif from an empty array — before the first fetch resolved, and
+   permanently after a failed one.
+2. **A transient failure could become a permanent record, in two more places.**
+   FLOW-35 was fixed one layer too high: `claudeService.classifyIncident` still
+   returned a fabricated `other`/`medium` classification with two invented
+   24-hour obligations on any parse failure. And because `incidentType` was
+   written before the obligations were derived, any failure in between left a
+   classified incident with **zero** obligations and nothing that would ever
+   retry.
+3. **The safety-critical arithmetic and the safety-critical scripts were
+   unguarded.** No test anywhere read a `dueDate` produced from a `dueInHours`,
+   so a 60× unit error passed all 210 tests. `scripts/clear-incidents.ts`
+   deleted every incident and the whole audit log from whatever `.env` pointed
+   at, with no dry run and no database-name guard, and `CLAUDE.md`'s warning
+   list omitted it. `reuseExistingServer: false` did not prevent the e2e suite
+   running against a foreign server — reproduced, and the same-app variant would
+   have driven production.
+
+What the audit also confirmed, which is worth as much: no security blockers. No
+cross-user data access, no auth bypass, no path traversal, no raw SQL, and no
+secret or student record anywhere in git history on any ref. All six `CLAUDE.md`
+invariants describe real code.
+
+Deferred, with reasons, in the work-completed document: 4 open questions needing
+a product call (OQ-6 to OQ-14, of which five are decided by the fixes above),
+the CSP's `'unsafe-inline'` on `script-src`, the `x-forwarded-for` trust model,
+and ~30 minors.
+
+---
+
 ## Next — gated on real use
 
 ### 6. Run a real incident end to end, and watch it — *maintainer*
@@ -389,6 +443,20 @@ a deadline with no policy behind it *requires* the row to be able to name the
 policy behind it. The sequencing argument was not wrong, it was answered — the
 citation is best-effort, because the alternative is dropping obligations.
 
+**Correction, 2026-09-08.** "`ObligationRow` renders the `AuthorityChip` and the
+citation, which it could always do — the data had simply never existed" was half
+true. The citation arrived; the jurisdiction did not, because no endpoint ever
+projected it, so the chip had never rendered once. Both `GET /api/obligations`
+and `GET /api/incidents/[id]` now join through `policyId` for it. (SPEC-56)
+
+Two more things OQ-5 asked for were only half delivered, and are fixed as of
+2026-09-08. "A model-sourced deadline gets no red or amber countdown" held in
+`DeadlineClock` and in no other surface — the incident page's "N overdue" pill,
+its stamp bar, the timeline dots and the incidents-list countdown all painted
+and counted unverified deadlines (B5). And an unverified obligation that was
+overdue or due today matched none of the home queue's three groups, so it was
+rendered *nowhere* — the outcome this decision exists to prevent (B3).
+
 The half deliberately still waiting on step 6 is the harder one, restated here
 so it is not read as finished: attribution verifies that the excerpt exists and
 was supplied, **not** that the excerpt states the deadline the model attributed
@@ -407,7 +475,10 @@ against.
 |---|---|
 | ~~Rate limiting (SEC-11, SEC-23)~~ | **Done 2026-09-02.** It turned out not to be a can-wait item: sign-in ran bcrypt at cost 12 even for an address with no account, so a few hundred attempts a minute made the app unavailable to every administrator. Sign-in is limited by address in `middleware.ts`, chat and uploads by user id. The counters are per-process, so they must move to a shared store before `maxReplicas` is raised |
 | ~~Upload OOM (SEC-10)~~ | **Done 2026-09-02.** `readCappedFormData` bounds both upload bodies before they are parsed, by Content-Length and then by a counting stream that errors past the ceiling. Recorded above |
-| DNS rebinding (SEC-4, partial) | Needs a hostname allowlist, which is a decision about permitted policy sources |
+| DNS rebinding (SEC-4, partial) | Needs a hostname allowlist, which is a decision about permitted policy sources (**OQ-10**). SEC-32 narrowed the address blocklist on 2026-09-08 — IPv4-mapped IPv6 in hex notation reached loopback and the cloud metadata endpoint straight through it — but the resolve-then-connect window is still open |
+| CSP `script-src 'unsafe-inline'` | **Added 2026-09-08.** The app had no security headers at all; it now sends a CSP with `default-src 'none'`, `connect-src 'self'` and `frame-ancestors 'none'`, plus HSTS, nosniff and `Referrer-Policy: same-origin`. `script-src` still allows `'unsafe-inline'` because the App Router inlines bootstrap and flight data; removing it needs a nonce plumbed through `middleware.ts` |
+| `x-forwarded-for` trust (SEC-31) | The sign-in limiter keys on entry zero, which is client-written whenever an upstream *appends*. Correct behind Container Apps ingress; attacker-supplied under the `docker-compose.yml` arrangement, which has no proxy at all. Fixing it properly means declaring how many proxy hops to trust — an infrastructure decision, and the reason it is recorded rather than guessed |
+| Role revocation (SEC-19) | There is no mechanism at all: a role change takes effect only when the JWT expires. Open since the first audit and, until 2026-09-08, not tracked here |
 | ~~Unit tests~~ | **Done 2026-09-01.** Vitest, 79 tests over the pure logic: `describeDeadline`, `splitIntoChunks`, `cleanText`, `buildCoverageReport`, the upload path guards, the zod schemas, and the incident→category mapping. `npm run test:unit` runs in under a second; `npm test` runs unit then e2e, and CI runs unit before installing a browser. Writing them found three real bugs — see the audit record |
 
 ---

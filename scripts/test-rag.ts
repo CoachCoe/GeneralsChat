@@ -1,3 +1,4 @@
+import { requireTestDatabase } from './support/require-test-database';
 import { ragSystem } from '../src/lib/ai/rag';
 import { embeddingsService } from '../src/lib/ai/embeddings';
 import { chromaService } from '../src/lib/ai/chroma';
@@ -14,6 +15,11 @@ import { prisma } from '../src/lib/db';
  */
 
 async function testRAGSystem() {
+  // Creates an *active* district bullying policy. Bullying is the pilot's
+  // only fully covered subject, so a synthetic one competing with the real
+  // JICK degrades the guidance the product can actually give. (B8)
+  requireTestDatabase('scripts/test-rag.ts');
+
   console.log('🧪 Testing RAG System\n');
   console.log('═══════════════════════════════════════════════════════════\n');
 

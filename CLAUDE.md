@@ -16,13 +16,23 @@ All four must pass. CI runs exactly these.
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint src scripts e2e
 npm run build
-npm test              # Playwright; starts its own server and stub
+npm test              # unit (vitest) then e2e (Playwright, own server + stub)
 ```
 
-`npm test` needs a Postgres whose database name contains `test` —
+`npm test` is `npm run test:unit && npm run test:e2e` — vitest over the pure
+logic first, then Playwright. CI runs the unit tests before installing a
+browser, so failing them costs nothing.
+
+The e2e half needs a Postgres whose database name contains `test` —
 `e2e/global-setup.ts` refuses to reset anything else, so a mistyped
 `DATABASE_URL` cannot wipe real data. It makes no billed API calls: Anthropic
 requests go to a local stub via `ANTHROPIC_BASE_URL`.
+
+It also needs its port free. `PLAYWRIGHT_PORT` defaults to 3100, and the first
+link of `webServer.command` refuses to start if anything is already listening
+there — otherwise the suite runs against a server Playwright did not start,
+with that process's own `DATABASE_URL` and the real API. Pass
+`PLAYWRIGHT_PORT=<free port>` if 3100 is taken.
 
 ```bash
 DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_test?schema=public" \
@@ -33,14 +43,35 @@ Give the URL an explicit role. Prisma does not fall back to the OS user the way
 `psql` does, so a userless URL fails migrate with `P1010: User was denied
 access` while `psql -l` on the same database works fine.
 
-**`.env` points at production.** There is no local database in this checkout —
-`DATABASE_URL` in `.env` is the hosted Postgres the pilot runs on. Any script
-run without an explicit override writes to real data. `npm test` is safe by
-construction (its setup refuses a database whose name lacks `test`), but the
-`policies:*` and `prisma` commands are not, and neither are
-`scripts/test-phase3.ts` and `scripts/test-rag.ts`, which create and delete
-`User`, `Incident`, `Conversation` and `Policy` rows despite the `test-`
-prefix. They take whatever `.env` gives them. Re-indexing against production with an unmigrated schema is what once
+**`.env` points at production.** `DATABASE_URL` in `.env` is the hosted
+Postgres the pilot runs on, so any script run without an explicit override
+writes to real data — including `npm run dev`. Create a local database and
+always pass it explicitly:
+
+```bash
+DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_dev?schema=public" npm run dev
+```
+
+This file used to say "there is no local database in this checkout", which read
+as "there is nothing to point at" and left the obvious way to run the app
+pointing at real data about real minors. There is no local database *committed
+here*; make one. `npm test` is safe by construction — its setup refuses a
+database whose name lacks `test`.
+
+The `policies:*` and `prisma` commands are **not** safe, and take whatever
+`.env` gives them. These now carry the same `test`-in-the-name guard the e2e
+setup has, and refuse to run against anything else:
+
+| Script | What it does |
+|---|---|
+| `npm run incidents:clear` | Deletes **every** incident, conversation, attachment, compliance action and audit-log row. Dry run unless `--apply` |
+| `scripts/test-rag.ts` | Creates an *active* district bullying policy, which competes with the real JICK for every bullying query |
+| `scripts/test-phase3.ts` | Creates and deletes `User`, `Incident` and `Conversation` rows |
+| `scripts/migrate-chat-titles.ts` | Rewrites `Incident` titles in place |
+
+The `test-` prefix on the first three does not mean they are tests; they are not
+part of any gate. The guard lives in `scripts/support/require-test-database.ts`.
+(B7, B8) Re-indexing against production with an unmigrated schema is what once
 left every policy with zero chunks and retrieval silently returning nothing.
 Prefer `npm run policies:reindex` with no flag — it is a dry run — and read what
 it says it would do before passing `--apply`.
@@ -103,7 +134,12 @@ and its patterns should not come back.
   time, id and count — digits must not jitter as a countdown ticks.
 - **Authority is carried by brightness**, federal brightest to school dimmest,
   consistently. Not by colour.
-- The `.eyebrow` class is the only uppercase in the UI.
+- Uppercase is the eyebrow treatment and nothing else — small, letterspaced,
+  used to label a region rather than to shout. `.eyebrow` in `theme.css` is the
+  canonical form; a handful of sites (the incident-page status pills, the
+  timeline group labels) inline the same three properties instead of using the
+  class. That is a duplication to collapse, not a second treatment: if you want
+  uppercase anywhere else, you do not.
 
 ## Test contracts
 
@@ -111,9 +147,15 @@ These are asserted by the suite; move them deliberately and update the tests in
 the same commit:
 
 `data-testid="chat-input" | chat-send | chat-loading | chat-sources |
-obligation-queue`, `aria-label="Send message"`, `nav[aria-label="Main"]`, the
-`Incidents` `<h1>`, and the button names `Close Incident` / `Reopen Incident` /
-`Generate Summary` / `Sign in` / `Sign out` / `Mark done`.
+obligation-queue | obligation-row`, `aria-label="Send message"`,
+`nav[aria-label="Main"]`, the `Incidents` `<h1>`, and the button names
+`Close Incident` / `Reopen Incident` / `Generate Summary` / `Sign in` /
+`Sign out` / `Mark done`.
+
+`obligation-row` exists so a test can assert the queue is **exhaustive** — that
+the number of rows rendered equals the number of open obligations the API
+reports. Three groups of filters used to drop unverified late rows on the floor
+and nothing could see it. (B3)
 
 ## Conventions
 

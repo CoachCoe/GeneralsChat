@@ -1,3 +1,4 @@
+import { requireTestDatabase } from './support/require-test-database';
 import { prisma } from '../src/lib/db';
 import { INCIDENT_TYPE_LABELS } from '../src/types';
 
@@ -12,6 +13,11 @@ import { INCIDENT_TYPE_LABELS } from '../src/types';
 const typeLabels: Record<string, string> = INCIDENT_TYPE_LABELS;
 
 async function migrateChatTitles() {
+  // A one-off backfill that rewrites Incident titles in place, and is wired
+  // into no npm script -- so the only way it runs is by hand, against
+  // whatever .env gives it. (B7, REPO-24)
+  requireTestDatabase('scripts/migrate-chat-titles.ts');
+
   console.log('🔄 Starting chat title migration...\n');
 
   try {

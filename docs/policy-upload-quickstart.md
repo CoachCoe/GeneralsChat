@@ -1,38 +1,19 @@
 # Quick Start: Policy Upload Guide
 
-## 🚀 Three Ways to Upload Policies
+## Three ways to upload policies
 
-### Method 1: Batch Upload Script (RECOMMENDED)
+`.doc` is not one of the accepted formats on any of them. The extractor read
+the legacy binary as UTF-8 and produced text that was chunked and became
+citable policy, so it is refused at the boundary — open it and save as `.docx`
+or PDF first.
 
-**Best for:** Uploading multiple policies at once
+A policy is created **inactive** and activated only once its chunks exist, so a
+failed index leaves nothing that the library counts as loaded but retrieval can
+never return.
 
-1. **Save your policy files** to `sample-policies/` directory:
-   ```bash
-   sample-policies/
-   ├── jldbb-suicide-prevention.pdf
-   ├── jlf-mandatory-reporting.pdf
-   ├── jkaa-restraint-seclusion.pdf
-   └── ...
-   ```
+### Method 1: Single policy, command line (recommended)
 
-2. **Edit the batch script** at `scripts/batch-upload-policies.ts`:
-   - Uncomment the policies you want to upload
-   - OR add new policy definitions following the template
-
-3. **Run the script:**
-   ```bash
-   npm run policies:batch-upload
-   ```
-
-4. **Verify upload:**
-   - Check the console output for success messages
-   - Visit http://localhost:3000/policies to see uploaded policies
-
----
-
-### Method 2: Single Policy Upload (Command Line)
-
-**Best for:** loading one policy, and the path that actually works today.
+**Best for:** loading one policy, and the path with the fewest moving parts.
 
 Use `npm run policies:load`. It writes through Prisma, so it needs no running
 server and no session cookie, it accepts `.pdf` and `.docx` as well as text,
@@ -66,26 +47,46 @@ of three ingestion routes, called by nothing, and it sat outside the
 
 ---
 
-### Method 3: Web UI Upload
+### Method 2: Admin UI (the canonical path)
 
-**Best for:** Non-technical users or visual preference
+**Best for:** non-technical users, and the path OQ-2 made canonical.
 
-1. Start the dev server (if not running):
+1. Start the dev server, against an explicit local database — `.env` points at
+   the hosted pilot Postgres:
    ```bash
-   npm run dev
+   DATABASE_URL="postgresql://$USER@localhost:5432/generalschat_dev?schema=public" npm run dev
    ```
 
-2. Navigate to: http://localhost:3000/policies
+2. Sign in as an admin and go to **/admin/policies**. Not `/policies` — that is
+   the read-only library, for every role, and has no upload form. The library
+   page links admins onward.
 
-3. Click **"Upload Policy"** button
+3. Fill in title, jurisdiction, category and effective date, then attach a
+   `.txt`, `.md`, `.pdf` or `.docx` file, or paste the text.
 
-4. Fill in the form:
-   - **Title:** Policy code and name
-   - **Policy Type:** Select from dropdown
-   - **Effective Date:** Use date picker
-   - **File:** Click to upload PDF/DOCX/TXT
+4. The response reports how many chunks were created. Zero chunks is a failure,
+   not a warning: the policy is not activated, because it would be invisible to
+   retrieval.
 
-5. Click **"Submit"**
+---
+
+### Method 3: Batch upload, many files at once
+
+**Best for:** loading a directory of files in one go.
+
+It drives the same admin endpoint over HTTP, so unlike Method 1 it needs a
+running server **and** an admin session cookie — the endpoint is admin-gated in
+its own handler, not only by the middleware.
+
+1. Put the files in `sample-policies/` and edit the `policies` array in
+   `scripts/batch-upload-policies.ts`.
+2. Sign in as an admin, copy the `authjs.session-token` cookie, then:
+   ```bash
+   APP_SESSION_COOKIE=<value> npm run policies:batch-upload
+   ```
+
+Until 2026-09-08 this script posted to `POST /api/policies`, which OQ-2 had
+deleted, so every upload returned 405 while three documents recommended it.
 
 ---
 
@@ -142,9 +143,16 @@ of these **exact** strings:
 
 ## 📁 Supported File Formats
 
-- **PDF** (`.pdf`) - Most common, best for scanned documents
-- **Word** (`.docx`) - Best for editable documents
-- **Text** (`.txt`) - Simplest format, best for copy-paste
+- **PDF** (`.pdf`) — most common. A *scanned* PDF has no text layer; upload is
+  refused with a message saying to run OCR first, rather than storing an empty
+  policy.
+- **Word** (`.docx`) — best for editable documents.
+- **Text** (`.txt`, `.md`) — simplest, best for copy-paste.
+
+**Not `.doc`.** The legacy OLE2 format was read as UTF-8, which produced
+mojibake that passed the "any words at all" check, was chunked, and became
+retrievable policy text cited under the real policy's title. Open it and save
+as `.docx` or PDF.
 
 **File size limit:** 10MB per file
 
@@ -235,19 +243,25 @@ Look for:
 
 ---
 
-## 📊 Current System Status
+## Current system status
 
-**Policies Loaded:** 3 main policies (7 total records)
-- ✅ DISC-001 - Bullying Prevention
-- ✅ JICC - Student Conduct on School Buses
-- ✅ ACAC - Title IX Policy Update 2025
+**Do not read a status board from this file.** It said "System Ready ✅ / RAG
+Working ✅" over a library whose always-retrieved `mandatory_reporting`
+category is empty, and listed `DISC-001` as loaded when that was synthetic
+sample data with a policy code that does not exist — deactivated on 2026-09-01
+because it competed with the real Policy JICK for every bullying query.
 
-**Policies Pending:** 17+ categories (see POLICY_MAPPING.md)
+For what is actually loaded, and whether retrieval can return it:
 
-**System Ready:** ✅ Yes
-**RAG Working:** ✅ Yes
-**Chat Working:** ✅ Yes
-**Production Build:** ✅ Clean
+```bash
+npm run policies:coverage           # what a real incident gets today
+npm run policies:coverage -- --check  # non-zero if any active policy is unretrievable
+```
+
+It counts a policy as coverage only if it is **active and has chunks**, because
+a row with no chunks is invisible to retrieval and counting it would claim
+coverage the system cannot deliver. Priority order for what to load next is in
+[`roadmap.md`](./roadmap.md).
 
 ---
 

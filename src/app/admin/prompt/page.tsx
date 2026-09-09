@@ -240,12 +240,13 @@ export default function PromptEditorPage() {
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <span className="label-sm font-medium truncate">{prompt.name}</span>
+                        {/* Neutral: an isActive flag is not a deadline state.
+                            (SPEC-54) */}
                         {prompt.isActive && (
-                          <span className="badge flex-shrink-0 ml-2" style={{
-                            background: 'var(--color-met)',
-                            color: 'white',
-                            fontSize: '12px'
-                          }}>
+                          <span
+                            className="badge flex-shrink-0 ml-2"
+                            style={{ fontSize: '12px' }}
+                          >
                             Active
                           </span>
                         )}
@@ -298,10 +299,6 @@ export default function PromptEditorPage() {
                               onClick={handleActivate}
                               disabled={saving}
                               size="sm"
-                              style={{
-                                background: 'var(--color-met)',
-                                color: 'white'
-                              }}
                             >
                               <Check size={20} style={{ marginRight: 'var(--spacing-2)' }} />
                               Activate
@@ -397,7 +394,7 @@ export default function PromptEditorPage() {
                           <p className="caption" style={{ color: 'var(--color-text-muted)' }}>Status</p>
                           <p className="body-text font-medium" style={{ color: 'var(--color-text)' }}>
                             {selectedPrompt.isActive ? (
-                              <span style={{ color: 'var(--color-met)' }}>Active</span>
+                              <span style={{ color: 'var(--color-text)' }}>Active</span>
                             ) : (
                               <span style={{ color: 'var(--color-text-muted)' }}>Inactive</span>
                             )}

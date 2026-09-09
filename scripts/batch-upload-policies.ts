@@ -54,6 +54,38 @@ interface PolicyUpload {
  */
 const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
+/**
+ * The canonical ingestion route.
+ *
+ * This posted to `/api/policies`, whose POST handler OQ-2 deleted -- it was the
+ * third of three ingestion routes, sat outside the `/api/admin` prefix the
+ * middleware gates, and was the route SEC-3 exploited. So every upload this
+ * script attempted returned 405, while README, docs/policy-mapping.md and
+ * docs/policy-upload-quickstart.md all still recommended it, two of them as
+ * RECOMMENDED. (DEAD-89, DOC-22)
+ */
+const UPLOAD_URL = `${BASE_URL}/api/admin/policies/upload`;
+
+/**
+ * The route is admin-gated in its handler as well as by the middleware, so a
+ * cookieless run gets 401 rather than an upload. Sign in through the UI, copy
+ * the `authjs.session-token` cookie, and export it as APP_SESSION_COOKIE --
+ * the same contract the other scripts here use. Checked up front rather than
+ * once per file, so a missing cookie is one clear message and not N failures.
+ */
+const SESSION_COOKIE = process.env.APP_SESSION_COOKIE ?? '';
+if (!SESSION_COOKIE) {
+  console.error(
+    'APP_SESSION_COOKIE is not set, so every upload would return 401.\n' +
+      'Sign in as an admin, copy the `authjs.session-token` cookie, and:\n' +
+      '  APP_SESSION_COOKIE=<value> npm run policies:batch-upload'
+  );
+  process.exit(1);
+}
+const AUTH_HEADERS: Record<string, string> = {
+  Cookie: `authjs.session-token=${SESSION_COOKIE}`,
+};
+
 const policies: PolicyUpload[] = [
   // Recovered from scripts/upload-{bus,title-ix,sexual-harassment,sample}-policy.ts,
   // four copy-paste clones of this script that were deleted in the same commit
@@ -232,8 +264,9 @@ async function uploadPolicies() {
       );
 
       // fetch sets the multipart boundary itself; do not set Content-Type.
-      const response = await fetch(`${BASE_URL}/api/policies`, {
+      const response = await fetch(UPLOAD_URL, {
         method: 'POST',
+        headers: AUTH_HEADERS,
         body: form,
       });
 

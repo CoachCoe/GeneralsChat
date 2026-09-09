@@ -1,5 +1,6 @@
 import { IncidentClassification, Action, ComplianceTimeline } from '@/types';
 import { claudeService } from './claude-service';
+import { dueDateFromHours } from '@/lib/deadline';
 
 /**
  * Bucket an obligation by what it asks the administrator to do.
@@ -55,7 +56,7 @@ export class IncidentClassifier {
           id: `action_${idx + 1}`,
           type: actionTypeFor(action.description),
           description: action.description,
-          dueDate: new Date(Date.now() + action.dueInHours * 60 * 60 * 1000),
+          dueDate: dueDateFromHours(action.dueInHours),
           status: 'pending' as const,
         })
       );

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { DeadlineClock } from './DeadlineClock';
 import { AuthorityChip } from './AuthorityChip';
+import { isPolicyBacked } from '@/lib/deadline';
 
 export interface Obligation {
   id: string;
@@ -13,10 +14,16 @@ export interface Obligation {
   completedAt: string | null;
   incidentId: string;
   incidentTitle?: string;
-  jurisdiction?: string;
-  citation?: string;
+  jurisdiction?: string | null;
+  /**
+   * Nullable, because that is what the column is. These were optional-but-not-null,
+   * so every caller holding real rows needed an `as Obligation` cast -- and the
+   * cast is what hid `deadlineSource` from the incident page's own overdue
+   * count, which then painted model-recalled deadlines red. (B5)
+   */
+  citation?: string | null;
   /** 'policy' when a retrieved excerpt states this deadline, else 'model'. */
-  deadlineSource?: string;
+  deadlineSource?: string | null;
 }
 
 /**
@@ -55,13 +62,20 @@ export function ObligationRow({
     // breakpoint cannot tell those apart, so at any desktop width the aside got
     // the three-column row layout and squeezed the description to one word per
     // line. `@sm` (24rem) measures the space the row actually has.
-    <div className="@container border-b border-input last:border-b-0">
+    <div
+      // A stable handle for "one obligation row", so a test can assert the
+      // queue is exhaustive -- that the number of rows rendered equals the
+      // number of open obligations the API reports. Three groups used to drop
+      // unverified late rows on the floor and nothing could see it. (B3)
+      data-testid="obligation-row"
+      className="@container border-b border-input last:border-b-0"
+    >
       <div className="flex flex-col gap-3 px-5 py-[18px] @sm:flex-row @sm:gap-[18px]">
         <DeadlineClock
           dueDate={obligation.dueDate}
           status={obligation.status}
           completedAt={obligation.completedAt}
-          verified={obligation.deadlineSource !== 'model'}
+          verified={isPolicyBacked(obligation.deadlineSource)}
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -77,7 +91,7 @@ export function ObligationRow({
             <span className="text-[12px] text-text-muted">{obligation.incidentTitle}</span>
           )}
 
-          {obligation.deadlineSource === 'model' && !done && (
+          {!isPolicyBacked(obligation.deadlineSource) && !done && (
             <span className="text-[12px] leading-[1.4] text-text-muted">
               Deadline not found in the loaded policy — confirm it before acting.
             </span>

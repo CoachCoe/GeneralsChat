@@ -43,9 +43,30 @@ export async function GET(request: NextRequest, { params }: Params) {
         },
         attachments: {
           orderBy: { createdAt: 'desc' },
+          // Projected, not raw. This returned whole rows -- including
+          // `filePath`, the on-disk name -- which contradicts the upload
+          // route's own comment that the row "stores a server-generated
+          // basename only" and that reads go "solely through
+          // GET /api/attachments/[id]". Handing out the storage name is how
+          // attachments were reachable as static assets before SEC-5; it also
+          // leaks `uploadedBy`, another user's id, to a co-reporter on a shared
+          // incident. The client needs the id to build the API URL, the
+          // filename to label it, and the size and type to describe it.
+          // (SEC-39, FLOW-80)
+          select: {
+            id: true,
+            filename: true,
+            fileType: true,
+            fileSize: true,
+            createdAt: true,
+          },
         },
         complianceActions: {
           orderBy: { createdAt: 'desc' },
+          // Same join as GET /api/obligations: the level of authority that
+          // imposes each obligation, so ObligationRow's AuthorityChip has the
+          // field it has always rendered on and never received. (SPEC-56)
+          include: { policy: { select: { jurisdiction: true } } },
         },
       },
     });

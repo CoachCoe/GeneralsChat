@@ -9,7 +9,12 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "btn-primary",
-        destructive: "btn-primary bg-[var(--color-overdue)] hover:bg-[#ff5a50] active:bg-[#ff3b30]",
+        // Not red. This is used for "Delete policy" and "Clear conversation",
+        // which are destructive but are not deadline states -- and a red
+        // button next to a red overdue countdown competes with the only signal
+        // the UI is allowed to raise its voice with. The word on the button
+        // says what it does. (SPEC-54)
+        destructive: "btn-secondary",
         outline: "btn-secondary",
         secondary: "btn-secondary",
         ghost: "btn-ghost",
