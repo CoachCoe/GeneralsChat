@@ -362,6 +362,14 @@ export interface PolicyReference {
   policyId: string;
   /** Formatted reference, e.g. "JICK §F — Investigative Procedures (RSA ...)". */
   citation: string;
+  /**
+   * The excerpt text the model was shown under this number.
+   *
+   * Required, not optional: it is what lets an attribution be checked against
+   * the provision rather than only against the numbering. A producer that has
+   * no text has nothing to check, and should say so by failing to compile.
+   */
+  text: string;
 }
 
 /** One policy cited in a response, with enough detail for the UI to show it. */
