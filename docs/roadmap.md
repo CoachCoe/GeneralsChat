@@ -5,7 +5,7 @@ is meant to change; `docs/audit/` and `docs/history/` are dated records that
 should not be rewritten. This repo previously accumulated four status files that
 all drifted out of date, so keep this one current or delete it.
 
-Last reviewed: 2026-09-08. Context: entering a single-user pilot.
+Last reviewed: 2026-09-09. Context: entering a single-user pilot.
 
 ---
 
@@ -250,6 +250,16 @@ that excerpt does not contain still produces a policy-backed row. Closing that
 needs the deadline parsed out of the provision text, which is a bigger piece of
 work and wants real incidents to calibrate against — step 6.
 
+**Half of that closed 2026-09-09.** A provision containing no time expression
+at all cannot be the source of a number of hours, and that much is decidable
+from the text without any calibration: `statesATimeLimit` asks the question and
+`resolveProvenance` demotes an attribution that fails it. The citation survives
+the demotion, because the obligation does rest on the provision named — only the
+claim about the clock is withdrawn. The check is one-directional by
+construction: there is no input on which it promotes a guess to policy-backed,
+so a miss leaves the previous behaviour untouched. Matching a specific number to
+a specific obligation is still the remaining half, and still wants step 6.
+
 **OQ-2 — canonical ingestion: `/api/admin/policies/upload`. Done 2026-09-02.**
 Delete `POST /api/policies`; keep `POST /api/admin/policies` for the paste-text
 path the admin UI uses. The deleted route is called by no client, sits outside
@@ -418,6 +428,54 @@ a product call (OQ-6 to OQ-14, of which five are decided by the fixes above),
 the CSP's `'unsafe-inline'` on `script-src`, the `x-forwarded-for` trust model,
 and ~30 minors.
 
+### 2026-09-09 — provenance scoped to the turn, and two gaps closed
+
+Four changes, all of them started by running the app and reading what it
+actually put in front of an administrator.
+
+**The provenance block is shown only on turns that give guidance.** The "This
+rests on" ladder and the coverage-gap card hung under *every* assistant turn,
+driven by what retrieval returned rather than by what the answer used — so a
+turn whose entire content was "can you describe what happened between them?"
+was shown a ladder naming three policies it never touched, and the amber gap
+card repeated identically until it read as page furniture rather than a
+warning. Retrieval cannot decide this: it knows what was fetched, not what was
+used, and those differ on exactly the turns worth catching. The model labels its
+own turn and the label is stripped before display, carried as a marker line
+rather than by wrapping the reply in JSON so that a parse failure cannot cost an
+administrator the answer text. A missing, unreadable or drifted label resolves
+to `guidance` and the block is shown: a guidance turn wrongly silenced shows a
+statutory deadline with no citation and no coverage warning, while a question
+turn wrongly labelled shows only the noise this removes.
+
+**Provenance survives reopening an incident.** `GET /api/chat/[incidentId]`
+returned id, type, content and timestamp, so every citation the guidance rested
+on was dropped on reload — provenance lived for as long as the browser tab and
+no longer, on a tool whose answers exist to be checked. Citations were already
+stored, so reading them back is a projection rather than a schema change, and
+`readStoredTurn` never throws: a conversation has to load when one row in the
+middle of it cannot be read. Coverage is recomputed through
+`ragSystem.coverageFor`, the same call the live turn makes, because the gap it
+reports is "the district has no local policy for this" and an administrator
+reading a month-old incident needs that answered as it stands now — loading the
+missing policy should clear the warning everywhere, not leave it frozen into
+every turn that predates the upload.
+
+**A deadline stops being policy-backed when the provision states no time.**
+Recorded above against OQ-5, which is where the gap was named.
+
+**Role revocation exists.** Recorded in the hardening table below, which is
+where it was tracked.
+
+Two things found while running the app and fixed in passing. `middleware.ts`
+sat at the repo root, which `next dev --turbopack` ignores when the application
+lives in `src/` — so in development the deny-by-default gate did not run at all,
+and neither did the sign-in limiter. Production builds were unaffected, which is
+why the e2e suite never saw it; the divergence was the problem, because anything
+checked locally about route protection was saying nothing. And the chat sidebar
+entry was a clickable `div`: the only route back to a past incident, unreachable
+by keyboard and announced as nothing.
+
 ---
 
 ## Next — gated on real use
@@ -465,6 +523,12 @@ contain still produces a `policy`-sourced row. Closing that means parsing the
 deadline out of the provision text, and that wants real incidents to calibrate
 against.
 
+**Narrowed 2026-09-09.** A provision that states no time *at all* is now caught,
+which needs no calibration. What still wants step 6 is the case where the
+provision does state a time and the model derived a different one: an excerpt
+runs to a thousand characters and may carry several provisions, so a clock found
+anywhere in it currently satisfies the check.
+
 ---
 
 ## Before anyone beyond the pilot user
@@ -478,7 +542,7 @@ against.
 | DNS rebinding (SEC-4, partial) | Needs a hostname allowlist, which is a decision about permitted policy sources (**OQ-10**). SEC-32 narrowed the address blocklist on 2026-09-08 — IPv4-mapped IPv6 in hex notation reached loopback and the cloud metadata endpoint straight through it — but the resolve-then-connect window is still open |
 | CSP `script-src 'unsafe-inline'` | **Added 2026-09-08.** The app had no security headers at all; it now sends a CSP with `default-src 'none'`, `connect-src 'self'` and `frame-ancestors 'none'`, plus HSTS, nosniff and `Referrer-Policy: same-origin`. `script-src` still allows `'unsafe-inline'` because the App Router inlines bootstrap and flight data; removing it needs a nonce plumbed through `middleware.ts` |
 | `x-forwarded-for` trust (SEC-31) | The sign-in limiter keys on entry zero, which is client-written whenever an upstream *appends*. Correct behind Container Apps ingress; attacker-supplied under the `docker-compose.yml` arrangement, which has no proxy at all. Fixing it properly means declaring how many proxy hops to trust — an infrastructure decision, and the reason it is recorded rather than guessed |
-| Role revocation (SEC-19) | There is no mechanism at all: a role change takes effect only when the JWT expires. Open since the first audit and, until 2026-09-08, not tracked here |
+| ~~Role revocation (SEC-19)~~ | **Done 2026-09-09.** There had been no mechanism at all: `role` was read off the JWT and the `jwt` callback only writes it at sign-in, so a demotion took effect no sooner than the token expired — and `updateAge` rolls the token forward on activity, so an administrator demoted mid-shift kept access for as long as they kept working. `requireUser` re-reads the row on every guarded request; a deleted account is 401, not 403. `middleware.ts` still gates `/admin` on the token's role because Prisma cannot run on the Edge, but that is a page shell and every `/api/admin` handler re-checks against the row |
 | ~~Unit tests~~ | **Done 2026-09-01.** Vitest, 79 tests over the pure logic: `describeDeadline`, `splitIntoChunks`, `cleanText`, `buildCoverageReport`, the upload path guards, the zod schemas, and the incident→category mapping. `npm run test:unit` runs in under a second; `npm test` runs unit then e2e, and CI runs unit before installing a browser. Writing them found three real bugs — see the audit record |
 
 ---
