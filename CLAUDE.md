@@ -94,6 +94,11 @@ state district deadlines. Don't remove that guard.
 
 **A missing local policy is information.** Coverage gaps are reported, not
 hidden, and never papered over by passing a statute off as district procedure.
+They are reported on every turn that gives guidance. A turn that only asks a
+clarifying question carries no coverage card and no source ladder, because that
+block is a claim about the text above it and a question makes no claim — the
+model labels its own turn and `parseTurnLabel` resolves anything unreadable to
+`guidance`, so the block is suppressed only by an explicit question label.
 
 **Attachments are student records.** They live outside `public/` and are served
 only through `GET /api/attachments/[id]`, which re-checks session and ownership.

@@ -1,4 +1,5 @@
 import { claudeService, ClaudeMessage } from './claude-service';
+import { parseTurnLabel, type TurnKind } from './turn-label';
 import type { PolicyCoverage } from '@/types';
 
 /**
@@ -19,6 +20,15 @@ export interface ChatMessage {
 
 export interface LLMResponse {
   content: string;
+  /**
+   * Whether this turn gives guidance or only asks for more information.
+   *
+   * The chat view shows the provenance block -- what the answer rests on, and
+   * what the library does not cover -- only on a guidance turn. Anything that
+   * cannot be read resolves to `guidance`, so the block is shown by default
+   * and suppressed only on an explicit, well-formed question label.
+   */
+  kind: TurnKind;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -79,8 +89,23 @@ export class LLMService {
         coverage
       );
 
+      // Strip the turn label here, at the single guidance entry point, so no
+      // caller can store or render it -- and so there is one place where an
+      // unreadable label becomes `guidance` rather than several.
+      const { kind, content } = parseTurnLabel(response.content);
+
+      // A reply that is nothing but its own marker is a failed call, not a
+      // blank answer to file under an incident. `generateResponse` already
+      // throws on empty text; stripping can reach the same state one layer
+      // later, and it has to end the same way -- as a 503 with nothing
+      // written, never as an empty assistant turn. (FLOW-7)
+      if (content.trim().length === 0) {
+        throw new Error('Claude returned a turn label with no answer text');
+      }
+
       return {
-        content: response.content,
+        content,
+        kind,
         usage: {
           inputTokens: response.usage.inputTokens,
           outputTokens: response.usage.outputTokens,

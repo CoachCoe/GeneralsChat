@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
       await commitClassification(incident, message, policyContext, references, classification);
     }
 
-    const { content: response, usage } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
+    const { content: response, usage, kind } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
       message,
       policyContext,
       conversationHistory,
@@ -230,6 +230,11 @@ export async function POST(request: NextRequest) {
           classification,
           usage: usage || undefined,
           dataSensitivity,
+          // What kind of turn this was. Stored as well as returned so the
+          // record says why a turn carried no sources block -- otherwise a
+          // reloaded conversation cannot tell a question from an answer whose
+          // provenance went missing.
+          kind,
         }),
       },
     });
@@ -244,6 +249,12 @@ export async function POST(request: NextRequest) {
       incidentId: incident.id,
       classification,
       messageId: aiMessage.id,
+      // `question` means the model asked for more information and asserted
+      // nothing, so the client shows no provenance block. Retrieval still ran
+      // and `citations` and `coverage` are still returned -- they describe the
+      // incident, not this turn, and the next turn that gives guidance uses
+      // them.
+      kind,
     });
 
   } catch (error) {
