@@ -46,13 +46,42 @@ function isBlockedIPv6(ip: string): boolean {
   if (addr.startsWith('fe80')) return true;                  // link-local
   if (addr.startsWith('fc') || addr.startsWith('fd')) return true; // unique local
   if (addr.startsWith('ff')) return true;                    // multicast
-  // IPv4-mapped (::ffff:169.254.169.254) must be judged as IPv4.
-  const mapped = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isBlockedIPv4(mapped[1]);
+  // IPv4-mapped addresses must be judged as IPv4. Both notations, because
+  // both parse: `::ffff:127.0.0.1` and `::ffff:7f00:1` are the same address,
+  // and only the dotted-quad form was matched here -- so
+  // `https://[::ffff:7f00:1]/` reached loopback and `[::ffff:a9fe:a9fe]`
+  // reached the cloud metadata endpoint straight through the blocklist.
+  // (SEC-32)
+  const dotted = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (dotted) return isBlockedIPv4(dotted[1]);
+
+  const hex = addr.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (hex) {
+    const high = parseInt(hex[1], 16);
+    const low = parseInt(hex[2], 16);
+    return isBlockedIPv4(
+      `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`
+    );
+  }
+
+  // IPv4-compatible (deprecated, but still routed by some stacks): ::a.b.c.d
+  // and its hex equivalent ::7f00:1.
+  const compatDotted = addr.match(/^::(\d+\.\d+\.\d+\.\d+)$/);
+  if (compatDotted) return isBlockedIPv4(compatDotted[1]);
+
+  // NAT64 well-known prefix, which translates to an arbitrary IPv4 address a
+  // resolver cannot be asked about. Refused outright rather than decoded.
+  if (addr.startsWith('64:ff9b:')) return true;
+
   return false;
 }
 
-function isBlockedAddress(ip: string): boolean {
+/**
+ * Exported for test only. The blocklist is the whole of this module's security
+ * value and it had no unit test, which is how the IPv4-mapped hex notation
+ * went unnoticed. (SEC-32)
+ */
+export function isBlockedAddress(ip: string): boolean {
   const family = isIP(ip);
   if (family === 4) return isBlockedIPv4(ip);
   if (family === 6) return isBlockedIPv6(ip);

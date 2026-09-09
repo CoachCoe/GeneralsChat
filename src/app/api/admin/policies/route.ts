@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { requireRole } from '@/lib/session';
-import { policyFacetsSchema } from '@/lib/validation';
+import {
+  createPolicySchema,
+  formatValidationErrors,
+  validateRequest,
+} from '@/lib/validation';
 import { validationError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
 import { assertIndexablePolicyText, UploadError } from '@/lib/uploads';
@@ -46,39 +50,53 @@ export async function POST(request: NextRequest) {
     if (!guard.ok) return guard.response;
 
     const body = await request.json();
-    const { title, content, jurisdiction, category, effectiveDate, description, keywords } = body;
+    const { description, keywords } = body;
 
-    // Validation
-    if (!title || !content || !effectiveDate) {
-      return NextResponse.json(
-        { error: 'Title, content, and effectiveDate are required' },
-        { status: 400 }
-      );
+    // Through the schema written for this route. The hand-rolled truthiness
+    // check let an unbounded title and an arbitrary `effectiveDate` string
+    // through -- `new Date('soon')` is an Invalid Date, which Prisma rejects as
+    // a 500 rather than the 400 it is. The date format was validated on the
+    // update path and on neither create path. (SEC-36, FLOW-75, FLOW-78)
+    const validation = validateRequest(createPolicySchema, {
+      title: body.title,
+      content: body.content,
+      jurisdiction: body.jurisdiction,
+      category: body.category,
+      effectiveDate: body.effectiveDate,
+    });
+    if (!validation.success) {
+      return validationError('Invalid policy', formatValidationErrors(validation.errors));
     }
+    const { title, jurisdiction, category, effectiveDate } = validation.data;
 
-    // Create policy
+    // `content` is optional on the schema because the file-upload route
+    // supplies it by extraction; on this paste-text path it is the whole
+    // input, so it is required here.
+    const content = validation.data.content ?? '';
+    if (!content.trim()) {
+      return validationError('Policy text is required on this route', {
+        content: ['Paste the policy text, or use the file-upload route.'],
+      });
+    }
     assertIndexablePolicyText(content);
-
-    const facets = policyFacetsSchema.safeParse({ jurisdiction, category });
-    if (!facets.success) {
-      return validationError(
-        'Jurisdiction and category must each be one of the known values',
-        facets.error.flatten().fieldErrors
-      );
-    }
 
     const policy = await prisma.policy.create({
       data: {
         title,
         content,
-        jurisdiction: facets.data.jurisdiction,
-        category: facets.data.category,
+        jurisdiction,
+        category,
         effectiveDate: new Date(effectiveDate),
         metadata: JSON.stringify({
           keywords: keywords || [],
           description,
         }),
-        isActive: true,
+        // Inactive until the chunks land. An indexing failure used to leave an
+        // active policy with zero chunks: invisible to retrieval, but counted
+        // as loaded by the library page -- coverage claimed and not delivered,
+        // which is the state policy-coverage.ts exists to warn about.
+        // (FLOW-73)
+        isActive: false,
         version: 1
       }
     });
@@ -100,19 +118,38 @@ export async function POST(request: NextRequest) {
     // directly left `embedding` null and Chroma untouched, making
     // admin-uploaded policies invisible to vector search.
     // (FLOW-22, FLOW-23, SPEC-9, DEAD-11)
-    await ragSystem.addPolicyDocument(policy.id, content, {
-      title,
-      jurisdiction: policy.jurisdiction,
-      category: policy.category,
-      effectiveDate,
-      keywords: keywords || [],
-    });
+    let chunksCreated = 0;
+    try {
+      await ragSystem.addPolicyDocument(policy.id, content, {
+        title,
+        jurisdiction: policy.jurisdiction,
+        category: policy.category,
+        effectiveDate,
+        keywords: keywords || [],
+      });
 
-    const chunksCreated = await prisma.policyChunk.count({
-      where: { policyId: policy.id },
-    });
+      chunksCreated = await prisma.policyChunk.count({
+        where: { policyId: policy.id },
+      });
 
-    return NextResponse.json({ policy, chunksCreated }, { status: 201 });
+      if (chunksCreated === 0) {
+        throw new UploadError(
+          'The text was stored but produced no searchable chunks, so it would be invisible to retrieval. It has not been activated.',
+          422
+        );
+      }
+
+      await prisma.policy.update({ where: { id: policy.id }, data: { isActive: true } });
+    } catch (error) {
+      await prisma.policyChunk.deleteMany({ where: { policyId: policy.id } }).catch(() => {});
+      await prisma.policy.delete({ where: { id: policy.id } }).catch(() => {});
+      throw error;
+    }
+
+    return NextResponse.json(
+      { policy: { ...policy, isActive: true }, chunksCreated },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof UploadError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

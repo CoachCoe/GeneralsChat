@@ -46,5 +46,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 });
 
-/** bcrypt hash of a value no password will match; used to equalise timing. */
-const DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+/**
+ * bcrypt hash of a value no password will match; used to equalise timing.
+ *
+ * **The cost factor must match the one `scripts/create-user.ts` hashes with**
+ * (12). This was a `$2a$10$` hash while real hashes are `$2b$12$`, and bcrypt
+ * cost is exponential -- 10 is a quarter of the work of 12. So the branch that
+ * exists to hide whether an account exists was the *fast* path: measured on
+ * this machine, 69ms for an address with no account against 281ms for one with.
+ * That is a cleaner enumeration oracle than having no dummy compare at all,
+ * because the difference is large, one-sided and stable.
+ *
+ * If `create-user.ts`'s cost ever changes, change this with it. (SEC-30)
+ */
+const DUMMY_HASH = '$2b$12$r7jWSKZfdEjzJY3bAjyBCOQ5mY2W5qSfhxU/CpNL2YgwL750Ph68K';

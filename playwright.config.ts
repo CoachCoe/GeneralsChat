@@ -50,8 +50,16 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run build && npm start',
-    url: BASE_URL,
+    // The port check is the first link, because this is the process that binds
+    // the port -- and it cannot live in globalSetup, which Playwright runs
+    // *after* starting this. (B9)
+    command: 'npx tsx e2e/support/require-free-port.ts && npm run build && npm start',
+    // A route only this application serves, rather than "something answered on
+    // this port". The readiness probe is what made `reuseExistingServer: false`
+    // ineffective: any process replying to `/` satisfied it. `global-setup`
+    // refuses a taken port outright, and this is the second line of defence.
+    // (B9)
+    url: `${BASE_URL}/api/health`,
     // Never reuse. The env block below applies only to a server Playwright
     // starts, so reusing one already on this port silently discards
     // ANTHROPIC_BASE_URL and runs the whole suite against the real API and

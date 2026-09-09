@@ -155,4 +155,59 @@ test.describe('Policy library', () => {
     // Management stays admin-only; a reporter gets no route into it.
     await expect(page.getByRole('link', { name: 'Manage policies' })).toHaveCount(0);
   });
+
+  test('marks a policy that retrieval can never return', async ({ page }) => {
+    // The library rendered every row identically, so a policy with zero chunks
+    // -- from a failed index, or a re-index against an unmigrated schema, which
+    // is the state production was once in -- was indistinguishable from a
+    // fully indexed one. "5 active" over a library from which retrieval returns
+    // nothing. The fixture seeds exactly one such policy. (FLOW-74)
+    await page.goto('/policies');
+
+    const { policies } = await (await page.request.get('/api/policies')).json();
+    const unchunked = policies.filter(
+      (p: { _count?: { chunks: number } }) => (p._count?.chunks ?? 0) === 0
+    );
+    const chunked = policies.filter(
+      (p: { _count?: { chunks: number } }) => (p._count?.chunks ?? 0) > 0
+    );
+
+    // Both states must be present or this asserts nothing.
+    expect(unchunked.length).toBeGreaterThan(0);
+    expect(chunked.length).toBeGreaterThan(0);
+
+    for (const p of unchunked as { title: string }[]) {
+      const row = page.locator('div').filter({ hasText: p.title }).last();
+      await expect(row.getByText('not searchable')).toBeVisible();
+    }
+
+    // And a policy that *is* retrievable is not marked.
+    const goodRow = page.locator('div').filter({ hasText: chunked[0].title }).last();
+    await expect(goodRow.getByText('not searchable')).toHaveCount(0);
+  });
+});
+
+test.describe('Security response headers', () => {
+  // There were none. This app holds incident records about minors and renders
+  // model output as markdown, so it is a prompt-injection sink with a browser
+  // attached. (SEC-38)
+  test('every page carries a CSP that bounds where data can go', async ({ page }) => {
+    const response = await page.goto('/');
+    const headers = response?.headers() ?? {};
+
+    const csp = headers['content-security-policy'];
+    expect(csp).toBeDefined();
+    // The two that matter most: where a page may send data, and whether it can
+    // be framed by a site building a clickjacked "Mark done".
+    expect(csp).toContain("connect-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    // Anything not named must be refused rather than inherit a default.
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("object-src 'none'");
+
+    expect(headers['x-content-type-options']).toBe('nosniff');
+    expect(headers['x-frame-options']).toBe('DENY');
+    // The path carries an incident id, so it must not travel in a Referer.
+    expect(headers['referrer-policy']).toBe('same-origin');
+  });
 });

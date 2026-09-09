@@ -1,3 +1,4 @@
+import { logError } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import {
   categoriesForIncidentType,
@@ -118,7 +119,10 @@ export class RAGSystem {
 
       console.log(`Added policy ${policyId} with ${chunks.length} chunks (embeddings: ${hasEmbeddings})`);
     } catch (error) {
-      console.error('Error adding policy document:', error);
+      logError(error as Error, {
+        operation: 'addPolicyDocument',
+        note: 'the policy may have no chunks and would then be unretrievable',
+      });
       throw new Error(`Failed to add policy document: ${error}`);
     }
   }
@@ -204,7 +208,13 @@ export class RAGSystem {
 
       return liveResults;
     } catch (error) {
-      console.error('Vector search failed, using fallback:', error);
+      // This changes what is retrieved, and therefore what the administrator
+      // is told, so it belongs in the structured stream rather than on stdout.
+      // (MT-5)
+      logError(error as Error, {
+        operation: 'searchRelevantPolicies',
+        note: 'vector search unavailable; using the category-filtered keyword fallback',
+      });
       return this.fallbackSearch(query, limit, filter);
     }
   }

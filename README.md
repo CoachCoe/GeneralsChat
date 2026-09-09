@@ -17,7 +17,7 @@ disclosures — so confidentiality and correctness matter. Read
 | Framework | Next.js 15 (App Router), React 19 |
 | Styling | Tailwind v4, design tokens in `src/app/theme.css` |
 | Database | PostgreSQL via Prisma 6 |
-| LLM | Anthropic Claude (`claude-sonnet-4-20250514`) |
+| LLM | Anthropic Claude (`claude-sonnet-5`, override with `ANTHROPIC_MODEL`) |
 | Retrieval | Chroma vector search, with a keyword fallback over `PolicyChunk` |
 | Embeddings | OpenAI `text-embedding-3-small` (optional) |
 | E2E tests | Playwright |
@@ -158,16 +158,28 @@ classified, each with the deadline its policy sets, and read back through
 
 ## Loading policy documents
 
-Guidance quality depends entirely on having district policies indexed. Three
-paths exist; see `QUICK_START_POLICY_UPLOAD.md` for detail.
+Guidance quality depends entirely on having district policies indexed. Two
+paths exist; see `docs/policy-upload-quickstart.md` for detail.
 
-1. `npm run policies:batch-upload` — edit the `policies` array in
-   `scripts/batch-upload-policies.ts` first, and put the files in
-   `sample-policies/`.
-2. The admin UI at `/admin/policies` (`.txt`, `.md`, `.pdf`, `.docx`).
+1. The admin UI at `/admin/policies` (`.txt`, `.md`, `.pdf`, `.docx`). This is
+   the canonical path.
+2. `npm run policies:load -- --file <path> ...` for a single document. Dry run
+   by default.
 
-All three now index through the same chunker (1000 words, 200-word overlap)
-and generate embeddings when configured. For a single document:
+`npm run policies:batch-upload` also exists, for the case where many files in
+`sample-policies/` need loading at once. It drives the same admin endpoint over
+HTTP, so it needs a running server and an admin session cookie:
+`APP_SESSION_COOKIE=<authjs.session-token> npm run policies:batch-upload`.
+
+`.doc` is **not** supported. The extractor read the legacy binary as UTF-8 and
+produced text that was chunked and became citable policy, so it is refused at
+the boundary — save as `.docx` or PDF first.
+
+Both paths index through the same chunker (1000 words, 200-word overlap, split
+within a lettered section so no chunk straddles two provisions) and generate
+embeddings when configured. A policy is created **inactive** and activated only
+once its chunks exist, so a failed index cannot leave a policy that the library
+counts as loaded but retrieval can never return. For a single document:
 
 ```bash
 npm run policies:load -- --file <path> --title "..." \
@@ -274,18 +286,35 @@ Roles:
 | `investigator` | Read and update every incident |
 | `reporter` | Read and update only incidents they filed |
 
-`middleware.ts` denies by default: only `/login`, `/about` and `/api/auth/*`
-are reachable without a session. API routes answer 401/403; page routes
-redirect. Every route handler re-checks the session independently, so a
+`middleware.ts` denies by default: only `/login`, `/about`, `/api/health` and
+`/api/auth/*` are reachable without a session. API routes answer 401/403; page
+routes redirect. Every route handler re-checks the session independently, so a
 middleware matcher mistake cannot silently expose a route.
+
+`/api/health` is the container liveness probe. It returns a fixed
+`{status:'ok'}`, reads nothing and touches no database, both deliberately: a
+probe carries no session, and a liveness check that fails when Postgres blips
+makes the platform restart a process that is working.
 
 `AUTH_SECRET` is required. In Docker, set it and `NEXTAUTH_URL` in the
 environment; `docker-compose.yml` will refuse to start without `AUTH_SECRET`.
 
 ## Security status
 
-An audit on 2026-08-31 found 153 issues; a second on 2026-09-01 found 142
-more. The 2026-08-31 blockers are all fixed: authentication and authorization,
+Three audits so far: 2026-08-31 (153 issues), 2026-09-01 (142) and 2026-09-08
+(119, of which 12 were blockers — **all fixed**; see
+[`docs/audit/2026-09-08-work-completed.md`](docs/audit/2026-09-08-work-completed.md)).
+
+The most recent found **no security blockers**: no cross-user data access, no
+auth bypass, no path traversal, and no secret or student record anywhere in git
+history on any ref. What it did find is that the product's most load-bearing
+claims were its least verified ones — an unverified obligation that was already
+late was rendered in no queue group at all, the home headline stated "You're
+clear." from an empty array before the first fetch had resolved, and the
+`dueInHours → dueDate` conversion that every countdown derives from was read by
+no test anywhere, so a 60× error would have passed the whole suite.
+
+The 2026-08-31 blockers are all fixed: authentication and authorization,
 arbitrary file write on both upload paths, SSRF in the policy URL fetch,
 attachments served from `public/` with no access check, missing upload size and
 type limits, unvalidated write bodies and pagination, a production container

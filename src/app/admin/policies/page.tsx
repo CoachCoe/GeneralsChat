@@ -259,12 +259,15 @@ export default function PoliciesPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="heading-md" style={{ color: 'var(--color-text)' }}>{policy.title}</h3>
+                          {/*
+                            Neutral, not `--color-met`. Green means "this
+                            obligation was discharged and recorded"; spending it
+                            on a row's isActive flag is decoration, which
+                            CLAUDE.md's colour rule excludes. This site is newer
+                            than SPEC-44 and was not in its list. (SPEC-54)
+                          */}
                           {policy.isActive && (
-                            <span className="badge" style={{
-                              background: 'var(--color-met)',
-                              color: 'white',
-                              fontSize: '12px'
-                            }}>
+                            <span className="badge" style={{ fontSize: '12px' }}>
                               Active
                             </span>
                           )}

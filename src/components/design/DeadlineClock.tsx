@@ -1,6 +1,6 @@
 'use client';
 
-import { describeDeadline, DEADLINE_COLOR } from '@/lib/deadline';
+import { deadlineColor, describeDeadline } from '@/lib/deadline';
 import { useMounted } from '@/lib/useMounted';
 
 /**
@@ -35,7 +35,7 @@ export function DeadlineClock({
 }) {
   const mounted = useMounted();
   const { state, label, absolute } = describeDeadline(dueDate, status, completedAt);
-  const tone = verified || state === 'met' ? DEADLINE_COLOR[state] : 'text-text-tertiary';
+  const tone = deadlineColor(state, verified ? 'policy' : 'model');
 
   return (
     <div className={`flex w-[120px] flex-none flex-col gap-[3px] ${className}`}>

@@ -1,13 +1,19 @@
 'use client';
 
+import toast from 'react-hot-toast';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { StateBlock } from '@/components/design/StateBlock';
-import { ObligationRow, type Obligation } from '@/components/design/ObligationRow';
+import { ObligationRow } from '@/components/design/ObligationRow';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
-import { describeDeadline, DEADLINE_COLOR } from '@/lib/deadline';
+import {
+  deadlineColor,
+  type DeadlineState,
+  describeDeadline,
+  isPolicyBacked,
+} from '@/lib/deadline';
 import { INCIDENT_TYPE_LABELS } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 
@@ -33,6 +39,17 @@ interface Action {
   status: string;
   dueDate: string | null;
   completedAt: string | null;
+  /**
+   * Whether a retrieved policy states this deadline. `GET /api/incidents/[id]`
+   * has always returned it -- `complianceActions` is a raw include -- but this
+   * interface omitted it, so the "N overdue" pill, the stamp bar and the
+   * timeline all painted a model-recalled deadline red while the obligation
+   * row 150 lines away dimmed the same one. (B5)
+   */
+  deadlineSource: string | null;
+  citation: string | null;
+  /** Joined through `policyId`, so the AuthorityChip can render. (SPEC-56) */
+  policy?: { jurisdiction: string } | null;
 }
 
 interface Incident {
@@ -56,6 +73,13 @@ type TimelineEvent = {
   title: string;
   body?: string;
   meta?: string;
+  /**
+   * The deadline state this rung represents, and whether a policy states it.
+   * Only obligation rungs carry them; `kind` alone used to decide the colour,
+   * which made every open obligation amber regardless of when it was due. (B5)
+   */
+  state?: DeadlineState;
+  deadlineSource?: string | null;
 };
 
 /**
@@ -98,14 +122,49 @@ export default function IncidentDetailPage() {
     fetchIncident();
   }, [fetchIncident]);
 
+  /**
+   * Every mutation on this page used to be `if (response.ok) { ... }` with no
+   * else. So a 401 from an expired session, a 429 from the rate limiter, a 503
+   * from the model, or a 404 from a scope check all produced *nothing*: the
+   * spinner stopped and the screen was unchanged.
+   *
+   * On `Mark done` that is the worst of them. The administrator clicks it, sees
+   * the row stay where it is, and has no way to tell "the click did not
+   * register" from "the obligation is still outstanding" -- on the control
+   * whose whole purpose is recording that a statutory obligation was
+   * discharged. Closing an incident and attaching a document had the same
+   * shape. (FLOW-65)
+   */
+  const reportFailure = async (response: Response, fallback: string) => {
+    if (response.status === 401) {
+      toast.error('Your session has expired. Sign in again.');
+      return;
+    }
+    let detail = '';
+    try {
+      const body = await response.json();
+      if (typeof body?.error === 'string') detail = body.error;
+    } catch {
+      // Not JSON. The fallback says enough.
+    }
+    toast.error(detail || fallback);
+  };
+
   const handleGenerateSummary = async () => {
     setGeneratingSummary(true);
     try {
       const response = await fetch(`/api/incidents/${incidentId}/summary`, { method: 'POST' });
-      if (response.ok) {
-        const data = await response.json();
-        setSummary(data.summary);
+      if (!response.ok) {
+        await reportFailure(response, 'Could not generate the summary. Try again.');
+        return;
       }
+      const data = await response.json();
+      setSummary(data.summary);
+      // The timeline renders summaries from the incident record, so the new
+      // row is invisible until the incident is re-read. (FLOW-67)
+      await fetchIncident();
+    } catch {
+      toast.error('Could not reach the server. Check your connection.');
     } finally {
       setGeneratingSummary(false);
     }
@@ -120,7 +179,18 @@ export default function IncidentDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: incident.status === 'closed' ? 'open' : 'closed' }),
       });
-      if (response.ok) await fetchIncident();
+      if (!response.ok) {
+        await reportFailure(
+          response,
+          incident.status === 'closed'
+            ? 'Could not reopen this incident.'
+            : 'Could not close this incident.'
+        );
+        return;
+      }
+      await fetchIncident();
+    } catch {
+      toast.error('Could not reach the server. Check your connection.');
     } finally {
       setUpdatingStatus(false);
     }
@@ -135,7 +205,13 @@ export default function IncidentDetailPage() {
       formData.append('file', file);
       formData.append('incidentId', incidentId);
       const response = await fetch('/api/attachments/upload', { method: 'POST', body: formData });
-      if (response.ok) await fetchIncident();
+      if (!response.ok) {
+        await reportFailure(response, 'Could not attach that file.');
+        return;
+      }
+      await fetchIncident();
+    } catch {
+      toast.error('Could not reach the server. Check your connection.');
     } finally {
       setUploadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -143,12 +219,22 @@ export default function IncidentDetailPage() {
   };
 
   const markObligationDone = async (id: string) => {
-    const response = await fetch(`/api/obligations/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'completed' }),
-    });
-    if (response.ok) await fetchIncident();
+    try {
+      const response = await fetch(`/api/obligations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      });
+      if (!response.ok) {
+        // Never silent. An administrator must not be left believing an
+        // obligation was recorded as discharged when it was not.
+        await reportFailure(response, 'Could not mark that obligation done. It is still outstanding.');
+        return;
+      }
+      await fetchIncident();
+    } catch {
+      toast.error('Could not reach the server. That obligation is still outstanding.');
+    }
   };
 
   if (loading) {
@@ -179,7 +265,16 @@ export default function IncidentDetailPage() {
   const actions = incident.complianceActions ?? [];
   const open = actions.filter(a => a.status !== 'completed');
   const done = actions.length - open.length;
-  const overdue = open.filter(a => a.dueDate && new Date(a.dueDate).getTime() < Date.now());
+  // Counted the way the home page counts it: a headline number stating that
+  // something is legally late must rest on a deadline a retrieved policy
+  // actually states. Unverified ones are still listed below, and still say on
+  // their own row that they need confirming. (OQ-5, B5)
+  const overdue = open.filter(
+    a =>
+      isPolicyBacked(a.deadlineSource) &&
+      a.dueDate &&
+      new Date(a.dueDate).getTime() < Date.now()
+  );
   const closed = incident.status === 'closed';
 
   const events: TimelineEvent[] = [
@@ -219,6 +314,8 @@ export default function IncidentDetailPage() {
             : 'upcoming') as TimelineEvent['kind'],
         title: a.description || a.actionType,
         meta: `${info.label}${info.absolute ? ` · ${info.absolute}` : ''}`,
+        state: info.state,
+        deadlineSource: a.deadlineSource,
       };
     }),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
@@ -327,7 +424,11 @@ export default function IncidentDetailPage() {
               {actions.map(a => (
                 <ObligationRow
                   key={a.id}
-                  obligation={{ ...a, incidentId: incident.id } as Obligation}
+                  obligation={{
+                    ...a,
+                    incidentId: incident.id,
+                    jurisdiction: a.policy?.jurisdiction ?? null,
+                  }}
                   onDone={markObligationDone}
                 />
               ))}
@@ -409,8 +510,28 @@ const KIND_TONE: Record<TimelineEvent['kind'], string> = {
   attachment: 'bg-line-strong',
   met: 'bg-met',
   missed: 'bg-overdue',
-  upcoming: 'bg-attention',
+  // Neutral by default. This was `bg-attention`, which made every open
+  // obligation amber whatever its deadline said -- so a dot due in three weeks
+  // read as urgently as one due this afternoon. An `upcoming` rung earns amber
+  // only when describeDeadline actually returned `attention` and a policy
+  // states the deadline; `dotTone` below decides. (B5, SPEC-44)
+  upcoming: 'bg-line-strong',
 };
+
+/**
+ * The dot's colour. Obligation rungs consult the same rule as every other
+ * deadline surface; everything else keeps its structural tone.
+ */
+function dotTone(event: TimelineEvent): string {
+  if (!event.state) return KIND_TONE[event.kind];
+  if (event.state === 'met') return KIND_TONE.met;
+  if (!isPolicyBacked(event.deadlineSource)) return KIND_TONE.exchange;
+  return event.state === 'overdue'
+    ? KIND_TONE.missed
+    : event.state === 'attention'
+      ? 'bg-attention'
+      : KIND_TONE.exchange;
+}
 
 function TimelineRow({ event }: { event: TimelineEvent }) {
   const mounted = useMounted();
@@ -423,7 +544,7 @@ function TimelineRow({ event }: { event: TimelineEvent }) {
   const isModelOutput = event.kind === 'exchange' && event.meta !== 'user';
   return (
     <div className="flex gap-3 rounded-[12px] border border-line bg-surface px-4 py-3">
-      <span className={`mt-2 h-2 w-2 flex-none rounded-full ${KIND_TONE[event.kind]}`} aria-hidden />
+      <span className={`mt-2 h-2 w-2 flex-none rounded-full ${dotTone(event)}`} aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-2">
           <span className="text-[15px] font-medium text-text">{event.title}</span>
@@ -437,11 +558,12 @@ function TimelineRow({ event }: { event: TimelineEvent }) {
                 })
               : '\u00a0'}
           </span>
-          {event.kind === 'missed' && (
-            <span className={`tabular text-[12px] ${DEADLINE_COLOR.overdue}`}>{event.meta}</span>
-          )}
-          {event.kind === 'upcoming' && (
-            <span className={`tabular text-[12px] ${DEADLINE_COLOR.attention}`}>{event.meta}</span>
+          {(event.kind === 'missed' || event.kind === 'upcoming') && event.state && (
+            <span
+              className={`tabular text-[12px] ${deadlineColor(event.state, event.deadlineSource ?? undefined)}`}
+            >
+              {event.meta}
+            </span>
           )}
         </div>
         {event.body && (
