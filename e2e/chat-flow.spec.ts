@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { STUB_REPLY } from './support/claude-stub';
+import { STUB_REPLY, STUB_QUESTION_REPLY } from './support/claude-stub';
 
 /**
  * Every assertion here is one that can fail.
@@ -306,6 +306,57 @@ test.describe('Classification and library scope', () => {
     await expect(note).toContainText('confirm the district procedure');
     // And it names what it thinks the incident is, so the reader can disagree.
     await expect(note).toContainText('title ix');
+  });
+
+  test('a clarifying question carries no sources block, and the next answer does', async ({
+    page,
+  }) => {
+    /*
+     * The provenance block is a claim about the turn above it: these are the
+     * policies it rests on. A turn that only asks "can you describe what
+     * happened between them?" rests on nothing, and it was still shown the
+     * full ladder plus an amber coverage-gap card -- vouching for an assertion
+     * nobody had made, and repeating the gap warning on every turn until it
+     * read as page furniture rather than a warning.
+     *
+     * Both halves are asserted in one test on purpose. Suppression alone would
+     * pass if the block never rendered at all, which is the worse bug: a
+     * statutory deadline shown with nothing behind it.
+     */
+    await page.goto('/chat');
+
+    await page.getByTestId('chat-input').fill(
+      "A student came to me about another student, I'm not sure what happened yet."
+    );
+    const [asked] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    const question = await asked.json();
+    expect(question.kind).toBe('question');
+    await expect(page.getByText(STUB_QUESTION_REPLY)).toBeVisible();
+    await expect(page.getByTestId('chat-sources')).toHaveCount(0);
+
+    // The marker is metadata. It must never reach the page.
+    await expect(page.getByText('[[TURN:')).toHaveCount(0);
+
+    // Retrieval still ran and the coverage is still known -- it describes the
+    // incident, not this turn. Suppressing the block must not be implemented
+    // by suppressing the retrieval behind it, or the next turn has nothing to
+    // show.
+    expect(question.citations.length).toBeGreaterThan(0);
+
+    await page.getByTestId('chat-input').fill('It was repeated name-calling at recess.');
+    const [answered] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    expect((await answered.json()).kind).toBe('guidance');
+    await expect(page.getByText(STUB_REPLY)).toBeVisible();
+    await expect(page.getByTestId('chat-sources')).toHaveCount(1);
+    await expect(page.getByTestId('chat-sources')).toContainText('This rests on');
   });
 });
 

@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
 import { SourceLadder } from '@/components/design/SourceLadder';
+import type { TurnKind } from '@/lib/ai/turn-label';
 import { CoverageGapCard } from '@/components/design/CoverageGapCard';
 import { ClassificationChip } from '@/components/design/ClassificationChip';
 import { LibraryScopeNote } from '@/components/design/LibraryScopeNote';
@@ -76,6 +77,14 @@ interface Message {
   /** Policies the guidance was drawn from; empty means none matched. */
   citations?: Citation[];
   coverage?: Coverage;
+  /**
+   * Whether this turn gave guidance or only asked for more information.
+   *
+   * Undefined means unknown -- an older stored turn, or a reply whose label
+   * could not be read -- and unknown shows the provenance block, because a
+   * guidance turn with nothing shown behind it is the failure that matters.
+   */
+  kind?: TurnKind;
   /** Present only on the turn where the incident was classified. */
   classification?: Classification | null;
 }
@@ -234,7 +243,8 @@ export default function ChatPage() {
         timestamp: new Date(),
         citations: data.citations ?? [],
         coverage: data.coverage,
-        classification: data.classification
+        classification: data.classification,
+        kind: data.kind
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch {
@@ -564,7 +574,25 @@ export default function ChatPage() {
                           )}
                         </div>
 
-                        {message.type === 'general' && message.citations && (
+                        {/*
+                          The provenance block is a claim about the text above
+                          it: these are the policies it rests on, and this is
+                          what the library does not cover. A turn that only
+                          asks a clarifying question makes no claim, so it gets
+                          no block -- it was previously shown the full ladder
+                          plus an amber gap card under "can you describe what
+                          happened between them?", vouching for an assertion
+                          nobody had made and repeating the gap warning every
+                          turn until it read as furniture.
+
+                          Gated on `=== 'question'` rather than on
+                          `!== 'guidance'`: only an explicit, well-formed
+                          question label suppresses it, so an unlabelled or
+                          unreadable turn still shows its sources.
+                        */}
+                        {message.type === 'general' &&
+                          message.kind !== 'question' &&
+                          message.citations && (
                           <div data-testid="chat-sources" className="mt-4 flex flex-col gap-4">
                             {message.citations.length > 0 ? (
                               <SourceLadder

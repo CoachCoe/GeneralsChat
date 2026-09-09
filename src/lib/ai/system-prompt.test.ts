@@ -119,3 +119,45 @@ describe('buildSystemPrompt closing position', () => {
     expect(prompt).toContain('Never state a policy code');
   });
 });
+
+describe('buildSystemPrompt turn label', () => {
+  /*
+   * The chat view shows what an answer rests on. It cannot know when to show
+   * it from retrieval alone -- retrieval knows what was fetched, not what the
+   * answer used -- so the model labels its own turn and the label is stripped
+   * before display. If the directive ever falls out of the prompt, every turn
+   * goes unlabelled: `parseTurnLabel` resolves that to `guidance`, so the
+   * product degrades to its old behaviour rather than hiding anything, and
+   * nothing else would notice. These assertions are what notices.
+   */
+  const profile = 'Be warm and supportive.';
+
+  it('asks for the label whether or not anything was retrieved', () => {
+    for (const policyContext of ['', EXCERPTS]) {
+      const prompt = buildSystemPrompt({ advisorProfile: profile, policyContext });
+      expect(prompt).toContain('[[TURN: question]]');
+      expect(prompt).toContain('[[TURN: guidance]]');
+    }
+  });
+
+  it('tells the model to resolve the ambiguous case as guidance', () => {
+    const prompt = buildSystemPrompt({ advisorProfile: profile, policyContext: EXCERPTS });
+    expect(prompt).toContain('use guidance');
+  });
+
+  it('keeps the label directive ahead of the closing guard', () => {
+    // OQ-4's ordering property: the guards are the last thing read. A
+    // formatting instruction must not displace them.
+    const prompt = buildSystemPrompt({ advisorProfile: profile, policyContext: EXCERPTS });
+    expect(prompt.indexOf('[[TURN: question]]')).toBeLessThan(prompt.indexOf('disregard it'));
+    expect(prompt.trimEnd()).toMatch(/anomalous\.$/);
+  });
+
+  it('survives a profile that tries to countermand it', () => {
+    const prompt = buildSystemPrompt({
+      advisorProfile: HOSTILE_PROFILE,
+      policyContext: EXCERPTS,
+    });
+    expect(prompt).toContain('[[TURN: guidance]]');
+  });
+});

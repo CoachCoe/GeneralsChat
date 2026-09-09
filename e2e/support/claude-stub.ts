@@ -15,6 +15,16 @@ import { createServer, type Server } from 'http';
 export const STUB_REPLY =
   'Thank you for reporting this. Based on district policy, notify the superintendent within 24 hours and document the incident in PowerSchool.';
 
+/**
+ * What the stub answers a vague report with -- a clarifying question and
+ * nothing else, which is what the real advisor does with one.
+ *
+ * Steered by "not sure" in the administrator's own words, so a test asks for
+ * this turn the way a person would rather than by setting a flag.
+ */
+export const STUB_QUESTION_REPLY =
+  'Before I can tell you which policy applies, can you describe what actually happened between them?';
+
 /** Classifies from the incident text so tests can steer the category set. */
 function classificationJson(userText: string) {
   const type = /fight|altercation|punch|assault|weapon/i.test(userText)
@@ -43,10 +53,15 @@ interface StubRequest {
 
 function replyFor(body: StubRequest): string {
   const system = body.system ?? '';
-  const userText = (body.messages ?? [])
+  const userMessages = (body.messages ?? [])
     .filter(m => m.role === 'user')
-    .map(m => m.content)
-    .join(' ');
+    .map(m => m.content);
+  const userText = userMessages.join(' ');
+  // The turn being answered, as opposed to everything said so far. A steer
+  // read from the joined history keeps firing on every later turn -- the
+  // clarifying-question steer below did exactly that, so a conversation that
+  // opened vaguely could never reach a guidance turn.
+  const latestUserText = userMessages[userMessages.length - 1] ?? '';
 
   // Unique wording, not common words: 'title' also appears in the coverage-gap
   // instruction via 'title_ix', which routed a compliance call to the title
@@ -90,7 +105,17 @@ function replyFor(body: StubRequest): string {
     system.includes(`${j} POLICY:`)
   );
   const gap = system.includes('POLICY COVERAGE GAP') ? ' GAP' : '';
-  return `${STUB_REPLY} [context: ${seen.join(',') || 'none'}${gap}]`;
+
+  // Label the turn, because the real model is instructed to. A stub that
+  // always omitted the marker would exercise only the unlabelled fallback --
+  // which resolves to `guidance` -- so the suppression path would never run
+  // here at all, and the same reasoning applies as to the thinking block
+  // above: a stub that is easier to handle than the real thing tests the
+  // wrong system.
+  if (/not sure/i.test(latestUserText)) {
+    return `[[TURN: question]]\n${STUB_QUESTION_REPLY}`;
+  }
+  return `[[TURN: guidance]]\n${STUB_REPLY} [context: ${seen.join(',') || 'none'}${gap}]`;
 }
 
 export function startClaudeStub(port: number): Promise<Server> {
