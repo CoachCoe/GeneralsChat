@@ -84,6 +84,15 @@ or query string; that was a real vulnerability. Every handler re-checks the
 session even though `middleware.ts` also gates it — a matcher mistake must not
 silently expose a route.
 
+**The session says who you are; the row says what you may do.** `requireUser()`
+re-reads the user on every guarded request, so `role` is never taken from the
+JWT: the token records the role held at sign-in, and `updateAge` rolls it
+forward on activity, so a demotion would otherwise not take effect while the
+user kept working. A deleted account is 401, not 403. `middleware.ts` still
+gates `/admin` on the token's role because Prisma cannot run on the Edge — that
+is a page shell, and every `/api/admin` handler re-checks against the row.
+(SEC-19)
+
 **Scope every by-id lookup.** `incidentScope(user)` — reporters see only what
 they filed. An out-of-scope row returns **404, not 403**, so ids are not
 confirmed to people who may not read them.

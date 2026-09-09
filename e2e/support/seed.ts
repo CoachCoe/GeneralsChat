@@ -12,6 +12,18 @@ export const TEST_PASSWORD = 'e2e-test-password-1';
 export const TEST_USERS = {
   admin: { email: 'e2e-admin@example.test', name: 'E2E Admin', role: 'admin' },
   reporter: { email: 'e2e-reporter@example.test', name: 'E2E Reporter', role: 'reporter' },
+  /**
+   * Signed in like the others and then deleted mid-test, to prove a session
+   * outlives its account by nothing. (SEC-19)
+   *
+   * It exists as a seeded user rather than one the test creates because the
+   * test must not sign in: `navigation.spec.ts` deliberately floods the
+   * credentials endpoint until the limiter refuses it, and a test signing in
+   * afterwards is refused too -- which is what happened, as a 30s wait on a
+   * "Signing in..." button. Sessions are minted in `auth.setup.ts`, which runs
+   * before any of that. It owns no incidents, so deleting it cascades nowhere.
+   */
+  revocable: { email: 'e2e-revocable@example.test', name: 'E2E Revocable', role: 'reporter' },
 } as const;
 
 /**
@@ -329,6 +341,42 @@ export async function resetDatabase(): Promise<SeededIds> {
       reporterAttachmentId: attachmentIds['e2e-reporter-statement.txt'],
       adminAttachmentId: attachmentIds['e2e-admin-statement.txt'],
     };
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/**
+ * Set a seeded user's role, returning the role it had.
+ *
+ * Exists so a test can revoke a privilege on a session that is already signed
+ * in, which is the only way to exercise SEC-19: role used to be read off the
+ * JWT, so a demotion did not take effect while the token lived. Nothing else
+ * in the suite can produce that state -- the storage states are minted once, in
+ * `auth.setup.ts`, and never re-signed-in.
+ *
+ * The suite runs `workers: 1, fullyParallel: false`, so a test may mutate a
+ * shared user for the length of one test. It must put the role back.
+ */
+export async function setUserRole(email: string, role: string): Promise<string> {
+  const prisma = new PrismaClient();
+  try {
+    const before = await prisma.user.findUniqueOrThrow({
+      where: { email },
+      select: { role: true },
+    });
+    await prisma.user.update({ where: { email }, data: { role } });
+    return before.role;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/** Remove a seeded account, to prove its live session dies with it. */
+export async function deleteUserByEmail(email: string): Promise<void> {
+  const prisma = new PrismaClient();
+  try {
+    await prisma.user.deleteMany({ where: { email } });
   } finally {
     await prisma.$disconnect();
   }
