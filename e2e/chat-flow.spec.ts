@@ -358,6 +358,54 @@ test.describe('Classification and library scope', () => {
     await expect(page.getByTestId('chat-sources')).toHaveCount(1);
     await expect(page.getByTestId('chat-sources')).toContainText('This rests on');
   });
+
+  test('reopening a past incident still shows what each answer rested on', async ({ page }) => {
+    /*
+     * Provenance used to live only in the browser tab. GET /api/chat/[id]
+     * returned id, type, content and timestamp, so reopening an incident
+     * dropped every citation the guidance rested on -- on a tool whose answers
+     * exist to be checked, and whose record is the thing an administrator goes
+     * back to weeks later.
+     *
+     * The turn kind survives the round trip too, so the distinction this
+     * feature is built on is not a live-only nicety: the reopened question
+     * turn is still bare and the reopened answer still carries its ladder.
+     */
+    await page.goto('/chat');
+
+    await page.getByTestId('chat-input').fill(
+      "A student came to me about another student, I'm not sure what happened yet."
+    );
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    await page.getByTestId('chat-input').fill('It was repeated name-calling at recess.');
+    const [answered] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+    const { incidentId } = await answered.json();
+
+    // Leave the conversation entirely and come back to it the way a user does.
+    await page.reload();
+    await expect(page.getByText(STUB_REPLY)).toHaveCount(0);
+    await page
+      .locator(`[data-testid="chat-history-item"][data-incident-id="${incidentId}"]`)
+      .click();
+
+    await expect(page.getByText(STUB_QUESTION_REPLY)).toBeVisible();
+    await expect(page.getByText(STUB_REPLY)).toBeVisible();
+
+    // Exactly one block, on the answer -- not on the question above it.
+    const sources = page.getByTestId('chat-sources');
+    await expect(sources).toHaveCount(1);
+    await expect(sources).toContainText('This rests on');
+    await expect(sources).toContainText('Policy JICK: Bullying Prevention');
+    // Down to the provision, which is the half that makes a citation checkable.
+    await expect(sources).toContainText('JICK §D');
+  });
 });
 
 test.describe('A failed turn', () => {
