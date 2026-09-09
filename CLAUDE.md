@@ -161,7 +161,7 @@ These are asserted by the suite; move them deliberately and update the tests in
 the same commit:
 
 `data-testid="chat-input" | chat-send | chat-loading | chat-sources |
-obligation-queue | obligation-row`, `aria-label="Send message"`,
+chat-history-item | obligation-queue | obligation-row`, `aria-label="Send message"`,
 `nav[aria-label="Main"]`, the `Incidents` `<h1>`, and the button names
 `Close Incident` / `Reopen Incident` / `Generate Summary` / `Sign in` /
 `Sign out` / `Mark done`.
