@@ -9,23 +9,28 @@
  * is how a report names the wrong child.
  */
 
+/**
+ * A time stays an instant until it is rendered. Formatting it here would put
+ * the server's timezone on a filing the administrator dates from theirs.
+ */
+export type FieldValue = { text: string } | { iso: string; as: 'date' | 'time' };
+
 export type ReportBlock =
   | { kind: 'heading'; text: string }
   | { kind: 'text'; text: string }
-  | { kind: 'field'; label: string; value?: string; source?: string }
-  | { kind: 'longField'; label: string; value?: string; source?: string }
+  | { kind: 'field'; label: string; value?: FieldValue; source?: string }
+  | { kind: 'longField'; label: string; value?: FieldValue; source?: string }
   | { kind: 'choice'; label: string; options: string[] }
   | { kind: 'lines'; count: number };
 
-/** What the incident record can answer, already formatted for the page. */
+/** What the incident record can answer. */
 export interface ReportFacts {
-  dateReported?: string;
-  timeReported?: string;
+  reportedAt?: string;
   personReporting?: string;
   completedBy?: string;
   description?: string;
   /** Only ever a deadline a retrieved policy states. */
-  investigationDue?: string;
+  investigationDueAt?: string;
 }
 
 const BLANK = /_{4,}/;
@@ -35,36 +40,42 @@ const CHECKBOX = '☐';
  * Which blank each fact belongs in, by the form's own wording. A district that
  * words a field differently gets a blank rather than a wrong answer.
  */
-const FILLS: { match: (label: string) => boolean; fact: keyof ReportFacts; source: string }[] = [
+const RECORD = 'from the incident record';
+
+const FILLS: {
+  match: (label: string) => boolean;
+  value: (facts: ReportFacts) => FieldValue | undefined;
+  source: string;
+}[] = [
   {
     match: l => l.startsWith('date reported to'),
-    fact: 'dateReported',
-    source: 'from the incident record',
+    value: f => (f.reportedAt ? { iso: f.reportedAt, as: 'date' } : undefined),
+    source: RECORD,
   },
   {
     match: l => l.startsWith('time reported to'),
-    fact: 'timeReported',
-    source: 'from the incident record',
+    value: f => (f.reportedAt ? { iso: f.reportedAt, as: 'time' } : undefined),
+    source: RECORD,
   },
   {
     match: l => l === 'person reporting incident' || l === 'person reporting',
-    fact: 'personReporting',
-    source: 'from the incident record',
+    value: f => (f.personReporting ? { text: f.personReporting } : undefined),
+    source: RECORD,
   },
   {
     match: l => l.includes('administrator completing form'),
-    fact: 'completedBy',
+    value: f => (f.completedBy ? { text: f.completedBy } : undefined),
     source: 'signed in as',
   },
   {
     match: l => l.startsWith('required investigation completion date'),
-    fact: 'investigationDue',
+    value: f => (f.investigationDueAt ? { iso: f.investigationDueAt, as: 'date' } : undefined),
     source: 'from a policy-backed deadline',
   },
   {
     match: l => l.startsWith('description of alleged'),
-    fact: 'description',
-    source: 'from the incident record',
+    value: f => (f.description ? { text: f.description } : undefined),
+    source: RECORD,
   },
 ];
 
@@ -133,9 +144,8 @@ export function prefillReport(blocks: ReportBlock[], facts: ReportFacts): Report
   return blocks.map(block => {
     if (block.kind !== 'field' && block.kind !== 'longField') return block;
 
-    const label = normalise(block.label);
-    const fill = FILLS.find(f => f.match(label));
-    const value = fill ? facts[fill.fact] : undefined;
+    const fill = FILLS.find(f => f.match(normalise(block.label)));
+    const value = fill?.value(facts);
     if (!fill || !value) return block;
 
     return { ...block, value, source: fill.source };

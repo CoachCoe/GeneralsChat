@@ -9,6 +9,7 @@ function seededIds(): {
   adminIncidentId: string;
   adminObligationId: string;
   reporterIncidentId: string;
+  otherTypeIncidentId: string;
   closedIncidentId: string;
 } {
   return JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8'));
@@ -638,7 +639,9 @@ test.describe('Incident documents', () => {
     const { reporterIncidentId } = seededIds();
     await page.goto(`/incidents/${reporterIncidentId}/report`);
 
-    // The district's own form, parsed from the document it loaded.
+    // The document the district marked as a form, parsed as loaded -- not the
+    // Uniform Complaint Procedure seeded beside it, which a title match picks
+    // because 'Form' is a substring of 'Uniform'.
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
       'SAU 24 School Bullying Investigation Form'
     );
@@ -666,6 +669,19 @@ test.describe('Incident documents', () => {
     const gap = page.getByTestId('report-gap');
     await expect(gap).toContainText('has not been classified');
     await expect(page.getByTestId('incident-report')).toHaveCount(0);
+  });
+
+  test('tells a classified incident no form maps to it, rather than that it is unclassified', async ({
+    page,
+  }) => {
+    // `other` maps to no category by design. Reading that as "not classified
+    // yet" sends the administrator back to chat to redo work already done.
+    const { otherTypeIncidentId } = seededIds();
+    await page.goto(`/incidents/${otherTypeIncidentId}/report`);
+
+    const gap = page.getByTestId('report-gap');
+    await expect(gap).toContainText('No report form is loaded');
+    await expect(gap).not.toContainText('has not been classified');
   });
 
   test('does not build a report for an incident the reporter may not read', async ({ page }) => {

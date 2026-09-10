@@ -4,14 +4,18 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { DocumentPage } from '@/components/design/DocumentPage';
 import { AuthorityChip } from '@/components/design/AuthorityChip';
-import type { ReportBlock } from '@/lib/report-template';
+import type { FieldValue, ReportBlock } from '@/lib/report-template';
 import { INCIDENT_TYPE_LABELS } from '@/types';
+import { useMounted } from '@/lib/useMounted';
+
+/** Blank writing space under a question the record cannot answer. */
+const WRITING_LINES = 4;
 
 interface Report {
   incidentTitle: string;
   form: { title: string; jurisdiction: string } | null;
   /** Why there is no form: the incident is unclassified, or none is loaded. */
-  reason?: 'unclassified' | 'none-loaded';
+  reason?: 'unclassified' | 'no-form-for-type' | 'none-loaded';
   incidentType: string | null;
   blocks: ReportBlock[];
   counts: { filled: number; total: number };
@@ -78,13 +82,13 @@ export default function ReportPage() {
             {report.reason === 'unclassified'
               ? 'This incident has not been classified yet.'
               : typeLabel
-                ? `No district or school report form is loaded for a ${typeLabel.toLowerCase()} matter.`
-                : 'No district or school report form is loaded for this incident.'}
+                ? `No report form is loaded for ${typeLabel.toLowerCase()} incidents.`
+                : 'No report form is loaded for this incident.'}
           </span>
           <span className="text-[14px] leading-[1.6] text-text-secondary">
             {report.reason === 'unclassified'
               ? 'Which report applies depends on what the incident is. Describe it in chat: classification runs there, and the form follows from it.'
-              : 'The library holds no form to fill out, so there is nothing here to prepare. Use the district’s own form, and ask an administrator to load it so the next report can be drafted from the record.'}
+              : 'Use the district’s own form, and ask an administrator to load it as a report form so the next one can be drafted from the record.'}
           </span>
         </div>
       </DocumentPage>
@@ -149,12 +153,12 @@ function Block({ block }: { block: ReportBlock }) {
           {block.value ? (
             <>
               <p className="whitespace-pre-wrap rounded-[12px] border border-line bg-surface px-4 py-3 text-[15px] leading-[1.6] text-text">
-                {block.value}
+                <Rendered value={block.value} />
               </p>
               <Source source={block.source} />
             </>
           ) : (
-            <Rules count={4} />
+            <Rules count={WRITING_LINES} />
           )}
         </div>
       );
@@ -178,14 +182,36 @@ function Block({ block }: { block: ReportBlock }) {
   }
 }
 
-function Value({ value, source }: { value?: string; source?: string }) {
+function Value({ value, source }: { value?: FieldValue; source?: string }) {
   if (!value) return <span className="print-rule min-w-[220px] flex-1 border-b border-line-strong" />;
 
   return (
     <span className="flex items-baseline gap-2">
-      <span className="text-[15px] text-text">{value}</span>
+      <span className="text-[15px] text-text">
+        <Rendered value={value} />
+      </span>
       <Source source={source} />
     </span>
+  );
+}
+
+/**
+ * A time is formatted in the reader's zone, not the server's: a report dated
+ * a day off the incident page is a report dated wrong.
+ */
+function Rendered({ value }: { value: FieldValue }) {
+  const mounted = useMounted();
+
+  if ('text' in value) return <>{value.text}</>;
+  if (!mounted) return null;
+
+  const at = new Date(value.iso);
+  return (
+    <>
+      {value.as === 'date'
+        ? at.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+    </>
   );
 }
 

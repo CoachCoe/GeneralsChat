@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  DOCUMENT_KINDS,
   INCIDENT_STATUSES,
   INCIDENT_TYPES,
   POLICY_CATEGORIES,
@@ -9,6 +10,7 @@ import {
 
 const jurisdictionEnum = z.enum(POLICY_JURISDICTIONS);
 const categoryEnum = z.enum(POLICY_CATEGORIES);
+const documentKindEnum = z.enum(DOCUMENT_KINDS);
 
 const incidentTypeEnum = z.enum(INCIDENT_TYPES);
 const severityEnum = z.enum(SEVERITIES);
@@ -83,6 +85,7 @@ export const updatePolicySchema = z
     content: z.string().optional(),
     jurisdiction: jurisdictionEnum.optional(),
     category: categoryEnum.optional(),
+    documentKind: documentKindEnum.optional(),
     effectiveDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)')
@@ -212,6 +215,7 @@ export function formatValidationErrors(error: z.ZodError): Record<string, string
 export const policyFacetsSchema = z.object({
   jurisdiction: jurisdictionEnum,
   category: categoryEnum,
+  documentKind: documentKindEnum.default('policy'),
 });
 
 export type PolicyFacets = z.infer<typeof policyFacetsSchema>;

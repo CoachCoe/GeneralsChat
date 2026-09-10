@@ -54,7 +54,7 @@ function isSubjectOutsideLibrary(coverage: CoverageSummary): boolean {
 export function conversationProvenance(turns: ProvenanceTurn[]): ConversationProvenance | null {
   const answers = turns.filter(turn => turn.type === 'general' && turn.kind !== 'question');
 
-  const sources: ProvenanceSource[] = [];
+  const sources: (ProvenanceSource & { sections: string[] })[] = [];
   for (const citation of answers.flatMap(turn => turn.citations ?? [])) {
     const seen = sources.find(
       s => s.jurisdiction === citation.jurisdiction && s.title === citation.title
@@ -66,7 +66,7 @@ export function conversationProvenance(turns: ProvenanceTurn[]): ConversationPro
     // A later answer may lean on a further provision of a policy already
     // cited. Dropping it understates what the guidance rests on.
     for (const section of citation.sections ?? []) {
-      if (!seen.sections?.includes(section)) seen.sections?.push(section);
+      if (!seen.sections.includes(section)) seen.sections.push(section);
     }
   }
 

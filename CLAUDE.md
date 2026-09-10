@@ -124,10 +124,18 @@ wrong and neither gate can reach the page: vitest runs in `node` over
 **A report form is the district's, not ours.** `/incidents/[id]/report` parses
 the form out of the document the district loaded (`src/lib/report-template.ts`)
 and fills in only facts the incident record holds, each labelled with where it
-came from. Names, ages, grades and dates of the incident stay blank: they are
+came from. Which document is a form is a property of the row —
+`Policy.documentKind`, set at upload — never a guess from its title: `Form` is
+a substring of `Uniform`, and a Uniform Complaint Procedure printed under
+"Mandatory report" is the mistake the page exists to prevent. Names, ages, grades and dates of the incident stay blank: they are
 in the reporter's prose, and inferring them from it is how a report names the
-wrong child. A deadline fills only from a policy-backed obligation. An
-unclassified incident gets no form rather than a guessed one. The form's text
+wrong child. A deadline fills only from the earliest policy-backed obligation, ordered
+rather than found, because which of several prints must not depend on the
+query planner. Times cross the wire as instants and are formatted in the
+reader's zone, not the server's. An unclassified incident gets no form rather
+than a guessed one — and `other`, which is a classification that maps to no
+category, is told that no form maps to it rather than that it is
+unclassified. The form's text
 crosses the wire only as parsed blocks, for one incident, to a user the
 incident scope already lets read it — `GET /api/policies` still withholds
 `content` and `filePath` from everyone.

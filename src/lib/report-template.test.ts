@@ -89,12 +89,11 @@ describe('parseReportTemplate', () => {
 
 describe('prefillReport', () => {
   const facts: ReportFacts = {
-    dateReported: 'Sep 9, 2026',
-    timeReported: '10:19 PM',
+    reportedAt: '2026-09-09T22:19:00.000Z',
     personReporting: 'Dev Admin',
     completedBy: 'Dev Admin',
     description: 'A 7th grade student told me three classmates have been mocking her appearance.',
-    investigationDue: 'Sep 23, 2026',
+    investigationDueAt: '2026-09-23T22:19:00.000Z',
   };
 
   const filled = prefillReport(blocks, facts);
@@ -104,12 +103,14 @@ describe('prefillReport', () => {
       | undefined;
 
   it('fills a field the record answers, and says where the value came from', () => {
+    // The instant, not a rendering of it: formatting here would put the
+    // server's timezone on a filing the administrator dates from theirs.
     expect(field('Date reported to Principal/Designee')).toMatchObject({
-      value: 'Sep 9, 2026',
+      value: { iso: facts.reportedAt, as: 'date' },
       source: 'from the incident record',
     });
     expect(field('Description of alleged bullying')).toMatchObject({
-      value: facts.description,
+      value: { text: facts.description },
       kind: 'longField',
     });
   });
@@ -124,7 +125,7 @@ describe('prefillReport', () => {
     // The caller passes this only for a policy-backed deadline. Counting
     // school days ourselves would be inventing a legal date out of a holiday
     // calendar we do not have.
-    const withoutDeadline = prefillReport(blocks, { ...facts, investigationDue: undefined });
+    const withoutDeadline = prefillReport(blocks, { ...facts, investigationDueAt: undefined });
     const deadline = withoutDeadline.find(
       b => b.kind === 'field' && b.label.startsWith('Required investigation completion date')
     );

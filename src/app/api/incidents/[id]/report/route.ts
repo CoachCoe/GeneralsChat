@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { logRequest, logResponse } from '@/lib/logger';
 import { createErrorResponse, notFoundError, successResponse } from '@/lib/errors';
 import { incidentScope, requireUser } from '@/lib/session';
-import { isPolicyBacked } from '@/lib/deadline';
+import { POLICY_BACKED_SOURCE } from '@/lib/deadline';
 import { categoriesForIncidentType, LOCAL_JURISDICTIONS } from '@/types';
 import { countPrefilled, parseReportTemplate, prefillReport } from '@/lib/report-template';
 
@@ -32,12 +32,9 @@ export async function GET(request: NextRequest, { params }: Params) {
       include: {
         reporter: { select: { name: true } },
         complianceActions: {
-          select: {
-            actionType: true,
-            description: true,
-            dueDate: true,
-            deadlineSource: true,
-          },
+          where: { dueDate: { not: null }, deadlineSource: POLICY_BACKED_SOURCE },
+          orderBy: { dueDate: 'asc' },
+          select: { actionType: true, description: true, dueDate: true },
         },
       },
     });
@@ -49,7 +46,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       return response;
     }
 
-    const noForm = (reason: 'unclassified' | 'none-loaded') => {
+    const noForm = (reason: 'unclassified' | 'no-form-for-type' | 'none-loaded') => {
       logResponse('GET', '/api/incidents/[id]/report', 200, Date.now() - startTime);
       return successResponse({
         incidentTitle: incident.title,
@@ -61,17 +58,19 @@ export async function GET(request: NextRequest, { params }: Params) {
       });
     };
 
-    // Unclassified, or a type that maps to nothing: the system does not know
-    // what this incident is about, and a form chosen anyway would be a guess
-    // at which legal filing applies.
+    // A form chosen without knowing what the incident is about would be a
+    // guess at which legal filing applies. `other` is a classification, not
+    // the absence of one: it simply maps to no category.
+    if (!incident.incidentType) return noForm('unclassified');
+
     const categories = categoriesForIncidentType(incident.incidentType);
-    if (categories.length === 0) return noForm('unclassified');
+    if (categories.length === 0) return noForm('no-form-for-type');
 
     const form = await prisma.policy.findFirst({
       where: {
         isActive: true,
+        documentKind: 'form',
         jurisdiction: { in: [...LOCAL_JURISDICTIONS] },
-        title: { contains: 'Form', mode: 'insensitive' },
         category: { in: categories },
       },
       orderBy: { updatedAt: 'desc' },
@@ -83,37 +82,22 @@ export async function GET(request: NextRequest, { params }: Params) {
     // the same absence from where the reader stands.
     if (!form?.content) return noForm('none-loaded');
 
-    const reportedAt = new Date(incident.createdAt);
-    // Only a deadline the policy itself states. Counting ten school days from
-    // a holiday calendar we do not have would be inventing a legal date.
-    const investigation = incident.complianceActions.find(
-      a =>
-        isPolicyBacked(a.deadlineSource) &&
-        a.dueDate &&
-        /investigation/i.test(`${a.description ?? ''} ${a.actionType}`) &&
-        /complete|conclude/i.test(`${a.description ?? ''} ${a.actionType}`)
+    // Only a deadline a retrieved policy states -- counting ten school days
+    // from a holiday calendar we do not have would be inventing a legal date.
+    // Ordered, and the earliest wins: two obligations can describe finishing
+    // the investigation, and which one prints must not depend on the query
+    // planner.
+    const investigation = incident.complianceActions.find(a =>
+      /investigation/i.test(`${a.description ?? ''} ${a.actionType}`) &&
+      /complete|conclude/i.test(`${a.description ?? ''} ${a.actionType}`)
     );
 
     const blocks = prefillReport(parseReportTemplate(form.content), {
-      dateReported: reportedAt.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      timeReported: reportedAt.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-      }),
-      personReporting: incident.reporter?.name ?? undefined,
-      completedBy: guard.user.name ?? undefined,
+      reportedAt: incident.createdAt.toISOString(),
+      personReporting: incident.reporter?.name,
+      completedBy: guard.user.name,
       description: incident.description,
-      investigationDue: investigation?.dueDate
-        ? new Date(investigation.dueDate).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })
-        : undefined,
+      investigationDueAt: investigation?.dueDate?.toISOString(),
     });
 
     logResponse('GET', '/api/incidents/[id]/report', 200, Date.now() - startTime);
