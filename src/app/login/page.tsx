@@ -15,7 +15,7 @@ function LoginForm() {
   // one page where a convincing look-alike is worth the most, and reached by a
   // link that is genuinely this app's domain. A protocol-relative `//evil.test`
   // is off-site too, which is why the leading `//` is rejected as well as an
-  // absolute URL. (FLOW-55)
+  // absolute URL.
   const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'));
 
   const [email, setEmail] = useState('');
@@ -100,7 +100,7 @@ function LoginForm() {
 
           {/* Not red: an error is not a deadline state, and colour in this UI
               means a deadline state or a coverage gap and nothing else.
-              `role="alert"` is what makes this an error. (SPEC-54) */}
+              `role="alert"` is what makes this an error. */}
           {error && (
             <p role="alert" className="text-[14px] text-text">
               {error}

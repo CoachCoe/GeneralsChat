@@ -38,34 +38,18 @@ export interface LLMResponse {
 /**
  * The single guidance entry point.
  *
- * `generateResponse`, `streamResponse` and `getDefaultSystemPrompt` are gone.
- * They assembled a guidance prompt of their own -- `getDefaultSystemPrompt()`
- * plus a bare `"\n\nRelevant Policy Context:\n" + policyContext` -- which
- * never went through `buildSystemPrompt`, so they carried neither
- * `CORE_DIRECTIVES` nor `NO_POLICY_RETRIEVED_GUARD`. The prompt they did use
- * instructed the model to "Cite specific policies when possible" and
- * "Highlight legal requirements and deadlines" with no guard and a possibly
- * empty context: exactly the SPEC-3/B4 failure mode, where the model has
- * nothing to cite but the examples in its own prompt and attributes district
- * deadlines to policies it was never given. CLAUDE.md: "Never assert policy
- * the system did not retrieve ... Don't remove that guard."
+ * Deliberately the only one: a second path that assembles its own prompt
+ * carries neither `CORE_DIRECTIVES` nor `NO_POLICY_RETRIEVED_GUARD`, and with
+ * an empty context the model has nothing to cite but the examples in its own
+ * prompt -- which is how district deadlines get attributed to policies it was
+ * never given. CLAUDE.md: "Never assert policy the system did not retrieve ...
+ * Don't remove that guard."
  *
- * `generateResponse` additionally swallowed every error and returned apology
- * text as `content` -- the FLOW-7 pattern that
- * `generateSchoolComplianceResponse` was changed to throw on, sitting one
- * function above the fix.
- *
- * They had no callers anywhere in `src`, `scripts` or `e2e`. Deleted rather
- * than left unused, for the reason `classifier.ts` gives for
- * `getDefaultClassification`: "a plausible-looking safe default is exactly
- * what someone would re-wire." If a streaming path is wanted later, build its
- * prompt through `buildSystemPrompt` so the guards cannot be omitted.
- * (SPEC-58, SEC-40, FLOW-59)
+ * Nor may a guidance call swallow its errors and return apology text as
+ * `content`. If a streaming path is wanted later, build its prompt through
+ * `buildSystemPrompt` so the guards cannot be omitted, and let it throw.
  */
 export class LLMService {
-  /**
-   * Generate a school compliance-specific response
-   */
   async generateSchoolComplianceResponse(
     userMessage: string,
     policyContext?: string,
@@ -73,7 +57,6 @@ export class LLMService {
     coverage?: PolicyCoverage
   ): Promise<LLMResponse> {
     try {
-      // Convert conversation history to Claude format
       const claudeHistory: ClaudeMessage[] = conversationHistory
         .filter(msg => msg.role !== 'system')
         .map(msg => ({
@@ -81,7 +64,6 @@ export class LLMService {
           content: msg.content,
         }));
 
-      // Use Claude's compliance response method
       const response = await claudeService.generateComplianceResponse(
         userMessage,
         policyContext || '',
@@ -98,7 +80,7 @@ export class LLMService {
       // blank answer to file under an incident. `generateResponse` already
       // throws on empty text; stripping can reach the same state one layer
       // later, and it has to end the same way -- as a 503 with nothing
-      // written, never as an empty assistant turn. (FLOW-7)
+      // written, never as an empty assistant turn.
       if (content.trim().length === 0) {
         throw new Error('Claude returned a turn label with no answer text');
       }
@@ -119,7 +101,7 @@ export class LLMService {
       // caller, which then wrote the apology into the incident record as an
       // assistant turn stamped confidence: 0.9, replayed it as conversation
       // history, and folded it into the end-of-chat summary -- all behind an
-      // HTTP 200. (FLOW-7, TEST-5)
+      // HTTP 200.
       throw new LLMUnavailableError(
         "The compliance assistant is temporarily unavailable. For urgent matters, contact your district's compliance officer or legal counsel directly.",
         { cause: error }

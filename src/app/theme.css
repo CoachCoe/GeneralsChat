@@ -1,16 +1,12 @@
 /*
  * Tailwind, with preflight.
  *
- * globals.css is gone. It was 1,161 lines: a hand-rolled partial clone of
- * Tailwind's utilities plus a bespoke Apple-derived component set. The clone
- * silently failed on classes the markup used -- no loading spinner spun, four
- * of the eight responsive classes did nothing -- and because it was unlayered
- * it beat every Tailwind utility in the cascade, which made a migration
- * impossible to reason about until it was put in a layer.
- *
- * Tailwind now supplies the utilities, the tokens below supply the palette and
+ * Tailwind supplies the utilities, the tokens below supply the palette and
  * type, and the component layer at the end of this file carries the handful of
- * composite classes that are genuinely worth naming.
+ * composite classes that are genuinely worth naming. There is no second,
+ * hand-rolled utility stylesheet: an unlayered one beats every Tailwind
+ * utility in the cascade, and fails silently on the classes it does not
+ * implement.
  */
 @import "tailwindcss";
 

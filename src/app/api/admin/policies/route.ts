@@ -11,11 +11,10 @@ import { validationError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
 import { assertIndexablePolicyText, UploadError } from '@/lib/uploads';
 
-// GET /api/admin/policies - List all policies
 export async function GET() {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
@@ -41,11 +40,10 @@ export async function GET() {
   }
 }
 
-// POST /api/admin/policies - Create new policy
 export async function POST(request: NextRequest) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
@@ -56,7 +54,7 @@ export async function POST(request: NextRequest) {
     // check let an unbounded title and an arbitrary `effectiveDate` string
     // through -- `new Date('soon')` is an Invalid Date, which Prisma rejects as
     // a 500 rather than the 400 it is. The date format was validated on the
-    // update path and on neither create path. (SEC-36, FLOW-75, FLOW-78)
+    // update path and on neither create path.
     const validation = validateRequest(createPolicySchema, {
       title: body.title,
       content: body.content,
@@ -91,11 +89,10 @@ export async function POST(request: NextRequest) {
           keywords: keywords || [],
           description,
         }),
-        // Inactive until the chunks land. An indexing failure used to leave an
-        // active policy with zero chunks: invisible to retrieval, but counted
-        // as loaded by the library page -- coverage claimed and not delivered,
-        // which is the state policy-coverage.ts exists to warn about.
-        // (FLOW-73)
+        // Inactive until the chunks land. An indexing failure would otherwise
+        // leave an active policy with zero chunks: invisible to retrieval, but
+        // counted as loaded by the library page -- coverage claimed and not
+        // delivered.
         isActive: false,
         version: 1
       }
@@ -117,7 +114,6 @@ export async function POST(request: NextRequest) {
     // requirement spanning a boundary was severed; and writing PolicyChunk rows
     // directly left `embedding` null and Chroma untouched, making
     // admin-uploaded policies invisible to vector search.
-    // (FLOW-22, FLOW-23, SPEC-9, DEAD-11)
     let chunksCreated = 0;
     try {
       await ragSystem.addPolicyDocument(policy.id, content, {

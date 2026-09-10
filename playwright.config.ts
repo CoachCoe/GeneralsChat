@@ -3,10 +3,8 @@ import path from 'path';
 
 /**
  * The suite runs against a dedicated local Postgres database, seeded by
- * global-setup, with Anthropic calls served by a local stub. It previously had
- * no webServer at all ("run dev server manually before tests"), shared one
- * mutable database with no isolation, and relied on a browser-side mock that
- * could not intercept server-side Claude calls. (TEST-1, TEST-3, TEST-21)
+ * global-setup, with Anthropic calls served by a local stub. Claude calls are
+ * made server-side, so a browser-side mock cannot intercept them.
  */
 const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 const BASE_URL = `http://localhost:${PORT}`;
@@ -54,20 +52,19 @@ export default defineConfig({
   webServer: {
     // The port check is the first link, because this is the process that binds
     // the port -- and it cannot live in globalSetup, which Playwright runs
-    // *after* starting this. (B9)
+    // *after* starting this.
     command: 'npx tsx e2e/support/require-free-port.ts && npm run build && npm start',
     // A route only this application serves, rather than "something answered on
     // this port". The readiness probe is what made `reuseExistingServer: false`
     // ineffective: any process replying to `/` satisfied it. `global-setup`
     // refuses a taken port outright, and this is the second line of defence.
-    // (B9)
     url: `${BASE_URL}/api/health`,
     // Never reuse. The env block below applies only to a server Playwright
     // starts, so reusing one already on this port silently discards
     // ANTHROPIC_BASE_URL and runs the whole suite against the real API and
     // whatever DATABASE_URL that process was given -- and .env points at
     // production. global-setup guards the database it resets; it cannot guard
-    // a server it did not start. (TEST-40)
+    // a server it did not start.
     reuseExistingServer: false,
     timeout: 180_000,
     stdout: 'pipe',

@@ -8,12 +8,8 @@ const nextConfig: NextConfig = {
   // produced alongside the normal build, not instead of it.
   output: 'standalone',
 
-  // ESLint runs as part of `next build`. It was previously disabled here
-  // ("ignoreDuringBuilds: true, for MVP"), which -- combined with a `lint`
-  // script that scanned an untracked stray directory and CI that never ran
-  // eslint at all -- meant no path existed by which a lint error could block
-  // anything. Scoped lint is clean, so the suppression protected nothing.
-  // (SEC-18, REPO-4)
+  // ESLint runs as part of `next build`. Do not set `ignoreDuringBuilds`: with
+  // it on, no path exists by which a lint error can block anything.
 
   /**
    * Security response headers.
@@ -22,7 +18,7 @@ const nextConfig: NextConfig = {
    * renders model output as markdown, and model output is downstream of both
    * the incident text and uploaded policy documents -- so it is a
    * prompt-injection sink with a browser attached. `GuidanceBlock` refuses
-   * images and constrains link schemes (SEC-33); a CSP is the backstop for
+   * images and constrains link schemes; a CSP is the backstop for
    * everything that is not markdown.
    *
    * `script-src` allows 'unsafe-inline' because Next's App Router inlines
@@ -35,7 +31,7 @@ const nextConfig: NextConfig = {
    * a site building a clickjacked "Mark done".
    *
    * `default-src 'none'` is deliberate, so anything not named above is
-   * refused rather than inheriting a permissive default. (SEC-38)
+   * refused rather than inheriting a permissive default.
    */
   async headers() {
     const csp = [

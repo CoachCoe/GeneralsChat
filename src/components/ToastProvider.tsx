@@ -13,7 +13,6 @@ export function ToastProvider() {
     <Toaster
       position="top-right"
       toastOptions={{
-        // Default options
         duration: 4000,
         style: {
           background: '#1f2937', // gray-800
@@ -22,7 +21,6 @@ export function ToastProvider() {
           borderRadius: '0.75rem',
           padding: '1rem',
         },
-        // Success toast
         success: {
           iconTheme: {
             primary: '#10b981', // green-500
@@ -32,7 +30,6 @@ export function ToastProvider() {
             border: '1px solid rgba(16, 185, 129, 0.3)',
           },
         },
-        // Error toast
         error: {
           duration: 5000,
           iconTheme: {
@@ -43,7 +40,6 @@ export function ToastProvider() {
             border: '1px solid rgba(239, 68, 68, 0.3)',
           },
         },
-        // Loading toast
         loading: {
           iconTheme: {
             primary: '#3b82f6', // blue-500

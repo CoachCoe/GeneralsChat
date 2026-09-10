@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ragSystem } from '@/lib/ai/rag';
 import { requireRole } from '@/lib/session';
-import { policyFacetsSchema } from '@/lib/validation';
+import { updatePolicySchema, validateRequest } from '@/lib/validation';
 import { validationError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
 
@@ -16,7 +16,7 @@ type Params = {
 export async function GET(request: NextRequest, { params }: Params) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
@@ -47,51 +47,38 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 }
 
-// PUT /api/admin/policies/[id] - Update policy
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
     const { id } = await params;
-    const body = await request.json();
-    const { title, content, jurisdiction, category, effectiveDate, isActive, metadata } = body;
 
-    // A partial update may omit either facet, but must not set a bad one.
-    const facets = policyFacetsSchema.partial().safeParse({ jurisdiction, category });
-    if (!facets.success) {
+    // The whole body, not two fields of it. This is the only write path that
+    // edits a row already in the library, so an unchecked `title` or
+    // `isActive` here silently degrades a policy the guidance is citing.
+    const parsed = validateRequest(updatePolicySchema, await request.json());
+    if (!parsed.success) {
       return validationError(
-        'Jurisdiction and category must each be one of the known values',
-        facets.error.flatten().fieldErrors
+        'The update contains a field this route cannot apply, or a value it cannot accept',
+        parsed.errors.flatten().fieldErrors
       );
     }
-
-    // An unparseable date reaches Prisma as `Invalid Date` and comes back a
-    // 500. The neighbouring fields are validated; this one was not.
-    let parsedEffectiveDate: Date | undefined;
-    if (effectiveDate !== undefined) {
-      parsedEffectiveDate = new Date(effectiveDate);
-      if (Number.isNaN(parsedEffectiveDate.getTime())) {
-        return validationError('effectiveDate is not a valid date', {
-          effectiveDate: ['Expected a date the runtime can parse, e.g. 2026-09-01.'],
-        });
-      }
-    }
+    const { title, content, jurisdiction, category, effectiveDate, isActive, metadata } =
+      parsed.data;
 
     const policy = await prisma.policy.update({
       where: { id },
       data: {
-        ...(title !== undefined && { title }),
-        ...(content !== undefined && { content }),
         // The parsed values, not the raw body: validation that is thrown away
         // stops being validation the moment the schema gains a transform.
-        ...(facets.data.jurisdiction !== undefined && {
-          jurisdiction: facets.data.jurisdiction,
-        }),
-        ...(facets.data.category !== undefined && { category: facets.data.category }),
-        ...(parsedEffectiveDate !== undefined && { effectiveDate: parsedEffectiveDate }),
+        ...(title !== undefined && { title }),
+        ...(content !== undefined && { content }),
+        ...(jurisdiction !== undefined && { jurisdiction }),
+        ...(category !== undefined && { category }),
+        ...(effectiveDate !== undefined && { effectiveDate: new Date(effectiveDate) }),
         ...(isActive !== undefined && { isActive }),
         ...(metadata !== undefined && { metadata: JSON.stringify(metadata) })
       }
@@ -111,9 +98,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
     });
 
     // If content was updated, re-index. Purges the vector store as well as the
-    // DB rows -- deleteMany alone left stale Chroma entries behind (SPEC-15) --
+    // DB rows -- deleteMany alone left stale Chroma entries behind --
     // and re-chunks through the RAG system so granularity matches every other
-    // ingestion path. (FLOW-23, SPEC-9, DEAD-11)
+    // ingestion path.
     if (content !== undefined) {
       await ragSystem.deletePolicyChunks(id);
       await ragSystem.addPolicyDocument(id, content, {
@@ -139,16 +126,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
     const { id } = await params;
 
-    // Purge the vector store first. The DB cascade removes PolicyChunk rows,
-    // but Chroma entries survived it -- and vector hits whose DB row is gone
-    // were being returned to the model as authoritative policy context, so a
-    // deleted policy kept being cited indefinitely. (SPEC-15)
+    // Purge the vector store first. The DB cascade removes PolicyChunk rows
+    // but not Chroma entries, and a vector hit whose DB row is gone would keep
+    // reaching the model as authoritative policy context.
     await ragSystem.deletePolicyChunks(id);
 
     // Remaining chunks (if any) are removed by CASCADE.

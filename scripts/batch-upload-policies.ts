@@ -2,67 +2,30 @@ import { config } from 'dotenv';
 import { resolve } from 'path';
 import fs from 'fs';
 
-// Node 18+ provides fetch and FormData globally; the previous `form-data` and
-// `node-fetch` imports were undeclared phantom dependencies. (DEAD-19)
-
 config({ path: resolve(__dirname, '../.env') });
 
 /**
- * Batch Policy Upload Script
+ * Uploads a fixed list of policy files through the admin ingestion route.
  *
- * Add your policy files to sample-policies/ directory, then define them below.
- * The script will automatically upload each policy to the vector database.
+ * Put the files in sample-policies/, list them in `policies` below, and run
+ * `npm run policies:batch-upload`.
  */
-
 interface PolicyUpload {
   file: string;          // Filename in sample-policies/
   title: string;         // e.g. "JLDBB - Suicide Prevention"
   /** Who issued it: federal | state | district | school */
   jurisdiction: string;
-  /** What it covers: bullying, title_ix, mandatory_reporting, ... */
+  /** What it covers; one of the 20 values of `PolicyCategory` in src/types. */
   category: string;
   effectiveDate: string; // YYYY-MM-DD
 }
 
-/**
- * POLICY TYPE OPTIONS:
- * - suicide_prevention
- * - title_ix
- * - discrimination
- * - mandatory_reporting
- * - restraint_seclusion
- * - bullying
- * - school_safety
- * - discipline
- * - student_health
- * - athletic_safety
- * - student_records
- * - enrollment
- * - attendance
- * - field_trips
- * - emergency_operations
- * - technology
- * - background_checks
- * - employee
- * - parental_rights
- * - chemical_safety
- */
-
-/**
- * Base URL for the running dev server. Was hardcoded to :3002, which nothing
- * serves -- `npm run dev` binds :3000. (REPO-8, SPEC-22, DEAD-23)
- */
+/** Base URL for the running dev server; `npm run dev` binds :3000. */
 const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 /**
- * The canonical ingestion route.
- *
- * This posted to `/api/policies`, whose POST handler OQ-2 deleted -- it was the
- * third of three ingestion routes, sat outside the `/api/admin` prefix the
- * middleware gates, and was the route SEC-3 exploited. So every upload this
- * script attempted returned 405, while README, docs/policy-mapping.md and
- * docs/policy-upload-quickstart.md all still recommended it, two of them as
- * RECOMMENDED. (DEAD-89, DOC-22)
+ * The canonical ingestion route. It sits under the `/api/admin` prefix the
+ * middleware gates; there is no ungated ingestion route to post to.
  */
 const UPLOAD_URL = `${BASE_URL}/api/admin/policies/upload`;
 
@@ -87,133 +50,10 @@ const AUTH_HEADERS: Record<string, string> = {
 };
 
 const policies: PolicyUpload[] = [
-  // Recovered from scripts/upload-{bus,title-ix,sexual-harassment,sample}-policy.ts,
-  // four copy-paste clones of this script that were deleted in the same commit
-  // (DEAD-21). Uncomment an entry once its file is in sample-policies/.
-  //
-  // { file: 'student-conduct-school-buses.txt',
-  //   title: 'Policy JICC: Student Conduct on School Buses',
-  //   jurisdiction: 'district', category: 'discipline', effectiveDate: '2024-05-09' },
-  // { file: 'title-ix-policy-update-2025.txt',
-  //   title: '2025 NHSBA Special Title IX Policy Update',
-  //   jurisdiction: 'state', category: 'title_ix', effectiveDate: '2025-01-09' },
-  // { file: 'sexual-harassment-policy.pdf',
-  //   title: 'Policy ACAC: Prohibition of Sexual Harassment Policy and Grievance Procedures',
-  //   jurisdiction: 'district', category: 'title_ix', effectiveDate: '2024-01-01' },
-  // { file: 'bullying-prevention-policy.txt',
-  //   title: 'School District Bullying Prevention and Intervention Policy',
-  //   jurisdiction: 'district', category: 'bullying', effectiveDate: '2024-09-01' },
-
-  // ============================================================================
-  // PRIORITY 1: IMMEDIATE SAFETY & LEGAL REQUIREMENTS
-  // ============================================================================
-
-  // Uncomment and add your files:
-
-  // {
-  //   file: 'jldbb-suicide-prevention.pdf',
-  //   title: 'JLDBB - Suicide Prevention',
-  //   type: 'suicide_prevention',
-  //   effectiveDate: '2024-01-01'
-  // },
-  // {
-  //   file: 'jlf-mandatory-reporting.pdf',
+  // { file: 'jlf-mandatory-reporting.pdf',
   //   title: 'JLF - Reporting Child Abuse and Neglect',
-  //   type: 'mandatory_reporting',
-  //   effectiveDate: '2019-01-01'
-  // },
-  // {
-  //   file: 'jkaa-restraint-seclusion.pdf',
-  //   title: 'JKAA - Use of Restraint and Seclusion',
-  //   type: 'restraint_seclusion',
-  //   effectiveDate: '2023-01-01'
-  // },
-
-  // ============================================================================
-  // PRIORITY 2: DISCRIMINATION & COMPLIANCE
-  // ============================================================================
-
-  // {
-  //   file: 'ac-nondiscrimination.pdf',
-  //   title: 'AC - Nondiscrimination, EOE, Anti-Discrimination Plan',
-  //   type: 'discrimination',
-  //   effectiveDate: '2024-01-01'
-  // },
-  // {
-  //   file: 'jra-student-records.pdf',
-  //   title: 'JRA - Access to Educational Records (FERPA)',
-  //   type: 'student_records',
-  //   effectiveDate: '2012-01-01'
-  // },
-
-  // ============================================================================
-  // PRIORITY 3: SCHOOL SAFETY & OPERATIONS
-  // ============================================================================
-
-  // {
-  //   file: 'mou-police-departments.pdf',
-  //   title: 'MOU - Police Departments',
-  //   type: 'school_safety',
-  //   effectiveDate: '2024-01-01'
-  // },
-  // {
-  //   file: 'jicdd-cyberbullying.pdf',
-  //   title: 'JICDD - Cyberbullying',
-  //   type: 'bullying',
-  //   effectiveDate: '2018-01-01'
-  // },
-  // {
-  //   file: 'ebca-emergency-response.pdf',
-  //   title: 'EBCA - Crisis Prevention and Emergency Response Plans',
-  //   type: 'emergency_operations',
-  //   effectiveDate: '2020-01-01'
-  // },
-
-  // ============================================================================
-  // PRIORITY 4: STUDENT DISCIPLINE & CONDUCT
-  // ============================================================================
-
-  // {
-  //   file: 'jic-student-conduct.pdf',
-  //   title: 'JIC - Student Conduct',
-  //   type: 'discipline',
-  //   effectiveDate: '2021-01-01'
-  // },
-  // {
-  //   file: 'jicd-student-discipline.pdf',
-  //   title: 'JICD - Student Discipline and Due Process',
-  //   type: 'discipline',
-  //   effectiveDate: '2021-01-01'
-  // },
-
-  // ============================================================================
-  // PRIORITY 5: STUDENT HEALTH & WELFARE
-  // ============================================================================
-
-  // {
-  //   file: 'jlcd-administering-medication.pdf',
-  //   title: 'JLCD - Administering Medication',
-  //   type: 'student_health',
-  //   effectiveDate: '2018-01-01'
-  // },
-  // {
-  //   file: 'jlcja-sports-injury.pdf',
-  //   title: 'JLCJA - Emergency Plans for Sports Related Injury',
-  //   type: 'athletic_safety',
-  //   effectiveDate: '2021-01-01'
-  // },
-
-  // ============================================================================
-  // EXAMPLE: Add a test policy to verify the script works
-  // ============================================================================
-
-  // Uncomment this to test with an existing file:
-  // {
-  //   file: 'bullying-prevention-policy.txt',
-  //   title: 'DISC-001 - Bullying Prevention Policy (TEST)',
-  //   type: 'bullying',
-  //   effectiveDate: '2024-01-01'
-  // },
+  //   jurisdiction: 'district', category: 'mandatory_reporting',
+  //   effectiveDate: '2019-01-01' },
 ];
 
 async function uploadPolicies() {
@@ -236,7 +76,6 @@ async function uploadPolicies() {
   for (const policy of policies) {
     const filePath = resolve(__dirname, '../sample-policies', policy.file);
 
-    // Check if file exists
     if (!fs.existsSync(filePath)) {
       console.log(`\n⚠️  SKIPPED: ${policy.title}`);
       console.log(`   File not found: ${policy.file}`);
@@ -251,7 +90,6 @@ async function uploadPolicies() {
       form.append('category', policy.category);
       form.append('effectiveDate', policy.effectiveDate);
 
-      // Determine content type
       const ext = policy.file.toLowerCase();
       let contentType = 'text/plain';
       if (ext.endsWith('.pdf')) contentType = 'application/pdf';
@@ -285,7 +123,6 @@ async function uploadPolicies() {
         errorCount++;
       }
 
-      // Small delay to avoid overwhelming the server
       await new Promise(resolve => setTimeout(resolve, 500));
 
     } catch (error: any) {
@@ -308,7 +145,6 @@ async function uploadPolicies() {
   }
 }
 
-// Run the upload
 uploadPolicies().catch(error => {
   console.error('Fatal error:', error);
   process.exit(1);

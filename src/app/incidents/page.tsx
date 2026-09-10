@@ -17,10 +17,9 @@ interface Action {
   status: string;
   dueDate: string | null;
   /**
-   * Whether a retrieved policy states this deadline. The endpoint has always
-   * returned it -- `complianceActions` is a raw include -- but this interface
-   * omitted it, so the countdown below could not consult it and painted a
-   * model-recalled deadline red. (B5)
+   * Whether a retrieved policy states this deadline. Omitting it here leaves
+   * the countdown below unable to consult it, painting a model-recalled
+   * deadline red.
    */
   deadlineSource: string | null;
 }
@@ -178,10 +177,9 @@ function IncidentsPageContent() {
 
 function IncidentRow({ incident }: { incident: Incident }) {
   const mounted = useMounted();
-  // The endpoint now returns every non-completed action, so "N of M done" is
-  // M minus the outstanding ones -- which is the completed count. It used to
-  // fetch only `status: 'pending'`, so an in_progress obligation fell out of
-  // `openActions` and was counted as done. (FLOW-64)
+  // The endpoint returns every non-completed action, so "N of M done" is M
+  // minus the outstanding ones. Fetching only `status: 'pending'` would drop
+  // an in_progress obligation out of `openActions` and count it as done.
   const openActions = incident.complianceActions.filter(a => a.status !== 'completed');
   const total = incident._count?.complianceActions ?? openActions.length;
   const done = Math.max(0, total - openActions.length);

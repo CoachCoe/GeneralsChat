@@ -7,20 +7,20 @@ import { incidentScope, type SessionUser } from '@/lib/session';
  * Generate and record an incident summary.
  *
  * Both summary endpoints route through here. They were two implementations of
- * one feature (DEAD-12) that had drifted apart in the way that matters: the
+ * one feature that had drifted apart in the way that matters: the
  * chat one persisted its result, the incident one discarded it, so a summary
  * generated from the incident page was lost on refresh after being paid for
- * (SPEC-35).
+ *.
  */
 
 /**
  * Summaries are written with their own sender.
  *
- * They used to be stored as `assistant`, which meant every later chat turn
- * replayed the summary back to the model as conversation history -- paying for
- * its own previous output and crowding the context with a restatement of what
- * was already there. Callers building LLM history exclude this sender; callers
- * rendering the record include it.
+ * Stored as `assistant`, a summary would be replayed back to the model as
+ * conversation history on every later turn -- paying for its own previous
+ * output and crowding the context with a restatement of what is already there.
+ * Callers building LLM history exclude this sender; callers rendering the
+ * record include it.
  */
 export const SUMMARY_SENDER = 'summary';
 
@@ -56,7 +56,7 @@ export async function generateIncidentSummary(
   // the same policies the guidance did rather than a different set.
   // Coverage travels with the context: the summary is the one artefact that
   // goes into the file, and it was the only output that never said a local
-  // policy was missing. (SPEC-41)
+  // policy was missing.
   const { response: policyContext, coverage } = await ragSystem.generateResponseWithCitations(
     `${incident.title} ${incident.description ?? ''}`,
     {

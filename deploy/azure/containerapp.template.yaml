@@ -42,7 +42,7 @@ properties:
             secretRef: anthropic-key
           # https, not the forwarded protocol: the ingress terminates TLS and
           # the app sees plain http, and this value is what decides whether the
-          # session cookie is issued Secure. (SEC-28)
+          # session cookie is issued Secure.
           - name: NEXTAUTH_URL
             value: https://${APP_FQDN}
           - name: AUTH_TRUST_HOST

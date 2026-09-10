@@ -1,8 +1,8 @@
 /**
  * The shared empty / loading / error surface.
  *
- * Every page previously rolled its own, so the three states looked different
- * depending on where you hit them. (design 1j)
+ * Shared so the three states do not look different depending on which page
+ * you hit them from. (design 1j)
  */
 export function StateBlock({
   variant = 'empty',
@@ -33,7 +33,7 @@ export function StateBlock({
         Nothing else ... never severity, error states or decoration." A red
         "Could not load your obligations" competes with the red that means
         something is legally late, on the same screen. The `role="alert"` and
-        the copy carry it instead. (SPEC-54, FLOW-62)
+        the copy carry it instead.
       */}
       <span className="font-display text-[26px] leading-[1.2] tracking-[-0.02em] text-text">
         {title}

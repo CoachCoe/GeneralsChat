@@ -4,12 +4,10 @@ async function verifyDatabase() {
   console.log('🔍 Verifying database schema and connection...\n');
 
   try {
-    // Test 1: Check database connection
     console.log('✓ Testing database connection...');
     await prisma.$connect();
     console.log('  ✓ Connected to database successfully\n');
 
-    // Test 2: Verify all tables exist
     console.log('✓ Verifying tables...');
 
     const userCount = await prisma.user.count();

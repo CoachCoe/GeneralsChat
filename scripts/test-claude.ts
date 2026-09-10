@@ -2,7 +2,6 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
-// Load environment variables
 config({ path: resolve(__dirname, '../.env') });
 
 async function testClaude() {

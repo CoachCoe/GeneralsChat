@@ -40,7 +40,6 @@ Always maintain a tone of "I'm here to help you do this right" rather than "I'm 
       console.log('Created default prompt:', defaultPrompt.id);
     }
 
-    // List all prompts
     const prompts = await prisma.systemPrompt.findMany();
     console.log('All prompts:', prompts.map(p => ({ id: p.id, name: p.name, isActive: p.isActive })));
   } catch (error) {

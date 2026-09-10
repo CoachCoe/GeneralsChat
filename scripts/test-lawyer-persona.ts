@@ -3,7 +3,7 @@ import { resolve } from 'path';
 
 config({ path: resolve(__dirname, '../.env') });
 
-// Was hardcoded to a port nothing serves. (REPO-8, SPEC-22)
+// Was hardcoded to a port nothing serves.
 const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 /**
@@ -66,7 +66,6 @@ async function testLawyerPersonaAndSummary() {
     return;
   }
 
-  // Test 2: Follow-up with more details
   console.log('\n' + '='.repeat(80));
   console.log('\n📝 TEST 2: Follow-up Response\n');
   console.log('Administrator says: "Two 8th graders. One student called the other names repeatedly over several weeks. Parents called yesterday. I learned about it this morning. No documentation yet."\n');
@@ -105,7 +104,6 @@ async function testLawyerPersonaAndSummary() {
     return;
   }
 
-  // Test 3: More follow-up
   console.log('\n' + '='.repeat(80));
   console.log('\n📝 TEST 3: Additional Information\n');
   console.log('Administrator says: "No witnesses that I know of. Both students are in same homeroom. Target student has been out sick for 3 days. Perpetrator has no prior incidents."\n');
@@ -132,7 +130,6 @@ async function testLawyerPersonaAndSummary() {
     return;
   }
 
-  // Test 4: Generate end-of-chat summary
   console.log('\n' + '='.repeat(80));
   console.log('\n📝 TEST 4: Generate End-of-Chat Summary\n');
 

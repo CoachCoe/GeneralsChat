@@ -17,7 +17,7 @@ import { prisma } from '../src/lib/db';
 async function testRAGSystem() {
   // Creates an *active* district bullying policy. Bullying is the pilot's
   // only fully covered subject, so a synthetic one competing with the real
-  // JICK degrades the guidance the product can actually give. (B8)
+  // JICK degrades the guidance the product can actually give.
   requireTestDatabase('scripts/test-rag.ts');
 
   console.log('🧪 Testing RAG System\n');
@@ -27,7 +27,6 @@ async function testRAGSystem() {
   let testPolicyId: string | undefined;
 
   try {
-    // ===== TEST 1: Check API Keys =====
     console.log('1️⃣  Checking API Keys...');
 
     const hasOpenAI = !!process.env.OPENAI_API_KEY;
@@ -42,7 +41,6 @@ async function testRAGSystem() {
       console.log('   ✅ OpenAI API key configured\n');
     }
 
-    // ===== TEST 2: Create Test User =====
     console.log('2️⃣  Creating test user...');
     const testUser = await prisma.user.create({
       data: {
@@ -54,12 +52,10 @@ async function testRAGSystem() {
     testUserId = testUser.id;
     console.log(`   ✅ Test user created: ${testUser.email}\n`);
 
-    // ===== TEST 3: Initialize RAG System =====
     console.log('3️⃣  Initializing RAG system...');
     await ragSystem.initialize();
     console.log('   ✅ RAG system initialized\n');
 
-    // ===== TEST 4: Test Embeddings (if API key available) =====
     if (isValidKey) {
       console.log('4️⃣  Testing embeddings generation...');
       try {
@@ -75,7 +71,6 @@ async function testRAGSystem() {
       console.log('4️⃣  Skipping embedding test (no API key)\n');
     }
 
-    // ===== TEST 5: Create Test Policy =====
     console.log('5️⃣  Creating test policy document...');
 
     const samplePolicyContent = `
@@ -126,7 +121,6 @@ The school will implement:
     testPolicyId = policy.id;
     console.log(`   ✅ Policy created: ${policy.title}\n`);
 
-    // ===== TEST 6: Add Policy to RAG System =====
     console.log('6️⃣  Adding policy to RAG system...');
     await ragSystem.addPolicyDocument(policy.id, samplePolicyContent, {
       title: policy.title,
@@ -135,14 +129,12 @@ The school will implement:
     });
     console.log('   ✅ Policy added to RAG system with embeddings\n');
 
-    // ===== TEST 7: Check RAG Stats =====
     console.log('7️⃣  Checking RAG system statistics...');
     const stats = await ragSystem.getStats();
     console.log(`   ✅ Total chunks in database: ${stats.totalChunks}`);
     console.log(`   ✅ Total policies: ${stats.totalPolicies}`);
     console.log(`   ✅ Chunks in Chroma: ${stats.chromaChunks}\n`);
 
-    // ===== TEST 8: Test Semantic Search =====
     console.log('8️⃣  Testing semantic search...\n');
 
     const testQueries = [
@@ -173,7 +165,6 @@ The school will implement:
       console.log('');
     }
 
-    // ===== TEST 9: Test Generate Response with Citations =====
     console.log('9️⃣  Testing response generation with citations...');
     const { response, citations, chunks } = await ragSystem.generateResponseWithCitations(
       'What are the reporting requirements for bullying?',
@@ -184,21 +175,16 @@ The school will implement:
     console.log(`   ✅ Citations: ${citations.length} unique policies`);
     console.log(`   ℹ️  Preview: ${response.substring(0, 150).replace(/\n/g, ' ')}...\n`);
 
-    // ===== CLEANUP =====
     console.log('🧹 Cleaning up test data...');
 
-    // Delete policy chunks from RAG
     await ragSystem.deletePolicyChunks(testPolicyId);
 
-    // Delete policy
     await prisma.policy.delete({ where: { id: testPolicyId } });
 
-    // Delete test user
     await prisma.user.delete({ where: { id: testUserId } });
 
     console.log('   ✅ Cleanup complete\n');
 
-    // ===== FINAL SUMMARY =====
     console.log('═══════════════════════════════════════════════════════════');
     console.log('✅ RAG System Test Complete!\n');
     console.log('Summary:');
@@ -219,7 +205,6 @@ The school will implement:
   } catch (error) {
     console.error('\n❌ Test failed:', error);
 
-    // Cleanup on error
     try {
       if (testPolicyId) {
         await ragSystem.deletePolicyChunks(testPolicyId);

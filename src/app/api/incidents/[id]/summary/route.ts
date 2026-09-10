@@ -13,8 +13,8 @@ type Params = { params: Promise<{ id: string }> };
  * Generate a summary for an incident and record it against the file.
  *
  * A thin adapter over generateIncidentSummary; the chat endpoint is the other.
- * This route previously returned the summary without storing it, so a user
- * generated one, refreshed, and lost it after paying for the call. (SPEC-35)
+ * It stores what it returns: a summary that is only returned is lost on the
+ * next refresh, after the call has been paid for.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   const startTime = Date.now();

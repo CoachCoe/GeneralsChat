@@ -1,10 +1,9 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
-// Load environment variables
 config({ path: resolve(__dirname, '../.env') });
 
-// Was hardcoded to a port nothing serves. (REPO-8, SPEC-22)
+// Was hardcoded to a port nothing serves.
 const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 /**

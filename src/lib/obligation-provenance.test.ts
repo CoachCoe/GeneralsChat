@@ -3,9 +3,9 @@ import { resolveProvenance, statesATimeLimit } from './obligation-provenance';
 import type { PolicyReference } from '@/types';
 
 /**
- * The whole point of OQ-5: an obligation may only claim a policy backs its
- * deadline when the excerpt it names was actually supplied. Everything here is
- * a way the model can be wrong about its own reasoning.
+ * An obligation may only claim a policy backs its deadline when the excerpt it
+ * names was actually supplied. Everything here is a way the model can be wrong
+ * about its own reasoning.
  */
 const REFERENCES: PolicyReference[] = [
   {
@@ -78,11 +78,10 @@ describe('resolveProvenance', () => {
   });
 
   /*
-   * OQ-5 named this gap and left it open: attribution "verifies that the
-   * excerpt exists and was supplied, not that the excerpt states the deadline
-   * the model attributed to it." A provision that names no time at all cannot
-   * be the source of a number of hours, and that much is decidable from the
-   * text.
+   * Resolving an excerpt verifies that it exists and was supplied, not that it
+   * states the deadline the model attributed to it. A provision naming no time
+   * at all cannot be the source of a number of hours, and that much is
+   * decidable from the text.
    */
   it('withdraws the deadline claim when the cited provision states no time', () => {
     const resolved = resolveProvenance(3, [...REFERENCES, NO_CLOCK]);

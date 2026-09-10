@@ -17,7 +17,7 @@ import { RATE_LIMITS } from '@/lib/rate-limit';
 /**
  * Deliberately excludes .html/.svg/.xhtml: these files are served from
  * `public/` on the app's own origin, so an uploaded document that the
- * browser executes as markup is stored XSS. (SEC-5)
+ * browser executes as markup is stored XSS.
  */
 const ALLOWED_ATTACHMENT_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp',
@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
 
     // Capped read, not `request.formData()`: the body is bounded before it is
     // parsed, so an oversized POST costs the ceiling and not its own size.
-    // (SEC-10)
     const formData = await readCappedFormData(request);
     const file = formData.get('file') as File;
     const incidentId = formData.get('incidentId') as string;
@@ -46,7 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify the incident exists AND that this user may attach to it. (SEC-7)
+    // Verify the incident exists AND that this user may attach to it.
     const incident = await prisma.incident.findFirst({
       where: { id: incidentId, ...incidentScope(guard.user) },
     });
@@ -59,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Type, then the exact per-file limit. The memory bound was applied by
-    // readCappedFormData above; this is the limit itself. (SEC-5, SEC-10)
+    // readCappedFormData above; this is the limit itself.
     const ext = assertAllowedExtension(file.name, ALLOWED_ATTACHMENT_EXTENSIONS);
     assertWithinSizeLimit(file);
 
@@ -68,7 +67,7 @@ export async function POST(request: NextRequest) {
     // public/ they were served as static assets with no access check, so the
     // path handed out by GET /api/incidents/[id] was a direct download link for
     // anyone. They are now written outside the served tree and read back only
-    // through GET /api/attachments/[id], which re-checks the session. (SEC-5)
+    // through GET /api/attachments/[id], which re-checks the session.
     const uploadsDir = attachmentUploadsDir();
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
@@ -77,10 +76,8 @@ export async function POST(request: NextRequest) {
     const filePath = safeUploadPath(uploadsDir, ext);
     const storedName = filePath.slice(uploadsDir.length + 1);
 
-    // Write file to disk
     await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
 
-    // Save attachment record to database
     const attachment = await prisma.attachment.create({
       data: {
         incidentId,

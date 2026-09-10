@@ -5,11 +5,10 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
 
-// GET /api/admin/prompts - List all prompts
 export async function GET() {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
@@ -39,11 +38,10 @@ export async function GET() {
   }
 }
 
-// POST /api/admin/prompts - Create new prompt
 export async function POST(request: NextRequest) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
     // 10MB name, a one-character advisor profile, and a `content` of `{}` or
     // `[]` -- both truthy -- straight into the row that is prepended to every
     // consultation. `createPromptSchema` bounds the name at 100 characters and
-    // requires at least 10 characters of content. (SEC-36, FLOW-78)
+    // requires at least 10 characters of content.
     const validation = validateRequest(createPromptSchema, body);
     if (!validation.success) {
       return validationError('Invalid prompt', formatValidationErrors(validation.errors));
@@ -67,7 +65,7 @@ export async function POST(request: NextRequest) {
         content,
         description,
         // From the session, never the body: this is the only provenance the
-        // row carries, and the row governs mandated-reporting advice. (SEC-21)
+        // row carries, and the row governs mandated-reporting advice.
         createdBy: guard.user.id,
         isActive: false // New prompts start as inactive
       }

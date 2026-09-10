@@ -9,7 +9,6 @@ import { STUB_REPLY, STUB_QUESTION_REPLY } from './support/claude-stub';
  * and `button:has-text("Send")` against an icon-only button with no text node.
  * Six of its seven tests timed out on the locator, and the one that "passed"
  * asserted `expect(locator).toBeTruthy()`, which is true for any Locator.
- * (TEST-2, TEST-8, TEST-9)
  */
 test.describe('Chat', () => {
   test.beforeEach(async ({ page }) => {
@@ -51,7 +50,7 @@ test.describe('Chat', () => {
 
   test('shows a loading indicator while the request is in flight', async ({ page }) => {
     // Stall the response so the indicator is observable deterministically,
-    // rather than racing a timer that resolved true regardless. (TEST-9)
+    // rather than racing a timer that resolved true regardless.
     await page.route('**/api/chat', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await route.continue();
@@ -131,7 +130,7 @@ test.describe('Policy retrieval across jurisdictions', () => {
     await page.getByRole('button', { name: 'Send message' }).click();
 
     // Citations were computed and returned but never displayed, so a user had
-    // no way to check what the guidance was based on. (FLOW-8)
+    // no way to check what the guidance was based on.
     const sources = page.getByTestId('chat-sources');
     await expect(sources).toBeVisible();
     await expect(sources).toContainText('Policy JICK: Bullying Prevention');
@@ -201,7 +200,7 @@ test.describe('Local policy coverage', () => {
     // school_safety carries a second job: the fixture seeds an active district
     // school_safety policy with NO chunks. Retrieval can never return it, so it
     // must not cancel this gap. Drop the `chunks: { some: {} }` predicate from
-    // assessCoverage and this assertion fails -- which is the point. (B2)
+    // assessCoverage and this assertion fails -- which is the point.
     expect(body.coverage.categoriesWithoutLocalPolicy).toContain('school_safety');
     expect(body.coverage.byCategory.school_safety).toEqual([]);
     expect(body.coverage.categoriesWithoutLocalPolicy).toContain('emergency_operations');
@@ -361,11 +360,11 @@ test.describe('Classification and library scope', () => {
 
   test('reopening a past incident still shows what each answer rested on', async ({ page }) => {
     /*
-     * Provenance used to live only in the browser tab. GET /api/chat/[id]
-     * returned id, type, content and timestamp, so reopening an incident
-     * dropped every citation the guidance rested on -- on a tool whose answers
-     * exist to be checked, and whose record is the thing an administrator goes
-     * back to weeks later.
+     * Provenance must survive the round trip, not live only in the browser
+     * tab. A GET /api/chat/[id] returning id, type, content and timestamp
+     * alone drops every citation the guidance rested on -- on a tool whose
+     * answers exist to be checked, and whose record is the thing an
+     * administrator goes back to weeks later.
      *
      * The turn kind survives the round trip too, so the distinction this
      * feature is built on is not a live-only nicety: the reopened question
@@ -412,13 +411,13 @@ test.describe('A failed turn', () => {
   test('is not rendered as the assistant speaking, and says nothing was written', async ({
     page,
   }) => {
-    // A failure used to be appended as a `type: 'general'` message with
-    // apology text -- same component, same place, same avatar as real
-    // guidance. `generateSchoolComplianceResponse` was changed to throw rather
-    // than return filler precisely so a failed call could not be mistaken for
-    // guidance (FLOW-7); the client was reintroducing it visually. It was also
-    // client-only, so a reload left the question with no answer and no
-    // explanation. (FLOW-53)
+    // A failure appended as a `type: 'general'` message with apology text
+    // would carry the same component, place and avatar as real guidance.
+    // `generateSchoolComplianceResponse` throws rather than returning filler
+    // precisely so a failed call cannot be mistaken for guidance, and the
+    // client must not reintroduce it visually. It would also be client-only,
+    // so a reload would leave the question with no answer and no
+    // explanation.
     await page.goto('/chat');
 
     await page.route('**/api/chat', route =>

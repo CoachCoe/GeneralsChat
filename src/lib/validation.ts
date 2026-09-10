@@ -20,7 +20,6 @@ const incidentStatusEnum = z.enum(INCIDENT_STATUSES);
  * Using Zod for runtime type validation
  */
 
-// Chat API schemas
 export const chatMessageSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty').max(5000, 'Message is too long'),
   // `.nullish()`, not `.optional()`: the chat page holds incidentId in state
@@ -30,14 +29,13 @@ export const chatMessageSchema = z.object({
   // once it had assertions that could fail.
   incidentId: z.string().min(1).nullish(),
   // No userId: identity comes from the session. Accepting it from the client
-  // meant an attacker could forge reports as any named user. (SEC-8)
+  // meant an attacker could forge reports as any named user.
 });
 
 export type ChatMessageInput = z.infer<typeof chatMessageSchema>;
 
-// Incident schemas
 export const createIncidentSchema = z.object({
-  // reporterId is taken from the session, not the request body. (SEC-8)
+  // reporterId is taken from the session, not the request body.
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   description: z.string().min(1, 'Description is required').max(10000, 'Description is too long'),
   incidentType: incidentTypeEnum.optional(),
@@ -57,7 +55,6 @@ export const updateIncidentSchema = z.object({
 
 export type UpdateIncidentInput = z.infer<typeof updateIncidentSchema>;
 
-// Policy schemas
 export const createPolicySchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   content: z.string().optional(),
@@ -71,19 +68,36 @@ export const createPolicySchema = z.object({
 
 export type CreatePolicyInput = z.infer<typeof createPolicySchema>;
 
-export const updatePolicySchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  content: z.string().optional(),
-  jurisdiction: jurisdictionEnum.optional(),
-  category: categoryEnum.optional(),
-  effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  version: z.number().int().positive().optional(),
-  isActive: z.boolean().optional(),
-});
+/**
+ * A partial policy update. Every field is optional, but a field that is
+ * present must be valid: on this path a bad value replaces a good one on a row
+ * that already exists, where a create would simply fail to make one.
+ *
+ * `.strict()` because an unknown key is a caller expecting a field to be
+ * applied that this route does not apply -- `version` among them. Accepting it
+ * and dropping it is how a caller comes to believe a write happened.
+ */
+export const updatePolicySchema = z
+  .object({
+    title: z.string().min(1, 'Title is required').max(200, 'Title is too long').optional(),
+    content: z.string().optional(),
+    jurisdiction: jurisdictionEnum.optional(),
+    category: categoryEnum.optional(),
+    effectiveDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)')
+      // The regex admits 2026-02-30, which `new Date` silently rolls forward to
+      // 1 March rather than rejecting. Round-tripping is what catches it.
+      .refine(
+        v => new Date(v).toISOString().slice(0, 10) === v,
+        'Not a date on the calendar'
+      )
+      .optional(),
+    isActive: z.boolean().optional(),
+    metadata: z.record(z.unknown()).optional(),
+  })
+  .strict();
 
-export type UpdatePolicyInput = z.infer<typeof updatePolicySchema>;
-
-// System Prompt schemas
 export const createPromptSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
   content: z.string().min(10, 'Content is required and must be at least 10 characters'),
@@ -102,7 +116,6 @@ export const updatePromptSchema = z.object({
 
 export type UpdatePromptInput = z.infer<typeof updatePromptSchema>;
 
-// File upload schema
 export const fileUploadSchema = z.object({
   filename: z.string().min(1, 'Filename is required'),
   fileType: z.string().min(1, 'File type is required'),
@@ -121,7 +134,7 @@ export type FileUploadInput = z.infer<typeof fileUploadSchema>;
 /**
  * Pagination for list endpoints. `parseInt` with no bounds allowed
  * ?limit=1000000 to dump an entire table in one request, and ?limit=abc to
- * reach Prisma as `take: NaN`. (SEC-12)
+ * reach Prisma as `take: NaN`.
  */
 export const MAX_PAGE_SIZE = 100;
 
@@ -157,9 +170,6 @@ export function validateRequest<T>(
   return { success: true, data: result.data };
 }
 
-/**
- * Format Zod validation errors for API responses
- */
 export function formatValidationErrors(error: z.ZodError): Record<string, string[]> {
   const formatted: Record<string, string[]> = {};
 
@@ -177,15 +187,15 @@ export function formatValidationErrors(error: z.ZodError): Record<string, string
 /**
  * Parse a policy's jurisdiction and category from an untrusted request.
  *
- * Every write path used to take these straight from the body and default the
- * misses (`|| 'district'`, `|| 'other'`), which is worse than rejecting: a
- * policy stored under a category retrieval does not match is never returned,
+ * Taking these straight from the body and defaulting the misses
+ * (`|| 'district'`, `|| 'other'`) is worse than rejecting: a policy stored
+ * under a category retrieval does not match is never returned,
  * AND -- because assessCoverage queries the same field -- the system then tells
  * the administrator the district holds no policy for that area. A typo turns a
  * loaded policy into a reported coverage gap. A bad jurisdiction is worse
  * still: buildJurisdictionContext groups only over the known four, so the text
  * is dropped from the model's context while buildCitations still lists it as a
- * source. Neither may be guessed. (B5)
+ * source. Neither may be guessed.
  */
 export const policyFacetsSchema = z.object({
   jurisdiction: jurisdictionEnum,

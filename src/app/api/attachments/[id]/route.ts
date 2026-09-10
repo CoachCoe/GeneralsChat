@@ -12,11 +12,10 @@ type Params = { params: Promise<{ id: string }> };
 /**
  * Authenticated attachment download.
  *
- * Attachments used to live under public/ and were therefore served as static
- * assets with no access check at all -- the file path was handed out by
- * GET /api/incidents/[id], so anyone could fetch witness statements and
- * medical notes from a Title IX file directly. This route is the only way to
- * read them now. (SEC-5)
+ * The only way to read an attachment. Anything under public/ is served as a
+ * static asset with no access check, and a file path handed out by
+ * GET /api/incidents/[id] would let anyone fetch the witness statements and
+ * medical notes in a Title IX file directly.
  */
 export async function GET(request: NextRequest, { params }: Params) {
   try {

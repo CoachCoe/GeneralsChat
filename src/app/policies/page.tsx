@@ -21,7 +21,7 @@ interface Policy {
   category: string;
   effectiveDate: string;
   isActive: boolean;
-  /** Searchable chunks. Zero means retrieval can never return it. (FLOW-74) */
+  /** Searchable chunks. Zero means retrieval can never return it. */
   _count?: { chunks: number };
 }
 
@@ -32,9 +32,8 @@ interface Policy {
  * read-only view for non-admins. That would mean loosening the /admin/*
  * middleware gate, which is a security regression for a routing preference --
  * so the two surfaces are kept instead: this is the library anyone signed in
- * can read, and /admin/policies stays admin-only for management. The duplicate
- * upload control that used to live here is gone, which was the actual
- * duplication worth removing.
+ * can read, and /admin/policies stays admin-only for management. No upload
+ * control belongs here; that was the duplication worth removing.
  *
  * Guidance quality depends entirely on what is loaded here, and early on the
  * library is sparse -- so the empty and thin states are the common case, not
@@ -77,7 +76,7 @@ export default function PoliciesPage() {
   // Counted the way policy-coverage.ts counts it: a policy is coverage only if
   // it is active *and has chunks*. This counted rows, so a district whose
   // three local policies all had zero chunks got no thin-library warning at
-  // all -- the one state where the warning matters most. (FLOW-74)
+  // all -- the one state where the warning matters most.
   const localCount = policies.filter(
     p =>
       (p.jurisdiction === 'district' || p.jurisdiction === 'school') &&
@@ -160,8 +159,8 @@ export default function PoliciesPage() {
                   listing it as an equal member of the library claims coverage
                   the system cannot deliver -- "a missing local policy is
                   information", and so is a present-but-unsearchable one. Amber
-                  because OQ-1 permits it for a coverage warning, which is
-                  exactly what this is. (FLOW-74)
+                  because CLAUDE.md's colour rule allows it for a coverage
+                  warning, which is exactly what this is.
                 */}
                 {(policy._count?.chunks ?? 0) === 0 && (
                   <span className="text-[12px] font-medium text-attention">not searchable</span>

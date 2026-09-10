@@ -6,7 +6,6 @@ import { llmService } from '../src/lib/ai/llm-service';
 import { incidentClassifier } from '../src/lib/ai/classifier';
 import { prisma } from '../src/lib/db';
 
-// Load environment variables
 config({ path: resolve(__dirname, '../.env') });
 
 /**
@@ -20,7 +19,7 @@ config({ path: resolve(__dirname, '../.env') });
  */
 
 async function testPhase3() {
-  // Creates and deletes User, Incident and Conversation rows. (B8)
+  // Creates and deletes User, Incident and Conversation rows.
   requireTestDatabase('scripts/test-phase3.ts');
 
   console.log('🚀 Phase 3: Claude API Integration Test\n');
@@ -30,7 +29,6 @@ async function testPhase3() {
   let testIncidentId: string | undefined;
 
   try {
-    // ===== TEST 1: Verify API Key =====
     console.log('1️⃣  Verifying Anthropic API Configuration...');
 
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -43,7 +41,6 @@ async function testPhase3() {
 
     console.log('   ✅ API key configured\n');
 
-    // ===== TEST 2: Create Test User =====
     console.log('2️⃣  Creating test user...');
     const testUser = await prisma.user.create({
       data: {
@@ -55,7 +52,6 @@ async function testPhase3() {
     testUserId = testUser.id;
     console.log(`   ✅ User created: ${testUser.email}\n`);
 
-    // ===== TEST 3: Test Claude Service Direct Call =====
     console.log('3️⃣  Testing Claude service direct call...');
 
     const simpleResponse = await claudeService.generateResponse(
@@ -72,7 +68,6 @@ async function testPhase3() {
     console.log(`   📝 Response: "${simpleResponse.content.substring(0, 100)}..."`);
     console.log(`   💰 Tokens: ${simpleResponse.usage.inputTokens} in, ${simpleResponse.usage.outputTokens} out\n`);
 
-    // ===== TEST 4: Test LLM Service =====
     console.log('4️⃣  Testing LLM service with compliance prompt...');
 
     const llmResponse = await llmService.generateSchoolComplianceResponse(
@@ -83,7 +78,6 @@ async function testPhase3() {
     console.log(`   📝 Response preview: "${llmResponse.content.substring(0, 150)}..."`);
     console.log(`   💰 Cost: ~$${((llmResponse.usage?.inputTokens || 0) * 0.003 / 1000 + (llmResponse.usage?.outputTokens || 0) * 0.015 / 1000).toFixed(4)}\n`);
 
-    // ===== TEST 5: Test Incident Classification =====
     console.log('5️⃣  Testing intelligent incident classification...\n');
 
     const testIncident = `A student reported that another student has been repeatedly pushing them in the hallway,
@@ -115,7 +109,6 @@ for the past two weeks. The victim is afraid to come to school.`;
     }
     console.log('');
 
-    // ===== TEST 6: Create Real Incident in Database =====
     console.log('6️⃣  Creating incident in database...');
 
     const incident = await prisma.incident.create({
@@ -137,7 +130,6 @@ for the past two weeks. The victim is afraid to come to school.`;
     console.log(`   ✅ Incident created: ${incident.id}`);
     console.log(`   📋 Type: ${incident.incidentType}, Severity: ${incident.severity}\n`);
 
-    // ===== TEST 7: Test Conversation with Context =====
     console.log('7️⃣  Testing multi-turn conversation...\n');
 
     const questions = [
@@ -149,7 +141,6 @@ for the past two weeks. The victim is afraid to come to school.`;
     for (const question of questions) {
       console.log(`   ❓ Question: "${question}"`);
 
-      // Save user message
       await prisma.conversation.create({
         data: {
           incidentId: incident.id,
@@ -159,13 +150,11 @@ for the past two weeks. The victim is afraid to come to school.`;
         },
       });
 
-      // Get conversation history
       const history = await prisma.conversation.findMany({
         where: { incidentId: incident.id },
         orderBy: { timestamp: 'asc' },
       });
 
-      // Generate response with history
       const response = await llmService.generateSchoolComplianceResponse(
         question,
         undefined, // No specific policy context for this test
@@ -175,7 +164,6 @@ for the past two weeks. The victim is afraid to come to school.`;
         }))
       );
 
-      // Save assistant response
       await prisma.conversation.create({
         data: {
           incidentId: incident.id,
@@ -187,7 +175,6 @@ for the past two weeks. The victim is afraid to come to school.`;
       console.log(`   💬 Response: "${response.content.substring(0, 120)}..."\n`);
     }
 
-    // ===== TEST 8: Test Follow-Up Questions =====
     console.log('8️⃣  Testing AI-generated follow-up questions...');
 
     const followUps = await claudeService.generateFollowUpQuestions(
@@ -205,7 +192,6 @@ for the past two weeks. The victim is afraid to come to school.`;
     });
     console.log('');
 
-    // ===== TEST 9: Calculate Usage Stats =====
     console.log('9️⃣  Calculating API usage...');
 
     const conversations = await prisma.conversation.findMany({
@@ -229,7 +215,6 @@ for the past two weeks. The victim is afraid to come to school.`;
     console.log(`   ✅ Total messages: ${conversations.length}`);
     console.log(`   💰 Estimated cost: $${(totalTokens * 0.003 / 1000).toFixed(4)}\n`);
 
-    // ===== CLEANUP =====
     console.log('🧹 Cleaning up test data...');
 
     await prisma.conversation.deleteMany({
@@ -246,7 +231,6 @@ for the past two weeks. The victim is afraid to come to school.`;
 
     console.log('   ✅ Cleanup complete\n');
 
-    // ===== SUCCESS SUMMARY =====
     console.log('═══════════════════════════════════════════════════════════');
     console.log('✅ Phase 3 Integration Test PASSED!\n');
     console.log('Summary:');
@@ -271,7 +255,6 @@ for the past two weeks. The victim is afraid to come to school.`;
       console.error('   Check: https://console.anthropic.com/settings/billing');
     }
 
-    // Cleanup on error
     try {
       if (testIncidentId) {
         await prisma.conversation.deleteMany({

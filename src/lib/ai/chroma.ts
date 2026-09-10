@@ -108,11 +108,9 @@ class ChromaService {
     }
 
     try {
-      // Generate embeddings for all chunks
       const contents = chunks.map(chunk => chunk.content);
       const embeddings = await embeddingsService.generateBatchEmbeddings(contents);
 
-      // Prepare data for Chroma
       const ids = chunks.map(chunk => chunk.id);
       // Chroma metadata values must be scalars. Callers pass through arbitrary
       // policy metadata (keywords is an array), which would be rejected -- and
@@ -124,7 +122,6 @@ class ChromaService {
         ...toScalarMetadata(chunk.metadata),
       }));
 
-      // Add to Chroma
       await this.collection.add({
         ids,
         embeddings,
@@ -139,9 +136,6 @@ class ChromaService {
     }
   }
 
-  /**
-   * Search for similar policy chunks using semantic search
-   */
   async searchSimilarChunks(
     query: string,
     limit: number = 5,
@@ -163,17 +157,14 @@ class ChromaService {
     }
 
     try {
-      // Generate embedding for the query
       const queryEmbedding = await embeddingsService.generateEmbedding(query);
 
-      // Search in Chroma
       const results = await this.collection.query({
         queryEmbeddings: [queryEmbedding],
         nResults: limit,
         where: filter,
       });
 
-      // Format results
       const chunks = [];
       const documents = results.documents[0] || [];
       const metadatas = results.metadatas[0] || [];
@@ -198,9 +189,6 @@ class ChromaService {
     }
   }
 
-  /**
-   * Delete all chunks for a specific policy
-   */
   async deletePolicyChunks(policyId: string): Promise<void> {
     await this.initialize();
 
@@ -220,9 +208,6 @@ class ChromaService {
     }
   }
 
-  /**
-   * Get total count of chunks in the collection
-   */
   async getChunkCount(): Promise<number> {
     try {
       await this.initialize();
@@ -234,14 +219,10 @@ class ChromaService {
       const count = await this.collection.count();
       return count;
     } catch {
-      // Chroma not available, return 0
       return 0;
     }
   }
 
-  /**
-   * Delete the entire collection (useful for testing/reset)
-   */
   async deleteCollection(): Promise<void> {
     try {
       await this.client.deleteCollection({
@@ -257,9 +238,6 @@ class ChromaService {
     }
   }
 
-  /**
-   * Update a specific chunk's embedding
-   */
   async updateChunk(
     chunkId: string,
     content: string,
@@ -272,10 +250,8 @@ class ChromaService {
     }
 
     try {
-      // Generate new embedding
       const embedding = await embeddingsService.generateEmbedding(content);
 
-      // Update in Chroma
       await this.collection.update({
         ids: [chunkId],
         embeddings: [embedding],

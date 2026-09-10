@@ -12,14 +12,12 @@ declare global {
 /**
  * Runs once before the suite.
  *
- * Note on ordering: this comment used to say "the webServer in
- * playwright.config.ts starts after this resolves, so the database is seeded
- * and the Claude stub is listening before the app boots." That is not true of
- * Playwright 1.56 -- the webServer's build output appears before this function
- * runs. It is harmless, because the app reads `ANTHROPIC_BASE_URL` and queries
- * the database per request rather than at boot, but nothing here may *rely* on
- * running first. In particular the free-port check cannot live here; it is the
- * first link of `webServer.command`, in `require-free-port.ts`. (B9)
+ * Ordering: the webServer in playwright.config.ts does *not* wait for this to
+ * resolve -- on Playwright 1.56 its build output appears before this function
+ * runs. That is harmless, because the app reads `ANTHROPIC_BASE_URL` and
+ * queries the database per request rather than at boot, but nothing here may
+ * *rely* on running first. In particular the free-port check cannot live here;
+ * it is the first link of `webServer.command`, in `require-free-port.ts`.
  */
 export default async function globalSetup() {
   if (!process.env.DATABASE_URL) {

@@ -5,7 +5,7 @@ import { safeCallbackUrl } from './callback-url';
  * `callbackUrl` was taken from the query string and pushed straight into the
  * router after a successful sign-in, so `/login?callbackUrl=https://evil/`
  * redirected the administrator off-site from a link on this app's own domain --
- * on the page where a convincing look-alike is worth the most. (FLOW-55)
+ * on the page where a convincing look-alike is worth the most.
  */
 describe('safeCallbackUrl', () => {
   it('keeps an ordinary in-app path', () => {

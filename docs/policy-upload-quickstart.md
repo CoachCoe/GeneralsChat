@@ -49,7 +49,7 @@ of three ingestion routes, called by nothing, and it sat outside the
 
 ### Method 2: Admin UI (the canonical path)
 
-**Best for:** non-technical users, and the path OQ-2 made canonical.
+**Best for:** non-technical users.
 
 1. Start the dev server, against an explicit local database — `.env` points at
    the hosted pilot Postgres:
@@ -84,9 +84,6 @@ its own handler, not only by the middleware.
    ```bash
    APP_SESSION_COOKIE=<value> npm run policies:batch-upload
    ```
-
-Until 2026-09-08 this script posted to `POST /api/policies`, which OQ-2 had
-deleted, so every upload returned 405 while three documents recommended it.
 
 ---
 
@@ -273,4 +270,4 @@ The system is fully operational and ready to accept more policies. Just:
 3. Test in chat to verify policies are being used
 
 **Questions?** See the [README](README.md) for the current setup, architecture and
-security status. Dated snapshots from November 2025 are in `docs/history/`.
+security status.

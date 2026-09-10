@@ -20,7 +20,6 @@ function seededIds(): {
  * The previous version wrapped ten tests in `if (await x.count() > 0)` so they
  * no-opped on an empty database and reported green, and four locators passed a
  * regex into `:has-text()`, which Playwright rejects at parse time.
- * (TEST-7, TEST-8, TEST-23)
  */
 const SEEDED_OPEN = 'Bullying: Playground incident';
 const SEEDED_CLOSED = 'Harassment: Resolved hallway incident';
@@ -36,7 +35,7 @@ test.describe('Incident management', () => {
     await expect(page.getByText(SEEDED_OPEN)).toBeVisible();
     await expect(page.getByText(SEEDED_CLOSED)).toBeVisible();
 
-    // Filed by the admin: a reporter must not see it. (SEC-7)
+    // Filed by the admin: a reporter must not see it.
     await expect(page.getByText(ADMIN_ONLY)).toHaveCount(0);
   });
 
@@ -101,7 +100,7 @@ test.describe('Incident management', () => {
       const after = await page.request.get(`/api/incidents/${target.id}`);
       const incident = await after.json();
       expect(incident.status).toBe('closed');
-      expect(incident.closedAt).not.toBeNull(); // FLOW-15
+      expect(incident.closedAt).not.toBeNull();
     }).toPass();
 
     await page.reload();
@@ -113,7 +112,7 @@ test.describe('Incident management', () => {
     const { incidents } = await list.json();
 
     // PATCH accepted any string and persisted it, stranding the incident off
-    // every list view. (SEC-13, TEST-12)
+    // every list view.
     const response = await page.request.patch(`/api/incidents/${incidents[0].id}`, {
       data: { status: 'banana' },
     });
@@ -121,10 +120,10 @@ test.describe('Incident management', () => {
   });
 
   test('does not expose another user\'s incident by id', async ({ page }) => {
-    // This used to assert only that the *list* omitted it, which the test above
-    // already covers -- so deleting incidentScope from the by-id handlers left
-    // it green while every reporter could read and rewrite every incident in
-    // the district. That is SEC-7. Attempt the id itself. (TEST-28)
+    // Attempt the id itself. Asserting only that the *list* omits it is what
+    // the test above already covers, and would stay green with `incidentScope`
+    // deleted from the by-id handlers -- every reporter able to read and
+    // rewrite every incident in the district.
     const { adminIncidentId } = seededIds();
 
     const read = await page.request.get(`/api/incidents/${adminIncidentId}`);
@@ -183,11 +182,10 @@ test.describe('Obligation queue', () => {
   });
 
   test('a reporter cannot discharge another user\'s obligation', async ({ page }) => {
-    // This used to PATCH 'does-not-exist-id', which 404s whether or not the
-    // handler scopes through the incident -- so removing that scope, and
-    // letting any user discharge any obligation in the district, left the test
-    // green. The fixture now seeds an obligation on the admin's incident so
-    // there is a real foreign row to attempt. (TEST-27)
+    // A real foreign row, seeded on the admin's incident. PATCHing a
+    // 'does-not-exist-id' would 404 whether or not the handler scopes through
+    // the incident, so it would stay green with that scope removed and any
+    // user able to discharge any obligation in the district.
     const { adminObligationId } = seededIds();
 
     const foreign = await page.request.patch(`/api/obligations/${adminObligationId}`, {
@@ -204,15 +202,14 @@ test.describe('Obligation queue', () => {
   });
 
   test('the four remaining scoped lookups all refuse a foreign incident id', async ({ page }) => {
-    // `incidentScope` is applied at eight by-id lookups. Four had a
-    // falsifiable test after the TEST-27/TEST-28 fix; these four had none, so
-    // deleting `...incidentScope(guard.user)` from any of them left the whole
-    // suite green.
+    // `incidentScope` is applied at eight by-id lookups; the other four are
+    // covered above. Without this, deleting `...incidentScope(guard.user)`
+    // from any of them leaves the whole suite green.
     //
-    // Two of them are the worst ones to leave uncovered: GET
-    // /api/chat/[incidentId] returns a whole conversation transcript, and POST
-    // /api/chat accepts an incidentId and would append a turn to another
-    // reporter's incident -- and then classify it. (B11, TEST-52)
+    // Two are the worst ones to leave uncovered: GET /api/chat/[incidentId]
+    // returns a whole conversation transcript, and POST /api/chat accepts an
+    // incidentId and would append a turn to another reporter's incident --
+    // and then classify it.
     const { adminIncidentId } = seededIds();
 
     // GET /api/chat/[incidentId] -- the transcript.
@@ -256,11 +253,10 @@ test.describe('Obligation queue', () => {
   test('records where each deadline came from, and only counts the backed ones', async ({
     page,
   }) => {
-    // The deadline on an obligation used to come from a classification call
-    // that was never shown a policy -- the model's recall of state law -- while
-    // the UI said it came from the policy. Obligations are now derived after
-    // retrieval, and each one records whether a retrieved excerpt actually
-    // states its deadline. (OQ-5)
+    // Classification is never shown a policy, so a deadline taken from it is
+    // the model's recall of state law. Obligations are derived after retrieval
+    // instead, and each records whether a retrieved excerpt actually states
+    // its deadline -- the UI must not claim a policy behind one that has none.
     await page.goto('/chat');
     await page.getByTestId('chat-input').fill(
       'A student is being bullied repeatedly by a classmate during recess.'
@@ -292,9 +288,9 @@ test.describe('Obligation queue', () => {
     expect(typeof backed[0].citation).toBe('string');
     for (const o of unverified) expect(o.citation).toBeNull();
 
-    // And the level of authority that imposes it. ObligationRow has always
-    // rendered an AuthorityChip when `jurisdiction` is present and no endpoint
-    // ever supplied it, so the chip had never rendered once. (SPEC-56)
+    // And the level of authority that imposes it. ObligationRow renders an
+    // AuthorityChip only when `jurisdiction` is present, so an endpoint that
+    // omits the field silently costs the chip everywhere.
     expect(backed[0].jurisdiction).toBeTruthy();
     expect(['federal', 'state', 'district', 'school']).toContain(backed[0].jurisdiction);
     for (const o of unverified) expect(o.jurisdiction).toBeNull();
@@ -323,7 +319,7 @@ test.describe('Obligation queue', () => {
     //
     // Asserted as a relationship against the API rather than against fixture
     // absolutes: earlier tests in this file discharge and create obligations,
-    // and the property that matters holds in any state. (B3)
+    // and the property that matters holds in any state.
     await page.goto('/');
 
     const { obligations } = await (
@@ -356,12 +352,12 @@ test.describe('Obligation queue', () => {
   test('states lateness only for a deadline a policy backs, and dims the rest', async ({
     page,
   }) => {
-    // OQ-5: "A model-sourced deadline gets no red or amber countdown, and the
-    // home page's 'N things are late' counts only policy-backed ones."
+    // A model-sourced deadline gets no red or amber countdown, and the home
+    // page's "N things are late" counts only policy-backed ones.
     //
     // Both halves, asserted against live state. The fixture seeds one
     // policy-backed overdue row and one unverified overdue row, so the count
-    // and the colour both have something to be wrong about. (B5, B12)
+    // and the colour both have something to be wrong about.
     await page.goto('/');
 
     const { obligations, counts } = await (
@@ -411,7 +407,7 @@ test.describe('Obligation queue', () => {
   test('the incident page does not call an unverified deadline late', async ({ page }) => {
     // The incident header had its own count-of-lateness, computed with a raw
     // date comparison over every open action and rendered in a red pill, while
-    // the obligation row 150 lines below dimmed the same deadline. (B5)
+    // the obligation row 150 lines below dimmed the same deadline.
     const { reporterIncidentId } = seededIds();
 
     const incident = await (
@@ -448,7 +444,7 @@ test.describe('Obligation queue', () => {
     // The headline and subhead were computed unconditionally from an empty
     // array, so the page opened by asserting "You're clear. No obligations are
     // outstanding." in 40px serif and said the same permanently after a failed
-    // fetch -- with "Could not load your obligations" underneath it. (B4)
+    // fetch -- with "Could not load your obligations" underneath it.
     await page.route('**/api/obligations**', route =>
       route.fulfill({ status: 500, body: JSON.stringify({ error: 'nope' }) })
     );
@@ -459,8 +455,8 @@ test.describe('Obligation queue', () => {
     ).toBeVisible();
     await expect(page.getByText("You're clear.")).toHaveCount(0);
     await expect(page.getByText('No obligations are outstanding.')).toHaveCount(0);
-    // The failure is still reported -- it just no longer sits under a 40px
-    // claim that nothing is outstanding.
+    // The failure is still reported -- it just must not sit under a 40px claim
+    // that nothing is outstanding.
     await expect(page.getByText('Could not load your obligations', { exact: true })).toBeVisible();
   });
 
@@ -516,9 +512,9 @@ test.describe('Obligation queue', () => {
 });
 
 /**
- * A generated summary is part of the incident record, not a throwaway view.
- * The incident-page endpoint used to return one and store nothing, so it was
- * lost on refresh after being paid for. (SPEC-35)
+ * A generated summary is part of the incident record, not a throwaway view: an
+ * endpoint that returns one without storing it loses it on refresh, after it
+ * has been paid for.
  */
 test.describe('Incident summary', () => {
   test('persists, survives a reload, and is not replayed as chat context', async ({ page }) => {
@@ -571,7 +567,7 @@ test.describe('Incident summary', () => {
   test('does not summarise another user\'s incident', async ({ page }) => {
     // A real foreign id, not a nonexistent one: generating a summary reads the
     // whole transcript, so an unscoped handler here discloses the most of any
-    // route in the app. (TEST-28)
+    // route in the app.
     const { adminIncidentId } = seededIds();
     const gen = await page.request.post(`/api/incidents/${adminIncidentId}/summary`);
     expect(gen.status()).toBe(404);
