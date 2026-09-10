@@ -428,6 +428,29 @@ test.describe('Classification and library scope', () => {
     ).toHaveAttribute('aria-current', 'true');
   });
 
+  test('keeps the address on the thread that is open', async ({ page }) => {
+    // `?incident=` is read on mount, so an address left naming the previous
+    // thread sends a reload somewhere the user has already navigated away
+    // from.
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill('A student reported name-calling in the corridor.');
+    const [answered] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+    const { incidentId } = await answered.json();
+
+    await expect(page).toHaveURL(new RegExp(`incident=${incidentId}`));
+
+    // And the address survives the round trip it now promises.
+    await page.reload();
+    await expect(page.getByText(STUB_REPLY)).toBeVisible();
+
+    // Starting a new chat drops it, or the next reload reopens the old one.
+    await page.getByRole('button', { name: /New chat/i }).click();
+    await expect(page).toHaveURL(/\/chat$/);
+  });
+
   test('does not confirm an incident the reporter may not read', async ({ page }) => {
     // 404, not 403, all the way to the UI: a foreign id must not be revealed
     // as existing. The thread stays empty and nothing is marked current.

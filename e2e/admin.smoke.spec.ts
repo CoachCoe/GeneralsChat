@@ -214,6 +214,29 @@ test.describe('Advisor profile', () => {
     await expect(editor(page)).toHaveValue(first);
   });
 
+  test('reuses the one row instead of minting another on every save', async ({ page }) => {
+    /*
+     * The editor used to POST whenever it held no *active* profile, which is
+     * not the same condition as none existing. A deactivated row plus a
+     * listless UI meant every save created another row nobody could reach,
+     * and any of them could later be picked up as "the active profile".
+     */
+    await page.goto('/admin/prompt');
+    await editor(page).fill('First wording for the district.');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+
+    await editor(page).fill('Second wording for the district.');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+
+    // Two saves, one row. Counted through the API rather than the UI, which
+    // no longer shows a list and so could not reveal the extras.
+    const { prompts } = await (await page.request.get('/api/admin/prompts')).json();
+    expect(prompts).toHaveLength(1);
+    expect(prompts.filter((p: { isActive: boolean }) => p.isActive)).toHaveLength(1);
+  });
+
   test('restores the shipped default over an edit', async ({ page }) => {
     await page.goto('/admin/prompt');
     await editor(page).fill('Something else entirely.');

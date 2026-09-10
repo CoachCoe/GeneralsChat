@@ -71,27 +71,32 @@ export async function PUT(request: NextRequest, { params }: Params) {
       select: { name: true, content: true, isActive: true },
     });
 
-    // If activating this prompt, deactivate all others
-    if (isActive) {
-      await prisma.systemPrompt.updateMany({
-        where: { isActive: true },
-        data: { isActive: false }
-      });
-    }
-
     // `previousContent` moves only when the text actually changes. Activating a
     // prompt, or renaming it, must not consume the one undo an admin has.
     const contentChanged = content !== undefined && content !== before?.content;
 
-    const prompt = await prisma.systemPrompt.update({
-      where: { id },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(content !== undefined && { content }),
-        ...(contentChanged && { previousContent: before?.content ?? null }),
-        ...(description !== undefined && { description }),
-        ...(isActive !== undefined && { isActive })
+    // One transaction. Deactivating the others and activating this one were
+    // separate statements, so two concurrent activations could interleave and
+    // leave two rows active -- a state the chat path and the admin editor
+    // would then have to agree about by luck.
+    const prompt = await prisma.$transaction(async tx => {
+      if (isActive) {
+        await tx.systemPrompt.updateMany({
+          where: { isActive: true, id: { not: id } },
+          data: { isActive: false }
+        });
       }
+
+      return tx.systemPrompt.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(content !== undefined && { content }),
+          ...(contentChanged && { previousContent: before?.content ?? null }),
+          ...(description !== undefined && { description }),
+          ...(isActive !== undefined && { isActive })
+        }
+      });
     });
 
     await recordAudit({

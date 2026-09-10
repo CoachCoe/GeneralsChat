@@ -66,6 +66,7 @@ test.describe('Navigation', () => {
       ['post', '/api/admin/policies/upload'],
       ['post', '/api/admin/prompts'],
       ['put', '/api/admin/prompts/any-id'],
+      ['put', '/api/admin/prompts/active'],
       ['delete', '/api/admin/prompts/any-id'],
     ];
 

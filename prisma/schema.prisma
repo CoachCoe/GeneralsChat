@@ -301,6 +301,14 @@ model AuditLog {
 // SYSTEM PROMPTS
 // ============================================
 
+/// The advisor profile. Exactly one row may be active -- enforced by a partial
+/// unique index, not by convention, because the chat path and the admin editor
+/// both resolve "the active profile" and must never disagree about which it is.
+///
+/// Rows left inactive by the profile list this UI used to offer are kept
+/// rather than deleted: they are text a district wrote, and the editor no
+/// longer creates them, so the table cannot grow new ones. `saveActiveProfile`
+/// reuses the most recently updated row instead of inserting.
 model SystemPrompt {
   id       String  @id @default(cuid())
   name     String // Friendly name like "Friendly Advisor", "Strict Legal", etc.

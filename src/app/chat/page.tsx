@@ -198,9 +198,30 @@ export default function ChatPage() {
     if (requested) loadConversation(requested);
   }, [loadConversation]);
 
+  /*
+   * The address follows the thread. `?incident=` is read on mount, so an
+   * address left naming a previous thread sends a reload somewhere the user
+   * has already navigated away from -- and a thread started here would have no
+   * address at all until it was reopened.
+   *
+   * Only ever set, never cleared: on mount `incidentId` is null while the
+   * deep-link effect above is still resolving, and clearing here would strip
+   * the parameter before it has been read. Starting a new chat clears it
+   * where that happens. `replaceState` rather than push, because opening a
+   * thread is not a step to go Back through.
+   */
+  useEffect(() => {
+    if (!incidentId) return;
+    if (new URLSearchParams(window.location.search).get('incident') === incidentId) return;
+    window.history.replaceState(null, '', `/chat?incident=${incidentId}`);
+  }, [incidentId]);
+
   const handleNewChat = () => {
     setMessages([]);
     setIncidentId(null);
+    // Cleared here rather than in the effect above, which must not strip the
+    // parameter while the deep link is still resolving it on mount.
+    window.history.replaceState(null, '', '/chat');
   };
 
   const handleSendMessage = async () => {

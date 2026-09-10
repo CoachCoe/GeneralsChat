@@ -1,9 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
 import { logAIOperation, logError, logExternalAPI } from '@/lib/logger';
 import { INCIDENT_TYPES, PolicyCoverage, SEVERITIES } from '@/types';
 import { DEFAULT_ADVISOR_PROFILE } from './advisor-profile';
+import { findActiveProfile } from '@/lib/system-prompt';
 
 /**
  * The model's classification JSON, validated rather than trusted: whatever
@@ -303,10 +303,9 @@ class ClaudeService {
 
   private async getAdvisorProfile(): Promise<string | null> {
     try {
-      const activePrompt = await prisma.systemPrompt.findFirst({
-        where: { isActive: true },
-        select: { content: true }
-      });
+      // Through the same resolver the admin editor reads, so the profile an
+      // admin is looking at is the profile this call is sent.
+      const activePrompt = await findActiveProfile();
 
       return activePrompt?.content || null;
     } catch (error) {

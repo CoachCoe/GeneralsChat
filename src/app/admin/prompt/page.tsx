@@ -30,8 +30,6 @@ interface Profile {
   updatedAt: string;
 }
 
-const PROFILE_NAME = 'Advisor profile';
-
 export default function PromptEditorPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [content, setContent] = useState('');
@@ -73,25 +71,14 @@ export default function PromptEditorPage() {
     }
     setSaving(true);
     try {
-      let id = profile?.id;
-
-      // No row yet: the district has been running on the in-code default.
-      if (!id) {
-        const created = await fetch('/api/admin/prompts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: PROFILE_NAME, content }),
-        });
-        if (!created.ok) throw new Error('create failed');
-        id = (await created.json()).prompt.id as string;
-      }
-
-      // Always through PUT, including straight after a create: POST leaves a
-      // prompt inactive by design, and activation is what this write is for.
-      const response = await fetch(`/api/admin/prompts/${id}`, {
+      // One endpoint, which decides for itself whether that means updating the
+      // row already there or creating the first one. Choosing here meant
+      // POSTing whenever no profile was *active* -- not the same condition as
+      // none existing -- and minting a row nobody could reach on every save.
+      const response = await fetch('/api/admin/prompts/active', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, isActive: true }),
+        body: JSON.stringify({ content }),
       });
       if (!response.ok) throw new Error('save failed');
 

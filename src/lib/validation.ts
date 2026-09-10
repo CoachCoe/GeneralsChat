@@ -107,6 +107,18 @@ export const createPromptSchema = z.object({
 
 export type CreatePromptInput = z.infer<typeof createPromptSchema>;
 
+/**
+ * The single advisor profile write. `name` is optional because the editor does
+ * not offer one: there is only ever one profile, so naming it is not a choice
+ * the product asks an admin to make. `DEFAULT_PROFILE_NAME` fills it in.
+ */
+export const saveActiveProfileSchema = z
+  .object({
+    content: z.string().min(10, 'The profile needs at least 10 characters'),
+    name: z.string().min(1).max(100).optional(),
+  })
+  .strict();
+
 export const updatePromptSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   content: z.string().min(10).optional(),
