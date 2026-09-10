@@ -3,14 +3,6 @@ import { claudeService } from './claude-service';
 import { dueDateFromHours } from '@/lib/deadline';
 
 /**
- * Bucket an obligation by what it asks the administrator to do.
- *
- * Exported because obligations are now created in two places -- the two-phase
- * path in the chat route, and this classifier's fallback -- and the same
- * description must bucket the same way in both. Duplicating it is how the two
- * summary endpoints drifted apart.
- */
-/**
  * Classification could not be completed -- distinct from classifying as
  * `other`, which is a real answer.
  */
@@ -21,6 +13,13 @@ export class ClassificationUnavailableError extends Error {
   }
 }
 
+/**
+ * Bucket an obligation by what it asks the administrator to do.
+ *
+ * Exported because obligations are created in two places -- the two-phase path
+ * in the chat route, and this classifier's fallback -- and the same
+ * description must bucket the same way in both.
+ */
 export function actionTypeFor(description: string): string {
   const lower = description.toLowerCase();
   if (lower.includes('immediate') || lower.includes('urgent')) return 'immediate_response';

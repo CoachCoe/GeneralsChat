@@ -771,6 +771,8 @@ export default function ChatPage() {
                 gap: '8px'
               }}>
                 <button
+                  type="button"
+                  aria-label="Attach file"
                   style={{
                     padding: '6px',
                     borderRadius: '6px',
@@ -780,7 +782,10 @@ export default function ChatPage() {
                     cursor: 'pointer',
                     transition: 'all 0.2s',
                     display: 'flex',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '44px',
+                    minHeight: '44px'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = 'var(--color-text)';
@@ -830,8 +835,12 @@ export default function ChatPage() {
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isLoading}
                   style={{
-                    padding: '6px',
-                    borderRadius: '6px',
+                    // 44px: the touch target the design rule states and
+                    // `mobile.spec.ts` is named for. It was 20px of icon in
+                    // 6px of padding.
+                    minWidth: '44px',
+                    minHeight: '44px',
+                    borderRadius: '8px',
                     background: inputValue.trim() ? 'var(--color-text)' : 'transparent',
                     color: inputValue.trim() ? 'white' : 'var(--color-text-muted)',
                     border: 'none',
@@ -839,6 +848,7 @@ export default function ChatPage() {
                     transition: 'all 0.2s',
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     opacity: inputValue.trim() ? 1 : 0.5
                   }}
                 >

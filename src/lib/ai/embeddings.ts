@@ -77,47 +77,6 @@ class EmbeddingsService {
       throw new Error(`Failed to generate batch embeddings: ${error}`);
     }
   }
-
-  /**
-   * Calculate cosine similarity between two embeddings
-   * Used for finding similar policy chunks
-   */
-  cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) {
-      throw new Error('Embeddings must have the same length');
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    normA = Math.sqrt(normA);
-    normB = Math.sqrt(normB);
-
-    if (normA === 0 || normB === 0) {
-      return 0;
-    }
-
-    return dotProduct / (normA * normB);
-  }
-
-  /**
-   * Get embedding dimension for the current model
-   * text-embedding-3-small: 1536 dimensions
-   */
-  getEmbeddingDimension(): number {
-    return this.model === 'text-embedding-3-small' ? 1536 : 1536;
-  }
-
-  validateEmbedding(embedding: number[]): boolean {
-    return embedding.length === this.getEmbeddingDimension();
-  }
 }
 
 export const embeddingsService = new EmbeddingsService();

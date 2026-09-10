@@ -139,4 +139,3 @@ export function logSecurity(
   logger.warn({ type: 'security', event, userId, ipAddress, ...details }, `SECURITY: ${event}`);
 }
 
-export default logger;
