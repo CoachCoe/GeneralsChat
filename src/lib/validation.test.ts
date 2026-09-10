@@ -5,13 +5,14 @@ import {
   createIncidentSchema,
   paginationSchema,
   updateIncidentSchema,
+  updatePolicySchema,
   MAX_PAGE_SIZE,
 } from './validation';
 
 describe('paginationSchema', () => {
   it('clamps an oversized limit instead of rejecting it', () => {
     // Rejecting a well-formed but large limit would 400 a reasonable client;
-    // returning the whole table would be the SEC-12 exfiltration path.
+    // honouring it would return the whole table.
     const r = paginationSchema.parse({ limit: '1000000' });
     expect(r.limit).toBe(MAX_PAGE_SIZE);
   });
@@ -105,10 +106,10 @@ describe('incident schemas', () => {
 });
 
 describe('policyFacetsSchema', () => {
-  // Every policy write path used to take these from the request and default the
-  // misses. A category retrieval does not match makes the policy unfindable AND
-  // -- since assessCoverage queries the same field -- makes the system report a
-  // coverage gap for an area the district has in fact loaded. (B5)
+  // No write path may default a miss. A category retrieval does not match
+  // makes the policy unfindable AND -- since assessCoverage queries the same
+  // field -- makes the system report a coverage gap for an area the district
+  // has in fact loaded.
 
   it('accepts the known facets', () => {
     expect(
@@ -142,5 +143,50 @@ describe('policyFacetsSchema', () => {
     expect(policyFacetsSchema.partial().safeParse({ category: 'bullying' }).success).toBe(true);
     expect(policyFacetsSchema.partial().safeParse({}).success).toBe(true);
     expect(policyFacetsSchema.partial().safeParse({ category: 'nope' }).success).toBe(false);
+  });
+});
+
+describe('updatePolicySchema', () => {
+  // The only write path that edits a policy already in the library. Every
+  // other one goes through validateRequest; this one hand-rolled two fields
+  // and passed the rest of the body to Prisma, so `title` and `isActive` were
+  // whatever the caller sent.
+
+  it('accepts an update that sets one field', () => {
+    expect(updatePolicySchema.safeParse({ isActive: false }).success).toBe(true);
+  });
+
+  it('accepts an empty update', () => {
+    expect(updatePolicySchema.safeParse({}).success).toBe(true);
+  });
+
+  it('rejects an empty title rather than blanking the policy', () => {
+    expect(updatePolicySchema.safeParse({ title: '' }).success).toBe(false);
+  });
+
+  it('rejects a title past the length the create path enforces', () => {
+    expect(updatePolicySchema.safeParse({ title: 'x'.repeat(201) }).success).toBe(false);
+  });
+
+  it('rejects a non-boolean isActive rather than letting Prisma 500 on it', () => {
+    expect(updatePolicySchema.safeParse({ isActive: 'yes' }).success).toBe(false);
+  });
+
+  it('rejects a mistyped facet rather than defaulting it', () => {
+    expect(updatePolicySchema.safeParse({ category: 'bullyng' }).success).toBe(false);
+    expect(updatePolicySchema.safeParse({ jurisdiction: 'District' }).success).toBe(false);
+  });
+
+  it('rejects a date that is not on the calendar', () => {
+    // `new Date('2026-02-30')` rolls forward to 1 March rather than failing,
+    // so the shape regex alone would let it through and store the wrong day.
+    expect(updatePolicySchema.safeParse({ effectiveDate: '2026-02-30' }).success).toBe(false);
+    expect(updatePolicySchema.safeParse({ effectiveDate: '2026-09-01' }).success).toBe(true);
+  });
+
+  it('rejects a field the route does not apply, rather than dropping it', () => {
+    // `version` is in the Policy row but no branch of the handler writes it.
+    // Silently accepting it tells the caller a write happened that did not.
+    expect(updatePolicySchema.safeParse({ version: 2 }).success).toBe(false);
   });
 });

@@ -120,10 +120,6 @@ The batch uploader already exists at `scripts/batch-upload-policies.ts` —
 run it with `npm run policies:batch-upload`. Edit the `policies` array in
 that file to select which documents to upload.
 
-(This section previously inlined a second, divergent copy of that script
-under a third filename that was never created. Removed per audit finding
-REPO-7 / SPEC-21.)
-
 ## Required Forms Tracking
 
 The system references these forms in guidance:

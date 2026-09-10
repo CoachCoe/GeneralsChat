@@ -1,8 +1,8 @@
-# Multi-stage build. The previous single stage ran `npm run dev` as the
-# container entrypoint (SEC-14), which sets NODE_ENV=development and so turned
-# three "development only" error-detail guards into live disclosure in the
-# deployed container, enabled the dev overlay and source maps, and enabled the
-# hot reload that turned an arbitrary file write into RCE.
+# Multi-stage build. The container must not run `npm run dev`: that sets
+# NODE_ENV=development, which turns three "development only" error-detail
+# guards into live disclosure in the deployed container, enables the dev
+# overlay and source maps, and enables the hot reload that turns an arbitrary
+# file write into RCE.
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./

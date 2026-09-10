@@ -15,7 +15,7 @@ type Params = {
 export async function GET(request: NextRequest, { params }: Params) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
@@ -41,11 +41,10 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 }
 
-// PUT /api/admin/prompts/[id] - Update prompt
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
@@ -56,7 +55,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
     // hand-rolled version spread whatever came in, so `content: 42` or
     // `isActive: "yes"` reached Prisma, and an empty-string content replaced
     // the advisor profile that is prepended to every consultation.
-    // (SEC-36, FLOW-78)
     const validation = validateRequest(updatePromptSchema, body);
     if (!validation.success) {
       return validationError('Invalid prompt', formatValidationErrors(validation.errors));
@@ -67,7 +65,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     // every consultation, so an edit here changes the mandated-reporting advice
     // the district gives -- and SystemPrompt carries only updatedAt, no prior
     // content and no actor. Without the previous text the change is not
-    // reconstructable afterwards. (SEC-20)
+    // reconstructable afterwards.
     const before = await prisma.systemPrompt.findUnique({
       where: { id },
       select: { name: true, content: true, isActive: true },
@@ -114,11 +112,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 }
 
-// DELETE /api/admin/prompts/[id] - Delete prompt
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 

@@ -134,7 +134,7 @@ describe('processDocument on a legacy .doc', () => {
   // The extractor read the OLE2 binary as UTF-8, so a .doc policy became
   // mojibake -- which cleanText then tidied into something that passed the
   // "any words at all" check, was chunked, and became retrievable policy text
-  // cited under the real policy's title. (FLOW-72)
+  // cited under the real policy's title.
   it('refuses the file rather than reading the binary as text', async () => {
     const { mkdtempSync, writeFileSync } = await import('fs');
     const { tmpdir } = await import('os');

@@ -14,25 +14,19 @@ export const TEST_USERS = {
   reporter: { email: 'e2e-reporter@example.test', name: 'E2E Reporter', role: 'reporter' },
   /**
    * Signed in like the others and then deleted mid-test, to prove a session
-   * outlives its account by nothing. (SEC-19)
+   * outlives its account by nothing.
    *
    * It exists as a seeded user rather than one the test creates because the
    * test must not sign in: `navigation.spec.ts` deliberately floods the
-   * credentials endpoint until the limiter refuses it, and a test signing in
-   * afterwards is refused too -- which is what happened, as a 30s wait on a
-   * "Signing in..." button. Sessions are minted in `auth.setup.ts`, which runs
-   * before any of that. It owns no incidents, so deleting it cascades nowhere.
+   * credentials endpoint until the limiter refuses it, so a test signing in
+   * afterwards is refused too and hangs on "Signing in...". Sessions are
+   * minted in `auth.setup.ts`, which runs before any of that. It owns no
+   * incidents, so deleting it cascades nowhere.
    */
   revocable: { email: 'e2e-revocable@example.test', name: 'E2E Revocable', role: 'reporter' },
 } as const;
 
-/**
- * Resets the e2e database to a known state.
- *
- * The suite previously shared one mutable database with no isolation and ran
- * fully parallel, so an empty-state test and an incident-creating test raced
- * each other. (TEST-21)
- */
+/** Resets the e2e database to a known state. */
 /** Ids a test needs to attempt access it must not be granted. */
 export interface SeededIds {
   adminIncidentId: string;
@@ -41,9 +35,9 @@ export interface SeededIds {
    * One attachment per user, with real bytes on disk. `CLAUDE.md` names
    * attachments an invariant -- "Attachments are student records ... served only
    * through `GET /api/attachments/[id]`, which re-checks session and ownership"
-   * -- and no test created an `Attachment` row of any kind, so the ownership
-   * check, the 404-not-403 response, the containment assertion and the
-   * three response headers were all unexercised. (B10, TEST-30)
+   * -- and without a real `Attachment` row the ownership check, the
+   * 404-not-403 response, the containment assertion and the three response
+   * headers all go unexercised.
    */
   reporterAttachmentId: string;
   adminAttachmentId: string;
@@ -151,7 +145,7 @@ export async function resetDatabase(): Promise<SeededIds> {
     // Active, district, school_safety -- and deliberately given NO chunks below.
     // Retrieval can never return it, so it must not count as coverage. This is
     // the production state a failed re-index leaves behind, and counting it
-    // suppressed the gap warning that says the library is empty. (B2)
+    // suppressed the gap warning that says the library is empty.
     const unchunked = {
       title: 'Policy EBCA: Crisis Response (indexing incomplete)',
       jurisdiction: 'district',
@@ -211,13 +205,12 @@ export async function resetDatabase(): Promise<SeededIds> {
     // queue do not depend on an earlier test having created some.
     //
     // Three, covering the three states the queue treats differently. The
-    // fixture used to have two, both `deadlineSource: 'model'` by column
-    // default, and every obligation the chat flow creates during a run is in
-    // the future -- so `counts.overdue`, `counts.today` and the whole Overdue
-    // group were *always zero* in the suite. Inverting the overdue comparison
-    // or dropping the policy-backed filter from the tallies was invisible: the
-    // one number this product exists to produce had no test that could see it
-    // be wrong. It is also why B3 went unnoticed. (B12, TEST-31)
+    // default `deadlineSource: 'model'`, and every obligation the chat flow
+    // creates during a run is in the future -- so without a seeded overdue
+    // policy-backed row, `counts.overdue`, `counts.today` and the whole
+    // Overdue group are always zero across the suite, and inverting the
+    // overdue comparison or dropping the policy-backed filter from the
+    // tallies is invisible.
     const openIncident = await prisma.incident.findFirstOrThrow({
       where: { title: 'Bullying: Playground incident' },
     });
@@ -240,7 +233,7 @@ export async function resetDatabase(): Promise<SeededIds> {
         },
         {
           // Unverified and late. Must appear in the queue -- under its own
-          // heading, without red -- and must not be counted as late. (B3, B5)
+          // heading, without red -- and must not be counted as late.
           incidentId: openIncident.id,
           actionType: 'notification',
           description: 'Notify the parents of both students',
@@ -273,7 +266,7 @@ export async function resetDatabase(): Promise<SeededIds> {
     // The admin's incident carries an obligation of its own. Without one there
     // is no foreign row for a reporter to attempt, so the cross-user tests had
     // to PATCH an id that does not exist -- which 404s whether or not scoping
-    // is applied, and so could not fail. (TEST-27, TEST-28)
+    // is applied, and so could not fail.
     const adminIncident = await prisma.incident.create({
       data: {
         title: 'Title IX: Admin-only incident',
@@ -350,10 +343,10 @@ export async function resetDatabase(): Promise<SeededIds> {
  * Set a seeded user's role, returning the role it had.
  *
  * Exists so a test can revoke a privilege on a session that is already signed
- * in, which is the only way to exercise SEC-19: role used to be read off the
- * JWT, so a demotion did not take effect while the token lived. Nothing else
- * in the suite can produce that state -- the storage states are minted once, in
- * `auth.setup.ts`, and never re-signed-in.
+ * in, which is the only state in which a role read from the JWT rather than
+ * the user row would go stale. Nothing else in the suite can produce it --
+ * the storage states are minted once, in `auth.setup.ts`, and never
+ * re-signed-in.
  *
  * The suite runs `workers: 1, fullyParallel: false`, so a test may mutate a
  * shared user for the length of one test. It must put the role back.

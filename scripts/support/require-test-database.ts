@@ -20,7 +20,7 @@
  *
  * This is deliberately its own module with no imports: importing `src/lib/db`
  * constructs a PrismaClient, and the guard has to run before anything can
- * connect. (B7, B8)
+ * connect.
  */
 export function requireTestDatabase(scriptName: string): void {
   const url = process.env.DATABASE_URL;

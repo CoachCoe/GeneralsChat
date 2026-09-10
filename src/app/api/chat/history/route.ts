@@ -7,7 +7,7 @@ export async function GET() {
   try {
     // Took `userId` from the query string, so the "only your own chats" filter
     // was enforced by the caller -- anyone could read anyone's history by
-    // guessing an id. It is now always the session user. (SEC-8)
+    // guessing an id. It is now always the session user.
     const guard = await requireUser();
     if (!guard.ok) return guard.response;
 
@@ -27,7 +27,6 @@ export async function GET() {
       take: 20, // Limit to 20 most recent
     });
 
-    // Format the response
     const chatHistories = incidents.map(incident => ({
       id: incident.id,
       title: incident.title,

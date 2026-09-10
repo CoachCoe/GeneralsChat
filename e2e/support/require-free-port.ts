@@ -25,7 +25,7 @@ import { createServer } from 'net';
  * This runs as the first link of `webServer.command`, because that is the
  * process that binds the port. It cannot live in `globalSetup`: Playwright
  * starts `webServer` *before* `globalSetup`, so by then our own server is
- * already listening and the check would refuse every run. (B9)
+ * already listening and the check would refuse every run.
  */
 export function checkPortFree(port: number): Promise<boolean> {
   return new Promise((resolve, reject) => {

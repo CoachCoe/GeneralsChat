@@ -9,10 +9,9 @@ import { readFileSync } from 'fs';
  *    served only through `GET /api/attachments/[id]`, which re-checks session
  *    and ownership. Never reintroduce a direct file URL."
  *
- * The implementation was correct when audited. It was also entirely
- * unexercised: no test created an `Attachment` row, so the ownership check,
+ * These need an `Attachment` row to exist: without one the ownership check,
  * the 404-not-403 response, the path-containment assertion and the three
- * response headers could all be deleted with a green suite. (B10, TEST-30)
+ * response headers can all be deleted with a green suite.
  */
 function seededIds(): { reporterAttachmentId: string; adminAttachmentId: string } {
   return JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8'));
@@ -76,7 +75,7 @@ test.describe('Attachments', () => {
   test('an attachment is not reachable as a static file', async ({ page }) => {
     // The original defect: attachments lived under public/ and were served as
     // static assets with no access check, with the path handed out by
-    // GET /api/incidents/[id]. (SEC-5)
+    // GET /api/incidents/[id].
     for (const path of [
       '/uploads/attachments/e2e-reporter-statement.txt',
       '/attachments/e2e-reporter-statement.txt',

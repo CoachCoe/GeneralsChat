@@ -57,6 +57,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
  * That is a cleaner enumeration oracle than having no dummy compare at all,
  * because the difference is large, one-sided and stable.
  *
- * If `create-user.ts`'s cost ever changes, change this with it. (SEC-30)
+ * If `create-user.ts`'s cost ever changes, change this with it.
  */
 const DUMMY_HASH = '$2b$12$r7jWSKZfdEjzJY3bAjyBCOQ5mY2W5qSfhxU/CpNL2YgwL750Ph68K';

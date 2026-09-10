@@ -26,9 +26,6 @@ class EmbeddingsService {
     this.model = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
   }
 
-  /**
-   * Generate embedding for a single text
-   */
   async generateEmbedding(text: string): Promise<number[]> {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OpenAI API key not configured - cannot generate embeddings. System will use keyword search fallback.');
@@ -118,9 +115,6 @@ class EmbeddingsService {
     return this.model === 'text-embedding-3-small' ? 1536 : 1536;
   }
 
-  /**
-   * Validate that an embedding has the correct dimensions
-   */
   validateEmbedding(embedding: number[]): boolean {
     return embedding.length === this.getEmbeddingDimension();
   }

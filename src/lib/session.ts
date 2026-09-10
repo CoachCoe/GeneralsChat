@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db';
 import { forbiddenError, unauthorizedError } from '@/lib/errors';
+import { logSecurity } from '@/lib/logger';
 
 export interface SessionUser {
   id: string;
@@ -21,7 +22,7 @@ type Guard =
  * re-checks: middleware is a matcher-based gate and a matcher mistake would
  * silently expose a route. Identity is derived here and never read from the
  * request body -- the previous code took `userId` from the client, which meant
- * the "only your own data" filter was enforced by the caller. (SEC-8)
+ * the "only your own data" filter was enforced by the caller.
  */
 export async function requireUser(): Promise<Guard> {
   const session = await auth();
@@ -30,14 +31,13 @@ export async function requireUser(): Promise<Guard> {
   }
 
   /*
-   * The session says who you are; the database says what you may do. (SEC-19)
+   * The session says who you are; the database says what you may do.
    *
-   * `role` used to be read straight off the JWT, and the `jwt` callback only
-   * writes it at sign-in -- so a role change took effect no sooner than the
-   * token expired, and because `updateAge` rolls the token forward on activity,
-   * an administrator demoted mid-shift kept administrator access for as long as
-   * they kept working. Deleting the account did not end the session either.
-   * There was no mechanism to revoke anything.
+   * `role` must not be read off the JWT: the `jwt` callback writes it only at
+   * sign-in, and `updateAge` rolls the token forward on activity, so a role
+   * change would take effect no sooner than the token expired and an
+   * administrator demoted mid-shift would keep access for as long as they kept
+   * working. Deleting the account would not end the session either.
    *
    * So the row is re-read on every guarded request. A demotion takes effect on
    * the next request, and a deleted account is unauthenticated rather than
@@ -78,6 +78,10 @@ export async function requireRole(...roles: string[]): Promise<Guard> {
   const result = await requireUser();
   if (!result.ok) return result;
   if (!roles.includes(result.user.role)) {
+    logSecurity('role_denied', result.user.id, undefined, {
+      held: result.user.role,
+      required: roles,
+    });
     return { ok: false, response: forbiddenError() };
   }
   return result;

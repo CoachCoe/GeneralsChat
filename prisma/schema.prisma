@@ -141,7 +141,7 @@ model ComplianceAction {
   /// between a deadline the district's own policy states and one recalled from
   /// training. A confidently wrong statutory deadline is worse than no answer,
   /// so the two must be distinguishable at the row level rather than inferred
-  /// from the text. (OQ-5)
+  /// from the text.
   ///
   /// SetNull, not Cascade: deleting a policy must not delete the obligations
   /// an administrator is still on the hook for. They lose their citation and
@@ -195,7 +195,7 @@ model Policy {
 
   // Relations
   chunks            PolicyChunk[]
-  /// Obligations whose deadline was attributed to this policy. (OQ-5)
+  /// Obligations whose deadline was attributed to this policy.
   complianceActions ComplianceAction[]
 
   @@index([jurisdiction])

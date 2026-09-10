@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const actions = await prisma.complianceAction.findMany({
       where: {
         // Scoped through the incident, so a reporter sees only obligations on
-        // incidents they filed. (SEC-7)
+        // incidents they filed.
         incident: incidentScope(guard.user),
         ...(includeCompleted ? {} : { status: { not: 'completed' } }),
       },
@@ -35,12 +35,11 @@ export async function GET(request: NextRequest) {
           select: { id: true, title: true, incidentType: true, severity: true },
         },
         // The level of authority that imposes the obligation. `ObligationRow`
-        // has always rendered an `AuthorityChip` when `jurisdiction` is
-        // present, and no endpoint ever supplied it -- so the chip has never
-        // rendered once, and "authority is carried by brightness" was true of
-        // the policy library and of nothing else. `ComplianceAction` carries
-        // `policyId`, so this is a join, not a schema change. (SPEC-56,
-        // FLOW-60)
+        // renders an `AuthorityChip` when `jurisdiction` is present, so
+        // without this the chip never appears and "authority is carried by
+        // brightness" holds for the policy library and nothing else.
+        // `ComplianceAction` carries `policyId`, so this is a join rather than
+        // a schema change.
         policy: { select: { jurisdiction: true } },
       },
       // Nulls last: an obligation with no deadline is real but not urgent.
@@ -75,7 +74,7 @@ export async function GET(request: NextRequest) {
     // fact, and counting a deadline the model recalled rather than a policy
     // stated would make it a confident assertion about a guess. Unverified
     // obligations are still listed, and still say they need confirming; they
-    // just do not raise an alarm the system cannot substantiate. (OQ-5)
+    // just do not raise an alarm the system cannot substantiate.
     const backed = open.filter(o => isPolicyBacked(o.deadlineSource));
     const due = (o: (typeof obligations)[number]) =>
       o.dueDate ? new Date(o.dueDate).getTime() : null;

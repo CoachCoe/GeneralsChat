@@ -4,15 +4,12 @@ import { parseClassification } from './claude-service';
 /**
  * The parse boundary of classification.
  *
- * What these pin is that a response the model returned unparseably *throws*.
- * It used to be caught and replaced with a fabricated classification --
- * `other` / `medium`, plus two invented 24-hour obligations -- which the chat
- * route wrote to the incident permanently, with no endpoint to correct it. A
- * malformed response and a genuine "we could not tell" produced the same
- * record, on the incident where the system knew least.
- *
- * FLOW-35 removed the equivalent default from `IncidentClassifier`; this half
- * of it was left one layer down, where zod's own failures land. (B1)
+ * What these pin is that a response the model returned unparseably *throws*,
+ * here and in `IncidentClassifier` above it. Substituting a classification --
+ * `other` / `medium` plus a pair of invented 24-hour obligations -- would be
+ * written to the incident permanently, with no endpoint to correct it, and a
+ * malformed response would produce the same record as a genuine "we could not
+ * tell" on the incident where the system knows least.
  */
 describe('parseClassification', () => {
   const valid = {

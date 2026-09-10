@@ -30,7 +30,7 @@ test.describe('Navigation', () => {
     // "Policies" pointed at /admin/policies for every role, so a reporter
     // clicking it was bounced to the home queue with no explanation, and the
     // read-only library README documents was reachable only by typing the URL.
-    // The admin-only "Advisor" link had the same problem. (SPEC-50)
+    // The admin-only "Advisor" link had the same problem.
     await page.goto('/');
     const navbar = page.locator('nav[aria-label="Main"]');
 
@@ -45,7 +45,7 @@ test.describe('Navigation', () => {
   });
 
   test('a reporter cannot reach the admin pages', async ({ page }) => {
-    // Redirected away rather than shown the admin UI. (SEC-6)
+    // Redirected away rather than shown the admin UI.
     await page.goto('/admin/policies');
     await expect(page).toHaveURL(/\/$|\/login/);
     await expect(page.getByRole('heading', { name: 'Policy Management' })).toHaveCount(0);
@@ -58,7 +58,7 @@ test.describe('Navigation', () => {
     // requireRole('admin') from the policy DELETE handler lets any reporter
     // remove the district's bullying procedure from every future retrieval,
     // and nothing failed. These are the nine handlers that guard actually
-    // holds. (TEST-35)
+    // holds.
     const attempts: [('post' | 'put' | 'patch' | 'delete'), string][] = [
       ['post', '/api/admin/policies'],
       ['put', '/api/admin/policies/any-id'],
@@ -79,9 +79,9 @@ test.describe('Navigation', () => {
       ).toBe(403);
     }
 
-    // The third ingestion route is gone: called by nothing, and outside the
-    // /api/admin prefix the middleware gates, so its handler guard was the only
-    // thing holding. Reading the library is still allowed. (OQ-2)
+    // There is no ingestion route here: this path sits outside the
+    // /api/admin prefix the middleware gates, so a handler guard would be the
+    // only thing holding. Reading the library is still allowed.
     const removed = await page.request.post('/api/policies', { data: {} });
     expect(removed.status()).toBe(405);
     expect((await page.request.get('/api/policies?active=true')).status()).toBe(200);
@@ -106,7 +106,7 @@ test.describe('Navigation', () => {
     // The one unauthenticated write path. bcrypt at cost 12 runs even for an
     // address with no account, so each attempt costs ~0.25s of blocking CPU on
     // a single event loop -- a few hundred a minute take the app down for every
-    // administrator, and password guessing was unbounded. (SEC-11, SEC-23)
+    // administrator, and password guessing was unbounded.
     const anonymous = await browser.newContext({ storageState: { cookies: [], origins: [] } });
 
     let sawRateLimit = false;
@@ -161,7 +161,7 @@ test.describe('Policy library', () => {
     // -- from a failed index, or a re-index against an unmigrated schema, which
     // is the state production was once in -- was indistinguishable from a
     // fully indexed one. "5 active" over a library from which retrieval returns
-    // nothing. The fixture seeds exactly one such policy. (FLOW-74)
+    // nothing. The fixture seeds exactly one such policy.
     await page.goto('/policies');
 
     const { policies } = await (await page.request.get('/api/policies')).json();
@@ -190,7 +190,7 @@ test.describe('Policy library', () => {
 test.describe('Security response headers', () => {
   // There were none. This app holds incident records about minors and renders
   // model output as markdown, so it is a prompt-injection sink with a browser
-  // attached. (SEC-38)
+  // attached.
   test('every page carries a CSP that bounds where data can go', async ({ page }) => {
     const response = await page.goto('/');
     const headers = response?.headers() ?? {};

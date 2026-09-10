@@ -10,10 +10,9 @@ import { CATEGORY_LABELS } from '@/types';
  * Two different gaps, and the difference matters. If federal or state authority
  * was retrieved, the guidance does rest on something and only the local
  * procedure is missing. If the library holds nothing at any level, the guidance
- * rests on nothing the system can show -- and this card used to vouch for it
- * anyway, printing "It is sound" beneath a deadline no retrieved policy
- * supported. `byCategory` carries the distinction; it was computed and never
- * read. (FLOW-34)
+ * rests on nothing the system can show, and this card must not vouch for it by
+ * printing "It is sound" beneath a deadline no retrieved policy supports.
+ * `byCategory` carries the distinction.
  */
 export function CoverageGapCard({
   categories,

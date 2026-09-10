@@ -4,7 +4,7 @@ import { shouldUseSecureCookies } from './auth.config';
 /**
  * Which cookie the app issues is decided here, and getting it wrong issues an
  * unprotected session cookie for an application holding Title IX files about
- * minors — with nothing in the app reporting it. (SEC-28)
+ * minors — with nothing in the app reporting it.
  */
 describe('shouldUseSecureCookies', () => {
   it('is secure when the deployment declares https', () => {

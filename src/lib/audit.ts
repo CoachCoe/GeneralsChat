@@ -8,7 +8,7 @@ import { logAudit, logError } from '@/lib/logger';
  * nothing ever wrote a row -- logAudit only emitted an ephemeral pino line. The
  * district therefore could not answer "who accessed this student's Title IX
  * file", which is the core disclosure-accounting obligation, and could not
- * scope a breach after the fact. (SEC-17, SPEC-13, DEAD-33)
+ * scope a breach after the fact.
  */
 export type AuditAction = 'created' | 'updated' | 'deleted' | 'viewed' | 'exported';
 

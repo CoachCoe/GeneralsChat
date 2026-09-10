@@ -10,10 +10,10 @@ import type { TurnKind } from './turn-label';
  * reads the few the chat view needs and ignores the rest rather than
  * describing the whole record.
  *
- * The reason it is read at all: the history route returned only id, type,
- * content and timestamp, so reloading an incident dropped every citation the
- * guidance rested on. Provenance was visible for as long as the tab stayed
- * open and no longer -- on a tool whose answers are meant to be checked.
+ * The reason it is read at all: without it the history route carries only id,
+ * type, content and timestamp, so reloading an incident drops every citation
+ * the guidance rested on and provenance lives no longer than the tab -- on a
+ * tool whose answers are meant to be checked.
  */
 const citationSchema = z.object({
   policyId: z.string(),
@@ -39,7 +39,7 @@ export interface StoredTurn {
    * is a turn that recorded nothing, which renders no provenance at all, while
    * an empty array is a turn where retrieval ran and matched nothing, which
    * renders the "no policy text was retrieved, at any level" caution. Collapsing
-   * them would turn a stated absence into silence. (FLOW-83)
+   * them would turn a stated absence into silence.
    */
   citations?: PolicyCitation[];
   kind?: TurnKind;
@@ -48,11 +48,11 @@ export interface StoredTurn {
 /**
  * Read the fields the chat view needs out of a stored turn.
  *
- * Never throws. A row whose metadata is absent, truncated, not JSON, or JSON of
- * some shape we no longer write yields an empty result, and the turn renders
- * as one with nothing recorded -- which is what it is. A conversation must
- * still load when one turn in the middle of it cannot be read; the alternative
- * is an administrator locked out of the whole incident record by a bad row.
+ * Never throws. A row whose metadata is absent, truncated, not JSON, or JSON
+ * of an unrecognised shape yields an empty result, and the turn renders as one
+ * with nothing recorded -- which is what it is. A conversation must still load
+ * when one turn in the middle of it cannot be read; the alternative is an
+ * administrator locked out of the whole incident record by a bad row.
  */
 export function readStoredTurn(raw: string | null | undefined): StoredTurn {
   if (!raw) return {};

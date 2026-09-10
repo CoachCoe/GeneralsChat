@@ -8,9 +8,9 @@ import { isBlockedAddress } from './safe-fetch';
  * which is how `::ffff:7f00:1` went unnoticed. That is the same address as
  * `::ffff:127.0.0.1`, written in the hex notation the IPv6 parser also accepts,
  * and only the dotted-quad form was matched. `https://[::ffff:a9fe:a9fe]/`
- * reached the cloud metadata endpoint. (SEC-32)
+ * reached the cloud metadata endpoint.
  *
- * The DNS-rebinding gap (SEC-4) is a separate, knowingly-open finding: this
+ * The DNS-rebinding gap is a separate, knowingly-open finding: this
  * covers the address predicate, not the resolve-then-connect window.
  */
 describe('isBlockedAddress', () => {

@@ -83,7 +83,7 @@ describe('interval carry', () => {
   // thirty seconds of every hour rendered a time that does not exist -- on the
   // app's most prominent element, in tabular mono precisely so it reads
   // cleanly. Every existing case in this file sits comfortably inside its
-  // unit, so none of them crossed a carry. (TEST-36)
+  // unit, so none of them crossed a carry.
   it('carries 60 minutes into an hour rather than rendering 60m', () => {
     expect(describeDeadline(at(59.5 * MINUTE), 'pending', null, NOW).label).toBe('in 1h');
     expect(describeDeadline(at(59 * MINUTE + 31_000), 'pending', null, NOW).label).toBe('in 1h');
@@ -110,7 +110,7 @@ describe('interval carry', () => {
 describe('dueDateFromHours', () => {
   // The one expression every countdown, every "N overdue" count and every red
   // chip is derived from. It was inline in two places with nothing reading its
-  // output, so a unit error of 60x passed the whole suite. (B6)
+  // output, so a unit error of 60x passed the whole suite.
   const now = new Date('2026-09-08T09:00:00Z');
 
   it('adds whole hours', () => {
@@ -153,9 +153,8 @@ describe('dueDateFromHours', () => {
 });
 
 describe('isPolicyBacked', () => {
-  // The server said `=== 'policy'` and the client said `!== 'model'` over a
-  // free-text column with a 'model' default. Those are complements only while
-  // exactly two values exist. (B5, DEAD-82)
+  // `=== 'policy'` and `!== 'model'` over a free-text column with a 'model'
+  // default are complements only while exactly two values exist.
   it('is true only for the recorded policy value', () => {
     expect(isPolicyBacked('policy')).toBe(true);
   });
@@ -176,10 +175,10 @@ describe('isPolicyBacked', () => {
 });
 
 describe('deadlineColor', () => {
-  // OQ-5: "A model-sourced deadline gets no red or amber countdown." This lived
-  // only inside DeadlineClock, so the obligation row was dimmed while the
-  // "N overdue" pill above it, the incidents-list countdown and the timeline
-  // dots painted the same row red from the same data. (B5)
+  // A model-sourced deadline gets no red or amber countdown. The rule has to
+  // live here rather than in DeadlineClock, or the obligation row is dimmed
+  // while the "N overdue" pill above it, the incidents-list countdown and the
+  // timeline dots paint the same row red from the same data.
   it('gives a policy-backed deadline the colour its state has earned', () => {
     expect(deadlineColor('overdue', 'policy')).toBe('text-overdue');
     expect(deadlineColor('attention', 'policy')).toBe('text-attention');

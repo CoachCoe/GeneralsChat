@@ -71,7 +71,7 @@ setup has, and refuse to run against anything else:
 
 The `test-` prefix on the first three does not mean they are tests; they are not
 part of any gate. The guard lives in `scripts/support/require-test-database.ts`.
-(B7, B8) Re-indexing against production with an unmigrated schema is what once
+Re-indexing against production with an unmigrated schema is what once
 left every policy with zero chunks and retrieval silently returning nothing.
 Prefer `npm run policies:reindex` with no flag — it is a dry run — and read what
 it says it would do before passing `--apply`.
@@ -91,7 +91,6 @@ forward on activity, so a demotion would otherwise not take effect while the
 user kept working. A deleted account is 401, not 403. `src/middleware.ts` still
 gates `/admin` on the token's role because Prisma cannot run on the Edge — that
 is a page shell, and every `/api/admin` handler re-checks against the row.
-(SEC-19)
 
 **Scope every by-id lookup.** `incidentScope(user)` — reporters see only what
 they filed. An out-of-scope row returns **404, not 403**, so ids are not
@@ -142,7 +141,6 @@ and its patterns should not come back.
   deadline: an actionable compliance warning the administrator has to do
   something about. It was a documented design decision that this rule
   contradicted; the rule was widened rather than the components repainted.
-  (OQ-1)
 - **Three fonts, three jobs.** DM Serif Display for titles and answers, DM Sans
   for body and obligation titles, JetBrains Mono with tabular numerals for every
   time, id and count — digits must not jitter as a countdown ticks.
@@ -168,8 +166,8 @@ chat-history-item | obligation-queue | obligation-row`, `aria-label="Send messag
 
 `obligation-row` exists so a test can assert the queue is **exhaustive** — that
 the number of rows rendered equals the number of open obligations the API
-reports. Three groups of filters used to drop unverified late rows on the floor
-and nothing could see it. (B3)
+reports. Three groups of filters can each drop an unverified late row on the
+floor with nothing able to see it.
 
 ## Conventions
 
@@ -186,6 +184,18 @@ and nothing could see it. (B3)
 
 `docs/roadmap.md` — **the living to-do list.** Priority order, ownership, and an
 explicit list of what is deliberately *not* being built. Edit it in place.
-`docs/audit/` — what was found and fixed, with reasoning. Dated; do not rewrite.
-`docs/history/` — snapshots that no longer describe the system. Dated; do not
-rewrite.
+
+**Open work is an issue, not a document.** Anything an audit leaves unfixed goes
+to the tracker before the audit's own files stop being tracked — a finding that
+lives only in a dated file is a finding nobody will read again.
+
+`docs/audit/` and `docs/history/` are untracked and `.gitignore`d. They are
+working documents — dated records of what was found and fixed, and snapshots
+that no longer describe the system — so they are not part of what a stranger
+clones. Nothing tracked should cite a finding ID, because a fresh clone cannot
+resolve one: state the substance instead. The existing records stay readable in
+git history at `cc759fc`.
+
+Committed Markdown is limited to what a stranger needs: `README.md`, the
+licence, and docs written in the present tense about how the system works
+today.

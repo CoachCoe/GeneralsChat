@@ -60,7 +60,7 @@ describe('parseTurnLabel', () => {
 
   it('reports empty content when the model returns nothing but a marker', () => {
     // The caller turns this into a failed turn rather than writing a blank
-    // answer into the incident record. (FLOW-7)
+    // answer into the incident record.
     expect(parseTurnLabel('[[TURN: guidance]]').content).toBe('');
     expect(parseTurnLabel('[[TURN: question]]\n\n   ').content.trim()).toBe('');
   });

@@ -60,7 +60,7 @@ export async function processDocument(filePath: string): Promise<ProcessedDocume
         // title*. An administrator asking about bullying could be shown binary
         // noise attributed to Policy JICK. A confidently wrong citation is
         // worse than no answer, so this fails with something the operator can
-        // act on instead. (FLOW-72)
+        // act on instead.
         throw new Error(
           'Legacy .doc files cannot be read. Open it and save as .docx or PDF, then upload that.'
         );
@@ -73,7 +73,6 @@ export async function processDocument(filePath: string): Promise<ProcessedDocume
         throw new Error(`Unsupported file type: ${fileExtension}`);
     }
     
-    // Clean up the content
     content = cleanText(content);
     metadata.wordCount = countWords(content);
     
@@ -128,11 +127,6 @@ export function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
-export async function extractTextFromFile(filePath: string): Promise<string> {
-  const processed = await processDocument(filePath);
-  return processed.content;
-}
-
 /**
  * Split text into overlapping chunks, by word.
  *
@@ -173,13 +167,11 @@ export function extractKeywords(text: string): string[] {
     .split(/\s+/)
     .filter(word => word.length > 3);
   
-  // Count word frequency
   const wordCount: Record<string, number> = {};
   words.forEach(word => {
     wordCount[word] = (wordCount[word] || 0) + 1;
   });
   
-  // Return top keywords
   return Object.entries(wordCount)
     .sort(([,a], [,b]) => b - a)
     .slice(0, 20)

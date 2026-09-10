@@ -2,10 +2,7 @@ import { test, expect } from '@playwright/test';
 import { STORAGE_STATE } from '../playwright.config';
 import { TEST_USERS, deleteUserByEmail, setUserRole } from './support/seed';
 
-/**
- * Admin-only routes, which the reporter project cannot reach and therefore
- * had no coverage at all before this.
- */
+/** Admin-only routes, which the reporter project cannot reach. */
 test.describe('Admin routes', () => {
   for (const route of ['/admin/policies', '/admin/prompt', '/policies']) {
     test(`${route} renders for an admin`, async ({ page }) => {
@@ -25,8 +22,7 @@ test.describe('Admin routes', () => {
   });
 
   test('an admin still sees the advisor-profile link a reporter does not', async ({ page }) => {
-    // The other half of SPEC-50: gating the link on role must not hide it from
-    // the role it exists for.
+    // Gating the link on role must not hide it from the role it exists for.
     await page.goto('/');
     await expect(
       page.locator('nav[aria-label="Main"]').locator('a[href="/admin/prompt"]').first()
@@ -35,14 +31,13 @@ test.describe('Admin routes', () => {
 });
 
 /**
- * SEC-19. Role was read off the JWT, and the `jwt` callback only writes it at
- * sign-in -- so a demotion took effect no sooner than the token expired, and
- * `updateAge` rolls the token forward on activity, meaning an administrator
- * demoted mid-shift kept administrator access for as long as they kept working.
- * There was no mechanism to revoke anything at all.
+ * Role must come from the user row, not the JWT: the `jwt` callback writes it
+ * only at sign-in, and `updateAge` rolls the token forward on activity, so a
+ * token-derived role would keep an administrator demoted mid-shift in place
+ * for as long as they kept working.
  *
  * Both tests act on a session that is already signed in, because that is the
- * only state in which the bug exists. Signing in again would mint a token
+ * only state in which the bug can exist. Signing in again would mint a token
  * carrying the new role and prove nothing.
  */
 test.describe('Revoking access', () => {
@@ -85,5 +80,62 @@ test.describe('Revoking access', () => {
     } finally {
       await context.close();
     }
+  });
+});
+
+/**
+ * `PUT /api/admin/policies/[id]` edits a row the guidance is already citing,
+ * so an unchecked field here degrades a live policy rather than failing to
+ * create one. Every other write path in the app goes through
+ * `validateRequest`; asserting the schema in isolation would not catch this
+ * one being wired back to a hand-rolled check of two fields.
+ *
+ * Only rejections are asserted against real values, so the seeded library is
+ * unchanged by the run.
+ */
+test.describe('Policy update validation', () => {
+  async function firstPolicy(request: import('@playwright/test').APIRequestContext) {
+    const response = await request.get('/api/policies?active=true');
+    expect(response.status()).toBe(200);
+    const { policies } = await response.json();
+    expect(policies.length).toBeGreaterThan(0);
+    return policies[0] as { id: string; title: string };
+  }
+
+  test('refuses an empty title rather than blanking a live policy', async ({ page }) => {
+    const policy = await firstPolicy(page.request);
+    const response = await page.request.put(`/api/admin/policies/${policy.id}`, {
+      data: { title: '' },
+    });
+    expect(response.status()).toBe(400);
+
+    const after = await firstPolicy(page.request);
+    expect(after.title).toBe(policy.title);
+  });
+
+  test('refuses a non-boolean isActive rather than 500ing in Prisma', async ({ page }) => {
+    const policy = await firstPolicy(page.request);
+    const response = await page.request.put(`/api/admin/policies/${policy.id}`, {
+      data: { isActive: 'yes' },
+    });
+    expect(response.status()).toBe(400);
+  });
+
+  test('refuses a field the handler does not apply', async ({ page }) => {
+    // `version` is a real column that no branch of the handler writes, so
+    // accepting it would report a write that did not happen.
+    const policy = await firstPolicy(page.request);
+    const response = await page.request.put(`/api/admin/policies/${policy.id}`, {
+      data: { version: 2 },
+    });
+    expect(response.status()).toBe(400);
+  });
+
+  test('still applies a valid update', async ({ page }) => {
+    const policy = await firstPolicy(page.request);
+    const response = await page.request.put(`/api/admin/policies/${policy.id}`, {
+      data: { title: policy.title },
+    });
+    expect(response.status()).toBe(200);
   });
 });

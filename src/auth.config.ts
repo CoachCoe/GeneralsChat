@@ -42,7 +42,7 @@ function isAdminPath(pathname: string): boolean {
  * a __Secure- cookie is rejected outright there, so auth would break in tests
  * for a reason that has nothing to do with the code under test.
  *
- * The declared URL is the one signal that is true in both places. (SEC-28)
+ * The declared URL is the one signal that is true in both places.
  */
 export function shouldUseSecureCookies(declaredUrl: string | undefined): boolean {
   return (declaredUrl ?? '').trim().toLowerCase().startsWith('https://');

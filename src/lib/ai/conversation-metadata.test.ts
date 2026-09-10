@@ -30,7 +30,7 @@ describe('readStoredTurn', () => {
    * round trip: retrieval ran and matched nothing, versus a turn that recorded
    * nothing at all. The first renders the "no policy text was retrieved, at any
    * level" caution; the second renders no block. Collapsing them would turn a
-   * stated absence into silence. (FLOW-83)
+   * stated absence into silence.
    */
   it('keeps an empty citations array distinct from an absent one', () => {
     expect(readStoredTurn(JSON.stringify({ citations: [] })).citations).toEqual([]);

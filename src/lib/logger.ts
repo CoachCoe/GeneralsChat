@@ -47,19 +47,6 @@ const logger = pino(
   destination
 );
 
-/**
- * Create a child logger with additional context
- */
-export function createLogger(context: string | Record<string, unknown>) {
-  if (typeof context === 'string') {
-    return logger.child({ context });
-  }
-  return logger.child(context);
-}
-
-/**
- * Log API request
- */
 export function logRequest(method: string, path: string, userId?: string) {
   logger.info({
     type: 'request',
@@ -69,9 +56,6 @@ export function logRequest(method: string, path: string, userId?: string) {
   }, `${method} ${path}`);
 }
 
-/**
- * Log API response
- */
 export function logResponse(method: string, path: string, statusCode: number, duration: number) {
   const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
   logger[level]({
@@ -83,9 +67,6 @@ export function logResponse(method: string, path: string, statusCode: number, du
   }, `${method} ${path} - ${statusCode} (${duration}ms)`);
 }
 
-/**
- * Log error with stack trace
- */
 export function logError(error: Error, context?: Record<string, unknown>) {
   logger.error({
     type: 'error',
@@ -98,21 +79,6 @@ export function logError(error: Error, context?: Record<string, unknown>) {
   }, error.message);
 }
 
-/**
- * Log database operation
- */
-export function logDatabaseOperation(operation: string, model: string, duration?: number) {
-  logger.debug({
-    type: 'database',
-    operation,
-    model,
-    duration,
-  }, `DB: ${operation} ${model}${duration ? ` (${duration}ms)` : ''}`);
-}
-
-/**
- * Log external API call
- */
 export function logExternalAPI(service: string, endpoint: string, duration?: number, error?: Error) {
   if (error) {
     logger.error({
@@ -134,9 +100,6 @@ export function logExternalAPI(service: string, endpoint: string, duration?: num
   }
 }
 
-/**
- * Log audit event (user actions)
- */
 export function logAudit(userId: string, action: string, resourceType: string, resourceId: string, details?: Record<string, unknown>) {
   logger.info({
     type: 'audit',
@@ -148,9 +111,6 @@ export function logAudit(userId: string, action: string, resourceType: string, r
   }, `AUDIT: ${userId} ${action} ${resourceType}:${resourceId}`);
 }
 
-/**
- * Log AI/ML operation
- */
 export function logAIOperation(operation: string, model: string, tokensUsed?: number, duration?: number, cost?: number) {
   logger.info({
     type: 'ai_operation',
@@ -163,16 +123,20 @@ export function logAIOperation(operation: string, model: string, tokensUsed?: nu
 }
 
 /**
- * Log security event
+ * A refused request that a caller had no business making.
+ *
+ * Separate from `logAudit`, which records what an authorised user did to a
+ * record: this records the attempts that were turned away, which is the half
+ * an incident review needs and the half nothing else in the app emits. Warn
+ * level so it survives a production log filter set to hide info.
  */
-export function logSecurity(event: string, userId?: string, ipAddress?: string, details?: Record<string, unknown>) {
-  logger.warn({
-    type: 'security',
-    event,
-    userId,
-    ipAddress,
-    ...details,
-  }, `SECURITY: ${event}`);
+export function logSecurity(
+  event: string,
+  userId?: string,
+  ipAddress?: string,
+  details?: Record<string, unknown>
+) {
+  logger.warn({ type: 'security', event, userId, ipAddress, ...details }, `SECURITY: ${event}`);
 }
 
 export default logger;

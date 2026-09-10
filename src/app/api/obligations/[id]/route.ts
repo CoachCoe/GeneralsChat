@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { status } = parsed.data;
 
     // Scope through the incident before writing, so one user cannot discharge
-    // another's statutory obligation. (SEC-7)
+    // another's statutory obligation.
     const existing = await prisma.complianceAction.findFirst({
       where: { id, incident: incidentScope(guard.user) },
       select: { id: true, incidentId: true, description: true },

@@ -18,10 +18,9 @@ interface Counts {
 /**
  * Home is the obligation queue. (design 1a)
  *
- * The homepage used to be three navigation cards. An administrator opens this
- * app to find out what they are late on, and nothing on screen answered that --
- * while the data to answer it was being written on every classified incident
- * and never read back.
+ * An administrator opens this app to find out what they are late on, and the
+ * data to answer that is written on every classified incident. The home screen
+ * answers it directly rather than offering navigation.
  */
 export default function HomePage() {
   const [obligations, setObligations] = useState<Obligation[]>([]);
@@ -69,7 +68,7 @@ export default function HomePage() {
   // retrieved policy actually supports -- the same rule /api/obligations
   // applies to its tallies. Counting an unverified deadline here would put a
   // guess in the largest text on the page. Those obligations are still listed
-  // below, and say on their own row that they need confirming. (OQ-5)
+  // below, and say on their own row that they need confirming.
   const verified = open.filter(o => isPolicyBacked(o.deadlineSource));
 
   const overdue = verified.filter(o => due(o) !== null && due(o)! < now);
@@ -77,20 +76,18 @@ export default function HomePage() {
     o => due(o) !== null && due(o)! >= now && due(o)! <= endOfToday.getTime()
   );
 
-  // The four groups partition `open`. They used to be three, and they did not:
-  // `overdue` and `today` were drawn from `verified` while `later` required a
-  // deadline after midnight or none at all, so an unverified obligation due
-  // before tonight matched none of them and was rendered nowhere -- it could
-  // not even be marked done. `deadlineSource` defaults to 'model', so with a
-  // thin library that is the common case, and the row that disappeared was
-  // always the urgent one: a 24-hour mandatory report with no citable
-  // provision vanished from the queue an administrator opens to find out what
-  // they are late on. The comment above still promised those rows were "listed
-  // below", and the subhead counted them.
+  // The four groups must partition `open`. With only three -- `overdue` and
+  // `today` drawn from `verified`, `later` requiring a deadline after midnight
+  // or none at all -- an unverified obligation due before tonight matches none
+  // of them and renders nowhere, so it cannot even be marked done.
+  // `deadlineSource` defaults to 'model', so with a thin library that is the
+  // common case, and the row that vanishes is the urgent one: a 24-hour
+  // mandatory report with no citable provision.
   //
   // They get their own group rather than joining Overdue or Due today, because
   // those headings are claims about a statutory clock and this deadline is not
-  // one. Neutral tone, so OQ-5's no-red-or-amber rule still holds. (B3, OQ-7)
+  // one. Neutral tone, so the no-red-or-amber rule for unverified deadlines
+  // still holds.
   const unconfirmedNow = open.filter(
     o => !isPolicyBacked(o.deadlineSource) && due(o) !== null && due(o)! <= endOfToday.getTime()
   );
@@ -104,7 +101,7 @@ export default function HomePage() {
   // an idle session timeout, where "Could not load your obligations" appeared
   // *underneath* a 40px claim that nothing was outstanding. It is the most
   // prominent sentence in the product and it is a claim about legal exposure.
-  // CLAUDE.md: "When in doubt, say the system does not know." (B4)
+  // CLAUDE.md: "When in doubt, say the system does not know."
   const settled = !loading && !error;
 
   const headline = !settled
