@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@/generated/prisma';
-import { logError } from './logger';
+import { logError, logSecurity } from './logger';
 import { checkRateLimit } from './rate-limit';
 
 /**
@@ -16,10 +16,7 @@ export interface ApiError {
   code?: string;
 }
 
-/**
- * Handle Prisma errors and convert to user-friendly messages
- */
-export function handlePrismaError(error: unknown): {
+function handlePrismaError(error: unknown): {
   status: number;
   message: string;
   code?: string;
@@ -99,7 +96,6 @@ export function handlePrismaError(error: unknown): {
     };
   }
 
-  // Unknown Prisma error
   return {
     status: 500,
     message: 'An unexpected database error occurred',
@@ -107,15 +103,11 @@ export function handlePrismaError(error: unknown): {
   };
 }
 
-/**
- * Create a standardized error response
- */
 export function createErrorResponse(
   error: unknown,
   defaultMessage: string = 'An unexpected error occurred',
   context?: Record<string, any>
 ): NextResponse {
-  // Handle Prisma errors
   if (
     error instanceof Prisma.PrismaClientKnownRequestError ||
     error instanceof Prisma.PrismaClientValidationError ||
@@ -137,11 +129,9 @@ export function createErrorResponse(
     );
   }
 
-  // Handle standard Error objects
   if (error instanceof Error) {
     logError(error, context);
 
-    // Check for specific error types
     if (error.message.includes('API key')) {
       return NextResponse.json(
         {
@@ -175,7 +165,6 @@ export function createErrorResponse(
       );
     }
 
-    // Generic error
     return NextResponse.json(
       {
         error: defaultMessage,
@@ -186,7 +175,6 @@ export function createErrorResponse(
     );
   }
 
-  // Unknown error type
   logError(new Error(String(error)), context);
 
   return NextResponse.json(
@@ -198,9 +186,6 @@ export function createErrorResponse(
   );
 }
 
-/**
- * Validation error response
- */
 export function validationError(
   message: string,
   details?: any
@@ -216,9 +201,6 @@ export function validationError(
   );
 }
 
-/**
- * Not found error response
- */
 export function notFoundError(
   resource: string = 'Resource'
 ): NextResponse {
@@ -231,9 +213,6 @@ export function notFoundError(
   );
 }
 
-/**
- * Unauthorized error response
- */
 export function unauthorizedError(
   message: string = 'Unauthorized'
 ): NextResponse {
@@ -246,9 +225,6 @@ export function unauthorizedError(
   );
 }
 
-/**
- * Forbidden error response
- */
 export function forbiddenError(
   message: string = 'Access forbidden'
 ): NextResponse {
@@ -261,26 +237,7 @@ export function forbiddenError(
   );
 }
 
-/**
- * Service unavailable error response
- */
-export function serviceUnavailableError(
-  service: string = 'Service'
-): NextResponse {
-  return NextResponse.json(
-    {
-      error: `${service} is currently unavailable`,
-      message: 'Please try again later',
-      code: 'SERVICE_UNAVAILABLE',
-    } as ApiError,
-    { status: 503 }
-  );
-}
-
-/**
- * Rate limit error response
- */
-export function rateLimitError(): NextResponse {
+function rateLimitError(): NextResponse {
   return NextResponse.json(
     {
       error: 'Too many requests',
@@ -297,7 +254,7 @@ export function rateLimitError(): NextResponse {
  * Lives here rather than in `rate-limit.ts` because `middleware.ts` imports the
  * counter, and middleware runs on the Edge runtime: pulling this file in would
  * drag Prisma into that bundle and fail the build. The counter stays pure; the
- * response shape stays with the other response helpers. (SEC-23)
+ * response shape stays with the other response helpers.
  *
  * Keyed by user id rather than address, because these routes are authenticated
  * and the thing being bounded is what one account can spend. A school's shared
@@ -310,14 +267,15 @@ export function enforceRateLimit(
   const result = checkRateLimit(key, limit, windowMs);
   if (result.allowed) return null;
 
+  // The sign-in limiter is not routed through here: it lives in middleware.ts,
+  // which runs on the Edge and cannot pull in this file.
+  logSecurity('rate_limit_exceeded', undefined, undefined, { key, limit, windowMs });
+
   const response = rateLimitError();
   response.headers.set('Retry-After', String(result.retryAfterSeconds));
   return response;
 }
 
-/**
- * Success response helper
- */
 export function successResponse<T>(
   data: T,
   status: number = 200
