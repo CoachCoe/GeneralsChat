@@ -9,6 +9,7 @@ function seededIds(): {
   adminIncidentId: string;
   adminObligationId: string;
   reporterIncidentId: string;
+  otherTypeIncidentId: string;
   closedIncidentId: string;
 } {
   return JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8'));
@@ -584,5 +585,109 @@ test.describe('Incident summary', () => {
 
     const missing = await page.request.post('/api/incidents/does-not-exist/summary');
     expect(missing.status()).toBe(404);
+  });
+});
+
+/**
+ * The two documents an incident produces are what leaves the building: the
+ * consultation summary goes in the student's file, and the report form is a
+ * legal filing.
+ */
+test.describe('Incident documents', () => {
+  test('names both documents on the incident, above the fold', async ({ page }) => {
+    const { reporterIncidentId } = seededIds();
+    await page.goto(`/incidents/${reporterIncidentId}`);
+
+    const documents = page.getByRole('navigation', { name: 'Documents' });
+    await expect(documents.getByRole('link', { name: /Consultation summary/ })).toBeVisible();
+    await expect(documents.getByRole('link', { name: /Mandatory report/ })).toBeVisible();
+
+    await documents.getByRole('link', { name: /Consultation summary/ }).click();
+    await expect(page).toHaveURL(new RegExp(`/incidents/${reporterIncidentId}/summary$`));
+  });
+
+  test('offers to write a summary that does not exist yet, rather than an empty page', async ({
+    page,
+  }) => {
+    const { reporterIncidentId } = seededIds();
+    await page.goto(`/incidents/${reporterIncidentId}/summary`);
+
+    await expect(page.getByTestId('incident-summary')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Generate Summary' })).toBeVisible();
+  });
+
+  test('shows a generated summary as a document of its own', async ({ page }) => {
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill(
+      'A student is being bullied repeatedly by a classmate during recess.'
+    );
+    const [chat] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+    const { incidentId } = await chat.json();
+    const generated = await page.request.post(`/api/incidents/${incidentId}/summary`);
+    expect(generated.status()).toBe(200);
+
+    await page.goto(`/incidents/${incidentId}/summary`);
+    await expect(page.getByTestId('incident-summary')).toBeVisible();
+    // Reachable without walking the transcript it was written from.
+    await expect(page.getByRole('button', { name: 'Generate Summary' })).toHaveCount(0);
+  });
+
+  test('fills the district form from the record and leaves the rest blank', async ({ page }) => {
+    const { reporterIncidentId } = seededIds();
+    await page.goto(`/incidents/${reporterIncidentId}/report`);
+
+    // The document the district marked as a form, parsed as loaded -- not the
+    // Uniform Complaint Procedure seeded beside it, which a title match picks
+    // because 'Form' is a substring of 'Uniform'.
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      'SAU 24 School Bullying Investigation Form'
+    );
+
+    const report = page.getByTestId('incident-report');
+    await expect(report).toContainText('Date reported to Principal/Designee');
+    await expect(report).toContainText('from the incident record');
+    // Four of the fixture's six. The victim's name and the administrator's
+    // position stay blank: neither is in the record, and inferring the first
+    // from the reporter's prose is how a report names the wrong child.
+    await expect(page.getByText('4 of 6 fields filled from the record')).toBeVisible();
+    await expect(report).toContainText('Name of Alleged Victim');
+    await expect(report).toContainText('on school bus');
+  });
+
+  test('says no form applies rather than picking one, when the incident is unclassified', async ({
+    page,
+  }) => {
+    const created = await page.request.post('/api/incidents', {
+      data: { title: 'Unclassified incident', description: 'Filed but not yet described.' },
+    });
+    const { incident } = await created.json();
+
+    await page.goto(`/incidents/${incident.id}/report`);
+    const gap = page.getByTestId('report-gap');
+    await expect(gap).toContainText('has not been classified');
+    await expect(page.getByTestId('incident-report')).toHaveCount(0);
+  });
+
+  test('tells a classified incident no form maps to it, rather than that it is unclassified', async ({
+    page,
+  }) => {
+    // `other` maps to no category by design. Reading that as "not classified
+    // yet" sends the administrator back to chat to redo work already done.
+    const { otherTypeIncidentId } = seededIds();
+    await page.goto(`/incidents/${otherTypeIncidentId}/report`);
+
+    const gap = page.getByTestId('report-gap');
+    await expect(gap).toContainText('No report form is loaded');
+    await expect(gap).not.toContainText('has not been classified');
+  });
+
+  test('does not build a report for an incident the reporter may not read', async ({ page }) => {
+    const { adminIncidentId } = seededIds();
+    const response = await page.request.get(`/api/incidents/${adminIncidentId}/report`);
+    // 404, not 403: the id must not be confirmed.
+    expect(response.status()).toBe(404);
   });
 });

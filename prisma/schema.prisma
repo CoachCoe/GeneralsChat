@@ -185,6 +185,11 @@ model Policy {
   /// This is what incident classification matches against during retrieval.
   category String @default("other")
 
+  /// Whether the document is read ('policy') or filled out and filed ('form').
+  /// The report page selects on this. It was selecting on a title substring,
+  /// which matches 'Uniform' as readily as 'Form'.
+  documentKind String @default("policy")
+
   isActive Boolean @default(true)
 
   // Metadata (JSON: keywords, categories, etc.)
@@ -205,6 +210,7 @@ model Policy {
   @@index([effectiveDate])
   // Retrieval filters on category + isActive together.
   @@index([category, isActive])
+  @@index([documentKind, category, isActive])
 }
 
 model PolicyChunk {

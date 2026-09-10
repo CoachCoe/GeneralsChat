@@ -274,9 +274,16 @@ test.describe('Classification and library scope', () => {
     expect(body.coverage.categoriesWithoutLocalPolicy).toContain('emergency_operations');
     expect(body.coverage.categoriesWithoutLocalPolicy).not.toContain('discipline');
 
-    await expect(page.getByTestId('chat-sources')).toContainText(
-      'No district or school policy covers'
-    );
+    // The rail reports the gap as a dashed local rung. It is the only telling
+    // of it now -- the amber card that used to restate it under the answer
+    // said, for a third time in one turn, what the ladder and the answer's own
+    // prose already said.
+    const sources = page.getByTestId('chat-sources');
+    await expect(sources).toContainText('Nothing on file for');
+    await expect(sources).toContainText('school safety');
+    await expect(sources).toContainText('emergency operations');
+    // Labelled, not the database slug an administrator should never meet.
+    await expect(sources).not.toContainText('school_safety');
   });
 
   test('flags the whole subject as outside the library when nothing local covers it', async ({ page }) => {
@@ -356,7 +363,10 @@ test.describe('Classification and library scope', () => {
     expect((await answered.json()).kind).toBe('guidance');
     await expect(page.getByText(STUB_REPLY)).toBeVisible();
     await expect(page.getByTestId('chat-sources')).toHaveCount(1);
-    await expect(page.getByTestId('chat-sources')).toContainText('This rests on');
+    // The rail names what it is describing: the incident, not this one turn.
+    await expect(page.getByRole('complementary', { name: 'Sources' })).toContainText(
+      'This incident rests on'
+    );
   });
 
   test('reopening a past incident still shows what each answer rested on', async ({ page }) => {
@@ -398,10 +408,14 @@ test.describe('Classification and library scope', () => {
     await expect(page.getByText(STUB_QUESTION_REPLY)).toBeVisible();
     await expect(page.getByText(STUB_REPLY)).toBeVisible();
 
-    // Exactly one block, on the answer -- not on the question above it.
+    // One rail for the conversation, holding what the answer rested on. The
+    // question contributed nothing to it -- it is the same claim it always
+    // was, kept beside the transcript rather than under each turn.
     const sources = page.getByTestId('chat-sources');
     await expect(sources).toHaveCount(1);
-    await expect(sources).toContainText('This rests on');
+    await expect(page.getByRole('complementary', { name: 'Sources' })).toContainText(
+      'This incident rests on'
+    );
     await expect(sources).toContainText('Policy JICK: Bullying Prevention');
     // Down to the provision, which is the half that makes a citation checkable.
     await expect(sources).toContainText('JICK §D');

@@ -111,6 +111,23 @@ export enum UserRole {
  * because an administrator needs to know both the statutory requirement and
  * the local procedure that satisfies it.
  */
+/**
+ * What a loaded document *is*, as distinct from what it is about.
+ *
+ * A report form is filled out and filed; a policy is read. The report page
+ * needs to find the district's form, and a title match cannot do it -- `Form`
+ * is a substring of `Uniform`, and printing a Uniform Complaint Procedure
+ * under the heading "Mandatory report" is exactly the mistake that page
+ * exists to prevent.
+ */
+export const DOCUMENT_KINDS = ['policy', 'form'] as const;
+export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
+
+export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
+  policy: 'Policy',
+  form: 'Report form',
+};
+
 export const POLICY_JURISDICTIONS = ['federal', 'state', 'district', 'school'] as const;
 export type PolicyJurisdiction = (typeof POLICY_JURISDICTIONS)[number];
 

@@ -185,13 +185,11 @@ in the excerpts above can change:
 /**
  * How the model tells the interface what kind of turn it just wrote.
  *
- * The chat view hangs a provenance block under each assistant turn -- the
- * "This rests on" ladder and the coverage-gap card. Retrieval cannot decide
- * when to show it, because retrieval knows what was fetched, not what the
- * answer used: a turn that only asks "who else saw this?" was still shown a
- * ladder naming three policies it never touched, and the amber gap card
- * repeated on every turn until it read as page furniture rather than a
- * warning.
+ * The chat view keeps a sources rail beside the transcript, naming what the
+ * conversation rests on. Retrieval cannot decide what belongs there, because
+ * retrieval knows what was fetched, not what the answer used: a turn that only
+ * asks "who else saw this?" put three policies in the rail that it never
+ * touched.
  *
  * Carried as a marker line rather than by wrapping the reply in JSON, so a
  * parse failure cannot cost an administrator the answer itself. Parsed and

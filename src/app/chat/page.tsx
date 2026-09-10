@@ -2,17 +2,15 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Send, Plus, Paperclip, Menu } from 'lucide-react';
+import { Send, Plus, Paperclip, Menu, PanelRightClose } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
-import { SourceLadder } from '@/components/design/SourceLadder';
 import type { TurnKind } from '@/lib/ai/turn-label';
-import { CoverageGapCard } from '@/components/design/CoverageGapCard';
 import { ClassificationChip } from '@/components/design/ClassificationChip';
-import { LibraryScopeNote } from '@/components/design/LibraryScopeNote';
-import { ALWAYS_RETRIEVED_CATEGORY } from '@/types';
+import { ProvenanceRail } from '@/components/design/ProvenanceRail';
+import { conversationProvenance } from '@/lib/provenance';
 
 interface Citation {
   policyId: string;
@@ -32,19 +30,6 @@ interface Coverage {
 interface Classification {
   type: string;
   severity?: string | null;
-}
-
-/**
- * True when nothing the incident is actually *about* has a local policy.
- *
- * mandatory_reporting is appended to every incident and is nearly always
- * covered locally, so it has to be excluded — otherwise this is never true and
- * the scope note never appears.
- */
-function isSubjectOutsideLibrary(coverage: Coverage): boolean {
-  const subject = coverage.categories.filter(c => c !== ALWAYS_RETRIEVED_CATEGORY);
-  if (subject.length === 0) return false;
-  return subject.every(c => coverage.categoriesWithoutLocalPolicy.includes(c));
 }
 
 /**
@@ -110,6 +95,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sendError, setSendError] = useState<SendFailure | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [railOpen, setRailOpen] = useState(true);
 
   // The sidebar is 260px and defaulted open, which left 115px for the
   // conversation on a phone -- the composer was effectively unreachable.
@@ -119,6 +105,17 @@ export default function ChatPage() {
     const apply = (matches: boolean) => {
       if (matches) setSidebarOpen(false);
     };
+    apply(narrow.matches);
+    const onChange = (e: MediaQueryListEvent) => apply(e.matches);
+    narrow.addEventListener('change', onChange);
+    return () => narrow.removeEventListener('change', onChange);
+  }, []);
+
+  // With both panels open it is the answer that loses width first, so the
+  // rail folds before the history does. Still togglable. (design 1i)
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 1179px)');
+    const apply = (matches: boolean) => setRailOpen(!matches);
     apply(narrow.matches);
     const onChange = (e: MediaQueryListEvent) => apply(e.matches);
     narrow.addEventListener('change', onChange);
@@ -358,6 +355,11 @@ export default function ChatPage() {
     }
   };
 
+  const provenance = conversationProvenance(messages);
+  // The last classification wins: it is refined as the administrator says
+  // more, and the scope note names what the system currently thinks this is.
+  const incidentType = messages.filter(m => m.classification).pop()?.classification?.type;
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
       <Navbar />
@@ -510,16 +512,35 @@ export default function ChatPage() {
               )}
             </div>
 
-            {messages.length > 0 && incidentId && (
-              <Button
-                onClick={handleEndChat}
-                disabled={isGeneratingSummary}
-                variant="destructive"
-                size="sm"
-              >
-                {isGeneratingSummary ? 'Generating Summary...' : 'End Chat'}
-              </Button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {provenance && !railOpen && (
+                <button
+                  onClick={() => setRailOpen(true)}
+                  className="eyebrow"
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    color: 'var(--color-text-muted)',
+                    background: 'transparent',
+                    border: '1px solid var(--color-line)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Sources
+                </button>
+              )}
+
+              {messages.length > 0 && incidentId && (
+                <Button
+                  onClick={handleEndChat}
+                  disabled={isGeneratingSummary}
+                  variant="destructive"
+                  size="sm"
+                >
+                  {isGeneratingSummary ? 'Generating Summary...' : 'End Chat'}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Messages Area */}
@@ -633,73 +654,6 @@ export default function ChatPage() {
                           )}
                         </div>
 
-                        {/*
-                          The provenance block is a claim about the text above
-                          it: these are the policies it rests on, and this is
-                          what the library does not cover. A turn that only
-                          asks a clarifying question makes no claim, so it gets
-                          no block -- it was previously shown the full ladder
-                          plus an amber gap card under "can you describe what
-                          happened between them?", vouching for an assertion
-                          nobody had made and repeating the gap warning every
-                          turn until it read as furniture.
-
-                          Gated on `=== 'question'` rather than on
-                          `!== 'guidance'`: only an explicit, well-formed
-                          question label suppresses it, so an unlabelled or
-                          unreadable turn still shows its sources.
-                        */}
-                        {message.type === 'general' &&
-                          message.kind !== 'question' &&
-                          message.citations && (
-                          <div data-testid="chat-sources" className="mt-4 flex flex-col gap-4">
-                            {message.citations.length > 0 ? (
-                              <SourceLadder
-                                sources={message.citations.map((c) => ({
-                                  jurisdiction: c.jurisdiction,
-                                  title: c.title,
-                                  sections: c.sections,
-                                }))}
-                                gapCategories={message.coverage?.categoriesWithoutLocalPolicy ?? []}
-                              />
-                            ) : (
-                              <div className="text-[13px] text-text-muted">
-                                {/*
-                                  Says what is true. Zero citations means zero
-                                  chunks from *any* jurisdiction, since
-                                  buildCitations iterates every retrieved chunk
-                                  regardless of level. Wording this as "no
-                                  matching district policy" would imply state
-                                  and federal were consulted when nothing was.
-                                  The prompt side draws this distinction; the
-                                  UI must not collapse it.
-                                */}
-                                No policy text was retrieved for this question, at any level —
-                                district, state or federal. Anything above is general practice,
-                                not a citation. Confirm it with your compliance officer before
-                                acting on it.
-                              </div>
-                            )}
-
-                            {message.coverage &&
-                              (isSubjectOutsideLibrary(message.coverage) ? (
-                                // Nothing implicated has local cover: that is the
-                                // subject being outside the library, not a partial
-                                // miss, and it warrants a different sentence.
-                                <LibraryScopeNote
-                                  incidentType={message.classification?.type}
-                                  categories={message.coverage.categoriesWithoutLocalPolicy.filter(
-                                    (c) => c !== ALWAYS_RETRIEVED_CATEGORY
-                                  )}
-                                />
-                              ) : (
-                                <CoverageGapCard
-                                  categories={message.coverage.categoriesWithoutLocalPolicy}
-                                  byCategory={message.coverage.byCategory}
-                                />
-                              ))}
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -894,6 +848,49 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
+
+        {provenance && railOpen && (
+          <aside
+            aria-label="Sources"
+            style={{
+              width: '340px',
+              flexShrink: 0,
+              borderLeft: '1px solid var(--color-line)',
+              background: 'var(--color-bg)',
+              overflowY: 'auto',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 16px',
+                minHeight: '48px',
+                borderBottom: '1px solid var(--color-line)',
+              }}
+            >
+              <span className="eyebrow">This incident rests on</span>
+              <button
+                onClick={() => setRailOpen(false)}
+                aria-label="Hide sources"
+                style={{
+                  padding: '6px',
+                  borderRadius: '6px',
+                  color: 'var(--color-text-muted)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  lineHeight: 0,
+                }}
+              >
+                <PanelRightClose size={18} />
+              </button>
+            </div>
+
+            <ProvenanceRail provenance={provenance} incidentType={incidentType} />
+          </aside>
+        )}
       </div>
     </div>
   );

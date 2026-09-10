@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     const facets = policyFacetsSchema.safeParse({
       jurisdiction: formData.get('jurisdiction'),
       category: formData.get('category'),
+      documentKind: formData.get('documentKind') ?? undefined,
     });
     if (!facets.success) {
       return validationError(
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
         facets.error.flatten().fieldErrors
       );
     }
-    const { jurisdiction, category } = facets.data;
+    const { jurisdiction, category, documentKind } = facets.data;
     const effectiveDate = formData.get('effectiveDate') as string;
     const keywords = formData.get('keywords') as string;
 
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
         filePath,
         jurisdiction,
         category,
+        documentKind,
         effectiveDate: new Date(effectiveDate),
         metadata: JSON.stringify({
           keywords: keywordsArray,

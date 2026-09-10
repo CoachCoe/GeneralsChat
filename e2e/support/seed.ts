@@ -43,6 +43,8 @@ export interface SeededIds {
   adminAttachmentId: string;
   /** The reporter's own open incident, for assertions about its own page. */
   reporterIncidentId: string;
+  /** Classified `other`, which maps to no category and so to no report form. */
+  otherTypeIncidentId: string;
   closedIncidentId: string;
 }
 
@@ -115,6 +117,49 @@ export async function resetDatabase(): Promise<SeededIds> {
         ].join('\n'),
       },
       {
+        // The district's report form, in the shape a real one is written:
+        // labelled blanks, a checkbox row, and ruled space to write in. The
+        // report page parses this rather than carrying a form of its own, so
+        // the fixture has to be a form, not a description of one.
+        title: 'SAU 24 School Bullying Investigation Form',
+        jurisdiction: 'district',
+        category: 'bullying',
+        documentKind: 'form',
+        content: [
+          'SAU 24 School Bullying Investigation Form',
+          '',
+          'School Administrator completing form: ____________________',
+          '',
+          'Position: ____________________',
+          '',
+          'Date reported to Principal/Designee: ____________________',
+          '',
+          'Person reporting incident: ____________________',
+          '',
+          'Name of Alleged Victim: ____________________',
+          '',
+          'Location of incident (check all that apply):',
+          '',
+          '☐ on school property ☐ on school bus ☐ off campus',
+          '',
+          'Description of alleged bullying:',
+          '',
+          '____________________________________________',
+          '',
+          '____________________________________________',
+        ].join('\n'),
+      },
+      {
+        // Named to catch a form chosen by title: 'Form' is a substring of
+        // 'Uniform', and this is a policy, not a document anyone files.
+        title: 'Uniform Complaint Procedure',
+        jurisdiction: 'district',
+        category: 'bullying',
+        content:
+          'District procedure: complaints are filed with the superintendent ' +
+          'and acknowledged in writing within five days.',
+      },
+      {
         title: 'Policy JLF: Reporting Child Abuse and Neglect',
         jurisdiction: 'district',
         category: 'mandatory_reporting',
@@ -160,6 +205,7 @@ export async function resetDatabase(): Promise<SeededIds> {
           content: p.content,
           jurisdiction: p.jurisdiction,
           category: p.category,
+          documentKind: 'documentKind' in p ? p.documentKind : 'policy',
           effectiveDate: new Date('2024-01-01'),
           isActive: true,
         },
@@ -252,6 +298,16 @@ export async function resetDatabase(): Promise<SeededIds> {
       ],
     });
 
+    const otherTypeIncident = await prisma.incident.create({
+      data: {
+        title: 'Other: Unmapped incident',
+        description: 'Classified, but as a type no report form maps to.',
+        status: 'open',
+        incidentType: 'other',
+        reporterId: reporter.id,
+      },
+    });
+
     const closedIncident = await prisma.incident.create({
       data: {
         title: 'Harassment: Resolved hallway incident',
@@ -330,6 +386,7 @@ export async function resetDatabase(): Promise<SeededIds> {
       adminIncidentId: adminIncident.id,
       adminObligationId: adminIncident.complianceActions[0].id,
       reporterIncidentId: openIncident.id,
+      otherTypeIncidentId: otherTypeIncident.id,
       closedIncidentId: closedIncident.id,
       reporterAttachmentId: attachmentIds['e2e-reporter-statement.txt'],
       adminAttachmentId: attachmentIds['e2e-admin-statement.txt'],

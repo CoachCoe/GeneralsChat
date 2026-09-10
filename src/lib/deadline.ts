@@ -139,8 +139,10 @@ const DEADLINE_COLOR: Record<DeadlineState, string> = {
  * the safe direction: a value added later reads as unverified rather than
  * silently earning a red countdown.
  */
+export const POLICY_BACKED_SOURCE = 'policy';
+
 export function isPolicyBacked(deadlineSource: string | null | undefined): boolean {
-  return deadlineSource === 'policy';
+  return deadlineSource === POLICY_BACKED_SOURCE;
 }
 
 /**

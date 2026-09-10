@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import {
   CATEGORY_LABELS,
+  DOCUMENT_KINDS,
+  DOCUMENT_KIND_LABELS,
   JURISDICTION_LABELS,
   POLICY_CATEGORIES,
   POLICY_JURISDICTIONS,
@@ -16,6 +18,7 @@ interface Policy {
   title: string;
   jurisdiction: string;
   category: string;
+  documentKind: string;
   effectiveDate: string;
   isActive: boolean;
   version: number;
@@ -58,6 +61,7 @@ export default function PoliciesPage() {
   const [content, setContent] = useState('');
   const [jurisdiction, setJurisdiction] = useState('district');
   const [category, setCategory] = useState('bullying');
+  const [documentKind, setDocumentKind] = useState('policy');
   const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
   const [keywords, setKeywords] = useState('');
   const [url, setUrl] = useState('');
@@ -103,6 +107,7 @@ export default function PoliciesPage() {
             content,
             jurisdiction,
             category,
+            documentKind,
             effectiveDate,
             keywords: keywords.split(',').map(k => k.trim()).filter(Boolean)
           })
@@ -125,6 +130,8 @@ export default function PoliciesPage() {
         formData.append('title', title);
         formData.append('jurisdiction', jurisdiction);
         formData.append('category', category);
+        formData.append('documentKind', documentKind);
+        formData.append('documentKind', documentKind);
         formData.append('effectiveDate', effectiveDate);
         formData.append('keywords', keywords);
 
@@ -273,6 +280,12 @@ export default function PoliciesPage() {
                             <span className="capitalize">{policy.jurisdiction}</span>
                             <span>·</span>
                             <span>{CATEGORY_LABELS[policy.category] ?? policy.category}</span>
+                            {policy.documentKind === 'form' && (
+                              <>
+                                <span>·</span>
+                                <span>Report form</span>
+                              </>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <Calendar size={14} />
@@ -383,6 +396,27 @@ export default function PoliciesPage() {
                     placeholder="e.g., School District Bullying Prevention Policy"
                     className="field body-text"
                   />
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="documentKind" className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
+                    Document kind *
+                  </label>
+                  <select
+                    id="documentKind"
+                    value={documentKind}
+                    onChange={(e) => setDocumentKind(e.target.value)}
+                    className="field body-text"
+                  >
+                    {DOCUMENT_KINDS.map((value) => (
+                      <option key={value} value={value}>
+                        {DOCUMENT_KIND_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="caption mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    A report form is the document an administrator fills out and files; an incident of a matching category offers it as a draft. Everything else is a policy.
+                  </p>
                 </div>
 
                 {/* Jurisdiction: where the policy comes from */}
