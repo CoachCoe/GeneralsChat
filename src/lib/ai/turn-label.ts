@@ -2,15 +2,13 @@
  * The label the guidance model puts on its own turn, and the parser that
  * removes it before anything is displayed or stored.
  *
- * The chat UI hangs a provenance block -- the "This rests on" ladder and the
- * coverage-gap card -- under every assistant turn. That block is a claim: it
- * says the text above it rests on the policies named below it. A turn that
- * only asks "can you describe what happened between them?" rests on nothing,
- * so the block under it vouched for an assertion that was never made, and the
- * amber gap card repeated identically on every turn of the conversation until
- * it read as decoration. `e2e/chat-flow.spec.ts` already names the principle
- * from the other direction: no sources block, "which is what makes a turn look
- * like an answer."
+ * The chat UI keeps a sources rail beside the transcript, naming the policies
+ * the conversation rests on. What goes in it is a claim: these policies are
+ * what the assistant's answers stand on. A turn that only asks "can you
+ * describe what happened between them?" rests on nothing, so what it
+ * retrieved must not appear there -- it would vouch for an assertion nobody
+ * made. `e2e/chat-flow.spec.ts` names the principle from the other direction:
+ * no sources block, "which is what makes a turn look like an answer."
  *
  * Retrieval cannot answer this. It knows what was *fetched*, not what the
  * answer *used*, and those differ on exactly the turns this exists to catch.
