@@ -31,11 +31,11 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     if (!attachment) return notFoundError('Attachment');
 
-    // Reporters may read only attachments on incidents they filed.
+    // Reporters may read only attachments on incidents they filed. Having
+    // uploaded the file is not a grant: access follows current scope, or a
+    // user keeps a student record after losing the incident it belongs to.
     const permitted =
-      canReadAllIncidents(guard.user) ||
-      attachment.incident?.reporterId === guard.user.id ||
-      attachment.uploadedBy === guard.user.id;
+      canReadAllIncidents(guard.user) || attachment.incident?.reporterId === guard.user.id;
 
     // 404 rather than 403: do not confirm the id exists to someone who may
     // not read it.

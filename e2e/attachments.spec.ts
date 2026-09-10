@@ -13,7 +13,11 @@ import { readFileSync } from 'fs';
  * the 404-not-403 response, the path-containment assertion and the three
  * response headers can all be deleted with a green suite.
  */
-function seededIds(): { reporterAttachmentId: string; adminAttachmentId: string } {
+function seededIds(): {
+  reporterAttachmentId: string;
+  adminAttachmentId: string;
+  reporterUploadedAdminAttachmentId: string;
+} {
   return JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8'));
 }
 
@@ -40,6 +44,20 @@ test.describe('Attachments', () => {
     // records.
     expect(response.status()).toBe(404);
     expect(await response.text()).not.toContain('Title IX notes');
+  });
+
+  test('having uploaded a file is not a licence to keep reading it', async ({ page }) => {
+    // The reporter uploaded this one, onto an incident they cannot read.
+    // Access followed the upload rather than current scope, so a user kept a
+    // student record after losing the incident it belongs to.
+    const { reporterUploadedAdminAttachmentId } = seededIds();
+
+    const response = await page.request.get(
+      `/api/attachments/${reporterUploadedAdminAttachmentId}`
+    );
+
+    expect(response.status()).toBe(404);
+    expect(await response.text()).not.toContain('uploaded by the reporter');
   });
 
   test('a missing attachment is indistinguishable from a forbidden one', async ({ page }) => {

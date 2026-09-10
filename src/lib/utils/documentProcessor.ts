@@ -7,7 +7,7 @@ const readFile = promisify(fs.readFile);
 let pdf: any = null;
 let mammoth: any = null;
 
-export interface ProcessedDocument {
+interface ProcessedDocument {
   content: string;
   metadata: {
     pageCount?: number;
@@ -178,7 +178,7 @@ export function extractKeywords(text: string): string[] {
     .map(([word]) => word);
 }
 
-export interface SectionedChunk {
+interface SectionedChunk {
   content: string;
   sectionLabel?: string;
   sectionTitle?: string;

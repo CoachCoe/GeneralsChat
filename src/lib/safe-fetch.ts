@@ -186,12 +186,41 @@ export async function safeFetchText(
       throw new UnsafeUrlError('Remote document exceeds the size limit');
     }
 
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > maxBytes) {
-      throw new UnsafeUrlError('Remote document exceeds the size limit');
-    }
-    return Buffer.from(buffer).toString('utf-8');
+    return await readCapped(response, maxBytes);
   }
 
   throw new UnsafeUrlError('Too many redirects');
+}
+
+/**
+ * Read the body, stopping at the limit rather than measuring afterwards.
+ *
+ * `content-length` is the remote's claim and may be absent or a lie, so the
+ * cap has to hold while reading: buffering first and checking the length
+ * after means the memory the limit exists to bound is already spent.
+ */
+export async function readCapped(response: Response, maxBytes: number): Promise<string> {
+  const body = response.body;
+  if (!body) return '';
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new UnsafeUrlError('Remote document exceeds the size limit');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks).toString('utf-8');
 }
