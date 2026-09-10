@@ -30,7 +30,6 @@
     "@anthropic-ai/sdk": "^0.68.0",
     "@prisma/client": "^6.16.1",
     "@radix-ui/react-slot": "1.2.3",
-    "@types/pdf-parse": "^1.1.5",
     "bcryptjs": "^3.0.3",
     "chromadb": "^3.0.15",
     "class-variance-authority": "^0.7.1",

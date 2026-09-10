@@ -1,3 +1,4 @@
+import { authorityTone } from '@/lib/authority-tone';
 import {
   POLICY_JURISDICTIONS,
   LOCAL_JURISDICTIONS,
@@ -22,13 +23,6 @@ export interface SourceRung {
  * local policy is information, not an absence to hide. (design 1c + 1d ladder)
  */
 const INDENT = ['ml-0', 'ml-2', 'ml-4', 'ml-6'];
-
-const TONE: Record<string, { label: string; title: string; dot: string }> = {
-  federal: { label: 'text-text', title: 'text-text-secondary', dot: 'bg-text' },
-  state: { label: 'text-text-secondary', title: 'text-text-secondary', dot: 'bg-text-secondary' },
-  district: { label: 'text-text-tertiary', title: 'text-text-secondary', dot: 'bg-text-tertiary' },
-  school: { label: 'text-text-muted', title: 'text-text-tertiary', dot: 'bg-line-strong' },
-};
 
 export function SourceLadder({
   sources,
@@ -60,7 +54,7 @@ export function SourceLadder({
     <div className="flex flex-col gap-2">
       {POLICY_JURISDICTIONS.map((jurisdiction, i) => {
         const rungs = byJurisdiction.get(jurisdiction) ?? [];
-        const tone = TONE[jurisdiction];
+        const tone = authorityTone(jurisdiction);
         const isLocal = LOCAL_JURISDICTIONS.includes(jurisdiction);
         // Only draw an empty local rung when there is actually a gap to report.
         if (rungs.length === 0 && !(isLocal && hasLocalGap)) return null;
@@ -84,7 +78,7 @@ export function SourceLadder({
                 aria-hidden
               />
               <span
-                className={`flex-1 text-[10px] font-medium uppercase leading-none tracking-[0.1em] ${tone.label}`}
+                className={`flex-1 text-[10px] font-medium uppercase leading-none tracking-[0.1em] ${tone.text}`}
               >
                 {collapseLocal && isLocal
                   ? localEmpty.map(j => JURISDICTION_LABELS[j]).join(' & ')
@@ -100,7 +94,7 @@ export function SourceLadder({
                 {rungs.map(rung => (
                   <div key={rung.title} className="flex flex-col gap-0.5">
                     <div className="flex items-baseline gap-3">
-                      <span className={`flex-1 text-[14px] leading-[1.4] ${tone.title}`}>
+                      <span className="flex-1 text-[14px] leading-[1.4] text-text-secondary">
                         {rung.title}
                       </span>
                       {rung.note && (

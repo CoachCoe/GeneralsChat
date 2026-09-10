@@ -18,7 +18,11 @@ test.describe('Chat', () => {
 
   test('renders the composer', async ({ page }) => {
     await expect(page.getByTestId('chat-input')).toBeVisible();
+    // Both handles CLAUDE.md declares: the accessible name tests read by, and
+    // the testid it also promises. A declared contract nothing asserts reads
+    // as covered while being free to move.
     await expect(page.getByRole('button', { name: 'Send message' })).toBeVisible();
+    await expect(page.getByTestId('chat-send')).toBeVisible();
   });
 
   test('send button is disabled until there is input', async ({ page }) => {

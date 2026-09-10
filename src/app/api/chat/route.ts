@@ -118,9 +118,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Recorded on the message metadata below, not just computed.
-    const dataSensitivity = determineDataSensitivity(message, incident);
-
     // Prior turns only. `generateComplianceResponse` already receives the
     // current message as `userQuery` and appends it itself; including it here
     // sends it to the model twice.
@@ -193,6 +190,15 @@ export async function POST(request: NextRequest) {
     if (classification) {
       await commitClassification(incident, message, policyContext, references, classification);
     }
+
+    // After classification, not before it. `abuse_neglect` and `title_ix` earn
+    // the stamp from the incident's type, and the turn that discloses one is
+    // the turn that classifies it -- computed earlier, that turn read as
+    // INTERNAL and only later ones were marked.
+    const dataSensitivity = determineDataSensitivity(message, {
+      incidentType: classification?.type ?? incident.incidentType,
+      severity: classification?.severity ?? incident.severity,
+    });
 
     const { content: response, usage, kind } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
       message,
@@ -357,7 +363,10 @@ async function commitClassification(
   });
 }
 
-function determineDataSensitivity(message: string, incident: any): DataSensitivity {
+function determineDataSensitivity(
+  message: string,
+  incident: { incidentType: string | null; severity: string | null }
+): DataSensitivity {
   const sensitiveKeywords = [
     'student name', 'student id', 'social security', 'address',
     'phone number', 'email', 'medical', 'disability', 'special needs'

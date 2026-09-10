@@ -151,7 +151,8 @@ different timezone. Rendering it unguarded is a hydration mismatch (React #418).
 ## The data model, in one paragraph
 
 A `Policy` has a **jurisdiction** (`federal` / `state` / `district` / `school` —
-who issued it) and a **category** (what it covers, 20 values). They are
+who issued it) and a **category** (what it covers, 21 values, the last of
+which is `other`). They are
 orthogonal: the same subject is usually governed at several levels at once.
 Classification picks the categories an incident implicates; retrieval pulls
 matching policies from every jurisdiction; `mandatory_reporting` is always

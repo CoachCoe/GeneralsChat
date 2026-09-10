@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isBlockedAddress } from './safe-fetch';
+import { isBlockedAddress, readCapped, UnsafeUrlError } from './safe-fetch';
 
 /**
  * The SSRF blocklist.
@@ -87,5 +87,52 @@ describe('isBlockedAddress', () => {
 
   it('ignores a zone index, which cannot be used to smuggle a different address', () => {
     expect(isBlockedAddress('fe80::1%eth0')).toBe(true);
+  });
+});
+
+/**
+ * The size cap has to hold while reading. Buffering the body and measuring it
+ * afterwards spends exactly the memory the limit exists to bound, and
+ * `content-length` is the remote's claim -- absent, or a lie.
+ */
+describe('readCapped', () => {
+  const streamed = (chunks: string[], headers?: HeadersInit) =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(new TextEncoder().encode(chunk));
+          controller.close();
+        },
+      }),
+      { headers }
+    );
+
+  it('returns a body within the limit', async () => {
+    await expect(readCapped(streamed(['hello ', 'world']), 64)).resolves.toBe('hello world');
+  });
+
+  it('rejects a body that grows past the limit, whatever it declared', async () => {
+    const response = streamed(['0123456789', '0123456789'], { 'content-length': '2' });
+    await expect(readCapped(response, 12)).rejects.toBeInstanceOf(UnsafeUrlError);
+  });
+
+  it('stops reading rather than draining the rest of the stream', async () => {
+    let enqueued = 0;
+    const response = new Response(
+      new ReadableStream({
+        pull(controller) {
+          enqueued += 1;
+          controller.enqueue(new TextEncoder().encode('x'.repeat(1024)));
+          if (enqueued > 64) controller.close();
+        },
+      })
+    );
+
+    await expect(readCapped(response, 2048)).rejects.toBeInstanceOf(UnsafeUrlError);
+    expect(enqueued).toBeLessThan(8);
+  });
+
+  it('treats a bodiless response as empty', async () => {
+    await expect(readCapped(new Response(null, { status: 204 }), 16)).resolves.toBe('');
   });
 });

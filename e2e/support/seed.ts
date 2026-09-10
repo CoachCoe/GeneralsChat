@@ -41,6 +41,8 @@ export interface SeededIds {
    */
   reporterAttachmentId: string;
   adminAttachmentId: string;
+  /** Uploaded by the reporter, on an incident only the admin may read. */
+  reporterUploadedAdminAttachmentId: string;
   /** The reporter's own open incident, for assertions about its own page. */
   reporterIncidentId: string;
   /** Classified `other`, which maps to no category and so to no report form. */
@@ -364,6 +366,16 @@ export async function resetDatabase(): Promise<SeededIds> {
         incidentId: adminIncident.id,
         uploadedBy: admin.id,
       },
+      {
+        // On the admin's incident, but uploaded by the reporter: the state a
+        // past upload leaves behind once scope has moved on. Read access must
+        // follow the incident, not the upload.
+        storedName: 'e2e-reporter-upload-on-admin-incident.txt',
+        filename: 'handed-over.txt',
+        body: 'E2E fixture: uploaded by the reporter, on an incident they may not read.',
+        incidentId: adminIncident.id,
+        uploadedBy: reporter.id,
+      },
     ];
 
     const attachmentIds: Record<string, string> = {};
@@ -390,6 +402,8 @@ export async function resetDatabase(): Promise<SeededIds> {
       closedIncidentId: closedIncident.id,
       reporterAttachmentId: attachmentIds['e2e-reporter-statement.txt'],
       adminAttachmentId: attachmentIds['e2e-admin-statement.txt'],
+      reporterUploadedAdminAttachmentId:
+        attachmentIds['e2e-reporter-upload-on-admin-incident.txt'],
     };
   } finally {
     await prisma.$disconnect();

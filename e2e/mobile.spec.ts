@@ -43,6 +43,14 @@ test.describe('Mobile', () => {
     await expect(page.getByTestId('chat-input')).toBeVisible();
     const send = page.getByRole('button', { name: 'Send message' });
     const box = await send.boundingBox();
-    expect(box).not.toBeNull();
+    // The rule this test exists for: a touch target of at least 44px. It
+    // asserted only that the button had a box, which it has at 32px too.
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+
+    const attach = page.getByRole('button', { name: 'Attach file' });
+    const attachBox = await attach.boundingBox();
+    expect(attachBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(attachBox?.width ?? 0).toBeGreaterThanOrEqual(44);
   });
 });
