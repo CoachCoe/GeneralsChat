@@ -66,6 +66,7 @@ test.describe('Navigation', () => {
       ['post', '/api/admin/policies/upload'],
       ['post', '/api/admin/prompts'],
       ['put', '/api/admin/prompts/any-id'],
+      ['put', '/api/admin/prompts/active'],
       ['delete', '/api/admin/prompts/any-id'],
     ];
 
@@ -85,6 +86,21 @@ test.describe('Navigation', () => {
     const removed = await page.request.post('/api/policies', { data: {} });
     expect(removed.status()).toBe(405);
     expect((await page.request.get('/api/policies?active=true')).status()).toBe(200);
+  });
+
+  test('a reporter cannot read the admin-only configuration either', async ({ page }) => {
+    // Roles refuse verbs, and reading is a verb. The advisor profile is what
+    // the district tells the model to be; it is not a reporter's to read, and
+    // `/active` is a static segment beside `[id]` so it needs its own proof
+    // that the guard is on it rather than only on its neighbours.
+    for (const url of [
+      '/api/admin/prompts',
+      '/api/admin/prompts/active',
+      '/api/admin/prompts/any-id',
+    ]) {
+      const response = await page.request.get(url);
+      expect(response.status(), `GET ${url} should be refused for a reporter`).toBe(403);
+    }
   });
 
   test('the health probe is reachable without a session and says nothing else', async ({

@@ -354,6 +354,12 @@ export default function IncidentDetailPage() {
         </p>
 
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/chat?incident=${incident.id}`}
+            className="inline-flex min-h-[44px] items-center rounded-[12px] border border-line px-4 text-[14px] text-text-secondary transition-colors hover:border-line-strong hover:text-text"
+          >
+            Continue in chat
+          </Link>
           <button
             type="button"
             onClick={handleGenerateSummary}

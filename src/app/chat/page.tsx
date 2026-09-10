@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Send, Plus, Paperclip, Menu } from 'lucide-react';
 import Navbar from '@/components/Navbar';
@@ -162,7 +162,7 @@ export default function ChatPage() {
     }
   };
 
-  const loadConversation = async (chatId: string) => {
+  const loadConversation = useCallback(async (chatId: string) => {
     try {
       const response = await fetch(`/api/chat/${chatId}`);
       if (!response.ok) throw new Error('Failed to load conversation');
@@ -179,11 +179,49 @@ export default function ChatPage() {
       console.error('Error loading conversation:', error);
       toast.error('Failed to load conversation. Please try again.');
     }
-  };
+  }, []);
+
+  /*
+   * Open the incident named in `?incident=`, so an obligation row and the
+   * incident page have somewhere to send an administrator.
+   *
+   * Read from `window.location` in an effect rather than through
+   * `useSearchParams`, which would oblige this page to sit inside a Suspense
+   * boundary and stop being statically rendered. Nothing derives from it
+   * during render, so there is no hydration mismatch to guard.
+   *
+   * An id that is not the caller's own 404s in the route and is reported as a
+   * failure to load -- it is never confirmed to exist.
+   */
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('incident');
+    if (requested) loadConversation(requested);
+  }, [loadConversation]);
+
+  /*
+   * The address follows the thread. `?incident=` is read on mount, so an
+   * address left naming a previous thread sends a reload somewhere the user
+   * has already navigated away from -- and a thread started here would have no
+   * address at all until it was reopened.
+   *
+   * Only ever set, never cleared: on mount `incidentId` is null while the
+   * deep-link effect above is still resolving, and clearing here would strip
+   * the parameter before it has been read. Starting a new chat clears it
+   * where that happens. `replaceState` rather than push, because opening a
+   * thread is not a step to go Back through.
+   */
+  useEffect(() => {
+    if (!incidentId) return;
+    if (new URLSearchParams(window.location.search).get('incident') === incidentId) return;
+    window.history.replaceState(null, '', `/chat?incident=${incidentId}`);
+  }, [incidentId]);
 
   const handleNewChat = () => {
     setMessages([]);
     setIncidentId(null);
+    // Cleared here rather than in the effect above, which must not strip the
+    // parameter while the deep link is still resolving it on mount.
+    window.history.replaceState(null, '', '/chat');
   };
 
   const handleSendMessage = async () => {

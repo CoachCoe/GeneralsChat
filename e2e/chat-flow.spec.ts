@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import { test, expect } from '@playwright/test';
 import { STUB_REPLY, STUB_QUESTION_REPLY } from './support/claude-stub';
 
@@ -404,6 +405,62 @@ test.describe('Classification and library scope', () => {
     await expect(sources).toContainText('Policy JICK: Bullying Prevention');
     // Down to the provision, which is the half that makes a citation checkable.
     await expect(sources).toContainText('JICK §D');
+  });
+
+  test('opens the incident named in the URL, so an obligation can link here', async ({ page }) => {
+    /*
+     * The obligation queue and the incident page both send an administrator
+     * back to the conversation. Reopening was previously reachable only by
+     * clicking the sidebar, which is internal state and cannot be linked to.
+     */
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill('Two students were fighting on the bus this morning.');
+    const [answered] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+    const { incidentId } = await answered.json();
+
+    await page.goto(`/chat?incident=${incidentId}`);
+    await expect(page.getByText(STUB_REPLY)).toBeVisible();
+    await expect(
+      page.locator(`[data-testid="chat-history-item"][data-incident-id="${incidentId}"]`)
+    ).toHaveAttribute('aria-current', 'true');
+  });
+
+  test('keeps the address on the thread that is open', async ({ page }) => {
+    // `?incident=` is read on mount, so an address left naming the previous
+    // thread sends a reload somewhere the user has already navigated away
+    // from.
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill('A student reported name-calling in the corridor.');
+    const [answered] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+    const { incidentId } = await answered.json();
+
+    await expect(page).toHaveURL(new RegExp(`incident=${incidentId}`));
+
+    // And the address survives the round trip it now promises.
+    await page.reload();
+    await expect(page.getByText(STUB_REPLY)).toBeVisible();
+
+    // Starting a new chat drops it, or the next reload reopens the old one.
+    await page.getByRole('button', { name: /New chat/i }).click();
+    await expect(page).toHaveURL(/\/chat$/);
+  });
+
+  test('does not confirm an incident the reporter may not read', async ({ page }) => {
+    // 404, not 403, all the way to the UI: a foreign id must not be revealed
+    // as existing. The thread stays empty and nothing is marked current.
+    const { adminIncidentId } = JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8'));
+    await page.goto(`/chat?incident=${adminIncidentId}`);
+    await expect(page.getByTestId('chat-input')).toBeVisible();
+    await expect(page.getByTestId('chat-sources')).toHaveCount(0);
+    await expect(
+      page.locator(`[data-testid="chat-history-item"][data-incident-id="${adminIncidentId}"]`)
+    ).toHaveCount(0);
   });
 });
 
