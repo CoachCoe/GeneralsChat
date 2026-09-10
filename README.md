@@ -270,8 +270,6 @@ signal the interface is allowed to raise its voice with.
 The system prompt is **database-driven**: `ClaudeService.getActiveSystemPrompt()`
 reads the `SystemPrompt` row with `isActive: true` on every request, and that
 row completely replaces the in-code default. It is editable at `/admin/prompt`.
-`docs/history/2025-11-02-lawyer-persona.md` describes an earlier, different
-persona and is superseded on this point.
 
 ## Authentication
 
@@ -302,8 +300,7 @@ environment; `docker-compose.yml` will refuse to start without `AUTH_SECRET`.
 ## Security status
 
 Three audits so far: 2026-08-31 (153 issues), 2026-09-01 (142) and 2026-09-08
-(119, of which 12 were blockers — **all fixed**; see
-[`docs/audit/2026-09-08-work-completed.md`](docs/audit/2026-09-08-work-completed.md)).
+(119, of which 12 were blockers — **all fixed**).
 
 The most recent found **no security blockers**: no cross-user data access, no
 auth bypass, no path traversal, and no secret or student record anywhere in git
@@ -321,8 +318,7 @@ type limits, unvalidated write bodies and pagination, a production container
 running the dev server, and a page that fabricated compliance determinations
 with `Math.random()`.
 
-The 2026-09-01 audit found six blockers. **All six are now fixed** — see
-[`docs/audit/2026-09-01-work-completed.md`](docs/audit/2026-09-01-work-completed.md).
+The 2026-09-01 audit found six blockers. **All six are now fixed.**
 
 The last of them is worth understanding, because it changes how deadlines
 read. Obligations are now derived **after** retrieval, and each one records
@@ -342,15 +338,12 @@ Still open, and worth knowing before you deploy:
   effective limit becomes N times what is configured. It degrades quietly, so
   move it to a shared store *before* raising `maxReplicas`.
 - **DNS rebinding** is not fully mitigated in the policy URL fetch; the
-  hostname allowlist described in SEC-4 is the real fix.
+  hostname allowlist is the real fix.
 - **Upload size limits** reject oversized files but do not prevent memory
   exhaustion, because `request.formData()` buffers the body first.
 - **Vector search is unverified.** Two config bugs that made it fail in every
   environment are fixed, but a successful round-trip has not been observed
   against a running Chroma server.
-
-Full detail: `docs/audit/2026-08-31-findings.md` and
-`docs/audit/2026-08-31-work-completed.md`.
 
 ## What's next
 

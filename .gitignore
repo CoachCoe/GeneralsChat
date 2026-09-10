@@ -58,3 +58,10 @@ e2e/.auth/
 # Azure deployment config: names, and the only copy of the DB password.
 deploy/azure/.env
 deploy/azure/.provisioned
+
+# Working documents: dated audit trails and superseded snapshots. They describe
+# what was done rather than how the system works, so they are not part of what
+# a stranger clones. The existing ones stay readable in git history at cc759fc;
+# anything still open from them is an issue.
+docs/audit/
+docs/history/
