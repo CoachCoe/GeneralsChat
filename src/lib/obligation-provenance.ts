@@ -41,14 +41,11 @@ const IMMEDIACY =
 /**
  * Does this provision state a time limit at all?
  *
- * The question a deadline's provenance turns on. `resolveProvenance` could
- * previously confirm only that the excerpt the model named was one it had been
- * given -- not that the excerpt says anything about when. A model citing a real
- * provision for a number that provision does not contain produced a
- * policy-backed row, with the red countdown that goes with it, and OQ-5 said so
- * in as many words: attribution "verifies that the excerpt exists and was
- * supplied, **not** that the excerpt states the deadline the model attributed
- * to it."
+ * The question a deadline's provenance turns on. Resolving the excerpt the
+ * model named confirms only that it was one the model was given, not that it
+ * says anything about *when* -- so a model citing a real provision for a number
+ * that provision does not contain would earn a policy-backed row and the red
+ * countdown that goes with it.
  *
  * This closes the half of that gap that needs no calibration. A provision
  * containing no time expression whatsoever cannot be the source of a number of
@@ -81,7 +78,7 @@ export function statesATimeLimit(text: string): boolean {
  * Unverified is not a failure state. It is the honest description of a
  * deadline the loaded policy does not state, and with a thin library it is the
  * common case. What must never happen is the reverse: an obligation presented
- * as policy-backed when nothing retrieved supports it. (OQ-5)
+ * as policy-backed when nothing retrieved supports it.
  */
 export function resolveProvenance(
   sourceExcerpt: number | null | undefined,
@@ -103,7 +100,7 @@ export function resolveProvenance(
      * true -- the obligation does rest on this provision, and an administrator
      * checking the answer needs to be sent to it. Only the claim about the
      * clock is withdrawn, which is exactly what `deadlineSource` governs: the
-     * countdown loses its red and reads as unverified. (OQ-5)
+     * countdown loses its red and reads as unverified.
      */
     deadlineSource: statesATimeLimit(reference.text) ? 'policy' : 'model',
     policyId: reference.policyId,

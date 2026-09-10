@@ -14,8 +14,8 @@ const typeLabels: Record<string, string> = INCIDENT_TYPE_LABELS;
 
 async function migrateChatTitles() {
   // A one-off backfill that rewrites Incident titles in place, and is wired
-  // into no npm script -- so the only way it runs is by hand, against
-  // whatever .env gives it. (B7, REPO-24)
+  // into no npm script -- so the only way it runs is by hand, against whatever
+  // .env gives it.
   requireTestDatabase('scripts/migrate-chat-titles.ts');
 
   console.log('🔄 Starting chat title migration...\n');
@@ -49,17 +49,14 @@ async function migrateChatTitles() {
       // `typeLabel + ':'` here meant a title the runtime deliberately left
       // alone -- e.g. "Bullying Report", which generateIncidentTitle is
       // prompted to produce -- was rewritten to "Bullying: Bullying Report".
-      // (FLOW-19)
       if (incident.title.startsWith(typeLabel)) {
         console.log(`⏭️  Skipping "${incident.title}" (already has prefix)`);
         skippedCount++;
         continue;
       }
 
-      // Enhance the title
       const enhancedTitle = `${typeLabel}: ${incident.title}`;
 
-      // Update the incident
       await prisma.incident.update({
         where: { id: incident.id },
         data: { title: enhancedTitle },
@@ -83,5 +80,4 @@ async function migrateChatTitles() {
   }
 }
 
-// Run the migration
 migrateChatTitles();

@@ -50,18 +50,16 @@ function isSubjectOutsideLibrary(coverage: Coverage): boolean {
 /**
  * A failed turn.
  *
- * Not a `Message`. A failure used to be appended as `type: 'general'` with
- * apology text, rendered by the same component, in the same place, behind the
- * same avatar as real guidance -- so the administrator saw the assistant
- * speaking. It was also client-only, so on reload the apology vanished while
- * their own question remained, leaving a question with no answer and no
- * explanation.
+ * Deliberately not a `Message`. Appended as one, a failure would render in the
+ * same component, in the same place, behind the same avatar as real guidance,
+ * so the administrator would see the assistant speaking -- and being
+ * client-only, it would vanish on reload while their own question remained.
  *
- * `generateSchoolComplianceResponse` was changed to throw rather than return
- * filler text precisely so that a failed call could never be mistaken for
- * guidance (FLOW-7); the client was reintroducing it visually. This renders as
- * a notice about the request, keeps the unsent text so it is not lost, and
- * says plainly that nothing was written. (FLOW-53, FLOW-43)
+ * `generateSchoolComplianceResponse` throws rather than returning filler text
+ * precisely so a failed call cannot be mistaken for guidance; the client must
+ * not reintroduce it visually. This renders as a notice about the request,
+ * keeps the unsent text so it is not lost, and says plainly that nothing was
+ * written.
  */
 interface SendFailure {
   message: string;
@@ -141,7 +139,6 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages]);
 
-  // Fetch chat histories on mount
   useEffect(() => {
     fetchChatHistories();
   }, []);
@@ -149,7 +146,7 @@ export default function ChatPage() {
   const fetchChatHistories = async () => {
     setLoadingHistories(true);
     try {
-      // No userId param: the endpoint always scopes to the session user. (SEC-8)
+      // No userId param: the endpoint always scopes to the session user.
       const response = await fetch('/api/chat/history');
       if (!response.ok) throw new Error('Failed to fetch histories');
 
@@ -631,13 +628,13 @@ export default function ChatPage() {
                               <div className="text-[13px] text-text-muted">
                                 {/*
                                   Says what is true. Zero citations means zero
-                                  chunks from *any* jurisdiction -- buildCitations
-                                  iterates every retrieved chunk regardless of
-                                  level -- so "no matching district policy" read
-                                  as "state and federal were consulted", when in
-                                  fact nothing was. The prompt side is careful
-                                  about this distinction; the UI collapsed it.
-                                  (FLOW-83)
+                                  chunks from *any* jurisdiction, since
+                                  buildCitations iterates every retrieved chunk
+                                  regardless of level. Wording this as "no
+                                  matching district policy" would imply state
+                                  and federal were consulted when nothing was.
+                                  The prompt side draws this distinction; the
+                                  UI must not collapse it.
                                 */}
                                 No policy text was retrieved for this question, at any level —
                                 district, state or federal. Anything above is general practice,

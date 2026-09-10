@@ -47,7 +47,7 @@ export function fileExtension(originalName: string): string {
  * multipart body has been parsed, and parsing buffers it. Reaching this
  * function at all means the bytes were already read. `readCappedFormData` is
  * what stops an oversized body before that happens; this is what enforces the
- * limit precisely afterwards. (SEC-10)
+ * limit precisely afterwards.
  */
 export function assertWithinSizeLimit(file: File): void {
   const limit = maxUploadBytes();
@@ -83,7 +83,7 @@ interface MultipartRequest {
  * limit rejected an oversized file only after paying for it. A few concurrent
  * multi-hundred-megabyte POSTs from one signed-in account were enough to take
  * the process down, which on a single-replica deployment is every
- * administrator. (SEC-10)
+ * administrator.
  *
  * Content-Length is checked first because it is free and rejects the honest
  * case without reading a byte. It is not sufficient on its own -- it is absent
@@ -196,7 +196,7 @@ export function safeUploadPath(uploadsDir: string, ext: string): string {
  * every run.
  *
  * `resolve` is the fix: it honours an absolute UPLOADS_DIR and resolves a
- * relative one against the working directory. (OQ-2, DEAD-62)
+ * relative one against the working directory.
  */
 export function uploadsRoot(): string {
   return resolve(process.env.UPLOADS_DIR ?? './uploads');

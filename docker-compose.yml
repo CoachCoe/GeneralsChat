@@ -1,11 +1,8 @@
 # Local development stack.
 #
-# Previously this file could not start the app at all: DATABASE_URL was a
-# SQLite path while the Prisma datasource is postgresql, there was no database
-# service of any kind, ANTHROPIC_API_KEY (the only key the app actually needs)
-# was never passed in, and it provisioned an Ollama container for a code path
-# that no longer exists. The whole repo was also bind-mounted over /app,
-# discarding the image build. (REPO-15, SEC-14, REPO-3)
+# DATABASE_URL must be a postgresql URL -- that is what the Prisma datasource
+# declares -- and ANTHROPIC_API_KEY is the one key the app actually needs.
+# Nothing bind-mounts the repo over /app; that would discard the image build.
 services:
   db:
     image: postgres:16-alpine

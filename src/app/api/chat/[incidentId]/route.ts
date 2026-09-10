@@ -55,7 +55,6 @@ export async function GET(request: NextRequest, { params }: Params) {
       ? await ragSystem.coverageFor(incident.incidentType)
       : undefined;
 
-    // Format messages for the chat UI
     const messages = stored.map(({ conv, turn }) => ({
       id: conv.id,
       // Summaries render like any assistant turn; they are part of the record.

@@ -1,4 +1,3 @@
-// Data Classification System
 export enum DataSensitivity {
   PUBLIC = "public",        // Policies, general procedures
   INTERNAL = "internal",    // District-specific workflows
@@ -7,12 +6,10 @@ export enum DataSensitivity {
 }
 
 /**
- * Single source of truth for the incident vocabularies. (DEAD-13)
- *
- * These lists were previously written out verbatim in validation.ts (twice),
- * in the typeLabels map in /api/chat, and here -- and the copies had already
- * drifted: this interface was missing "substance", which classifyIncident can
- * return and the chat route stores, papered over with `as any` in classifier.ts.
+ * Single source of truth for the incident vocabularies. Validation, the chat
+ * route's display labels and the types below all derive from these lists; a
+ * second copy anywhere drifts, and a value the classifier can return but the
+ * type does not know about ends up cast away at the call site.
  */
 export const INCIDENT_TYPES = [
   'bullying',
@@ -24,11 +21,9 @@ export const INCIDENT_TYPES = [
    * Suspected abuse or neglect -- a disclosure about a child's home life, or
    * an injury a staff member has reason to think was not accidental.
    *
-   * Added because the taxonomy had no value for it, so "a student told the
-   * counsellor her stepfather hits her" classified as `other`. That is the
-   * highest-stakes report this tool will ever handle, on the shortest clock
-   * (RSA 169-C:29 requires it immediately, not within a window), and it was
-   * the one incident type with no category of its own. (OQ-3)
+   * The highest-stakes report this tool handles, and the one on the shortest
+   * clock: RSA 169-C:29 requires it immediately, not within a window. It needs
+   * a value of its own, or it classifies as `other`.
    */
   'abuse_neglect',
   'other',
@@ -50,11 +45,8 @@ export const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
 export type Severity = (typeof SEVERITIES)[number];
 
 /**
- * Matches the vocabulary documented at prisma/schema.prisma:55 and the
- * IncidentStatus enum below. validation.ts previously encoded a third,
- * conflicting set ('investigating' / 'resolved'); that has been reconciled
- * onto this one because the schema and the enum agree and are the data layer.
- * See FLOW-12 / SPEC-12 for the remaining UI-side mismatch.
+ * Matches the vocabulary at prisma/schema.prisma:55 and the IncidentStatus
+ * enum below, which are the data layer and the tiebreak when the UI disagrees.
  */
 export const INCIDENT_STATUSES = [
   'open',
@@ -65,7 +57,6 @@ export const INCIDENT_STATUSES = [
 ] as const;
 export type IncidentStatusValue = (typeof INCIDENT_STATUSES)[number];
 
-// Incident Classification
 export interface IncidentClassification {
   type: IncidentType;
   severity: Severity;
@@ -74,7 +65,6 @@ export interface IncidentClassification {
   stakeholders: string[];
 }
 
-// Compliance Timeline
 export interface ComplianceTimeline {
   immediateActions: Action[]; // 0-24 hours
   shortTermActions: Action[]; // 1-5 days
@@ -83,7 +73,6 @@ export interface ComplianceTimeline {
   reviewMilestones: Date[];
 }
 
-// Action Interface
 export interface Action {
   id: string;
   type: string;
@@ -94,7 +83,6 @@ export interface Action {
   evidenceFiles?: string[];
 }
 
-// Compliance Action
 export interface ComplianceAction {
   id: string;
   incidentId: string;
@@ -109,7 +97,6 @@ export interface ComplianceAction {
   updatedAt: Date;
 }
 
-// User Roles
 export enum UserRole {
   ADMIN = "admin",
   INVESTIGATOR = "investigator",
@@ -243,8 +230,8 @@ export function categoriesForIncidentType(
  *
  * Distinct from the search *filter* above, which must stay empty for an
  * unclassified or `other` incident so it does not exclude every other policy.
- * Collapsing the two left `other` -- the classifier's failure default -- with
- * no reporting policy and no gap warning. (B3)
+ * Collapsing the two leaves `other` -- the classifier's failure default --
+ * with no reporting policy and no gap warning.
  */
 export function guaranteedCategoriesFor(
   incidentType: string | null | undefined
@@ -262,7 +249,6 @@ export enum PolicyType {
   SCHOOL = "school"
 }
 
-// Incident Status
 export enum IncidentStatus {
   OPEN = "open",
   IN_PROGRESS = "in_progress",
@@ -271,7 +257,6 @@ export enum IncidentStatus {
   CLOSED = "closed"
 }
 
-// Conversation Message
 export interface ConversationMessage {
   id: string;
   incidentId: string;
@@ -285,7 +270,6 @@ export interface ConversationMessage {
   };
 }
 
-// File Upload
 export interface FileUpload {
   filename: string;
   filePath: string;
@@ -295,7 +279,6 @@ export interface FileUpload {
   createdAt: Date;
 }
 
-// AI Response with Citations
 export interface AIResponse {
   response: string;
   citations: string[];
@@ -304,14 +287,12 @@ export interface AIResponse {
   policyReferences?: string[];
 }
 
-// Incident Intake Flow
 export interface IncidentIntakeFlow {
   initialQuestions: string[];
   followUpLogic: (responses: Record<string, string>) => string[];
   classificationRules: (responses: Record<string, string>) => IncidentClassification;
 }
 
-// Policy Document
 export interface PolicyDocument {
   id: string;
   title: string;
@@ -326,7 +307,6 @@ export interface PolicyDocument {
   updatedAt: Date;
 }
 
-// Policy Chunk for Vector Search
 export interface PolicyChunk {
   id: string;
   policyId: string;
@@ -354,7 +334,7 @@ export interface PolicyChunk {
  * an excerpt number the model invented does not appear here, so the attribution
  * fails and the obligation is recorded as model-sourced. Trusting the claim
  * instead would mean the citation on an obligation is only as good as the
- * model's honesty about its own reasoning. (OQ-5)
+ * model's honesty about its own reasoning.
  */
 export interface PolicyReference {
   /** The number the excerpt was given in the prompt, 1-based. */

@@ -29,14 +29,14 @@ import { RATE_LIMITS } from '@/lib/rate-limit';
 // retrievable, citable policy. Rejecting at the boundary gives the operator a
 // message they can act on rather than a silently corrupt library entry.
 // Attachments still accept `.doc`: those are stored and served back verbatim,
-// never extracted or retrieved. (FLOW-72)
+// never extracted or retrieved.
 const ALLOWED_POLICY_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx'] as const;
 
 // POST /api/admin/policies/upload - Upload policy file or fetch from URL
 export async function POST(request: NextRequest) {
   try {
     // Admin-only. middleware.ts also gates /api/admin/*, but a matcher
-    // mistake must not silently expose policy or prompt mutation. (SEC-6)
+    // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
 
@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
 
     // Capped read, not `request.formData()`: the body is bounded before it is
     // parsed, so an oversized POST costs the ceiling and not its own size.
-    // (SEC-10)
     const formData = await readCappedFormData(request);
     const file = formData.get('file') as File | null;
     const url = formData.get('url') as string | null;
@@ -64,7 +63,6 @@ export async function POST(request: NextRequest) {
     const effectiveDate = formData.get('effectiveDate') as string;
     const keywords = formData.get('keywords') as string;
 
-    // Validation
     if (!title || !effectiveDate) {
       return NextResponse.json(
         { error: 'Title and effectiveDate are required' },
@@ -82,11 +80,9 @@ export async function POST(request: NextRequest) {
     let content = '';
     let filePath = null;
 
-    // Handle file upload
     if (file) {
-      // Validate type and size BEFORE anything touches the disk. Previously
-      // the file was written first and the extension checked afterwards, so a
-      // rejected upload still landed on the filesystem. (SEC-2, SEC-10)
+      // Validate type and size BEFORE anything touches the disk, or a rejected
+      // upload still lands on the filesystem.
       const ext = assertAllowedExtension(file.name, ALLOWED_POLICY_EXTENSIONS);
       assertWithinSizeLimit(file);
 
@@ -103,18 +99,16 @@ export async function POST(request: NextRequest) {
       if (ext === '.txt' || ext === '.md') {
         content = buffer.toString('utf-8');
       } else {
-        // PDF and DOCX are parsed by documentProcessor, which has always
-        // supported both -- this route just never called it. (FLOW-21/SPEC-7)
+        // PDF and DOCX are parsed by documentProcessor.
         const processed = await processDocument(filePath);
         content = processed.content;
       }
     }
-    // Handle URL fetch
     else if (url) {
       // Guarded fetch: https only, non-public addresses refused, redirects
       // re-validated per hop, body size and time capped. A bare fetch() here
       // was an unauthenticated SSRF oracle whose response was stored and
-      // readable back out via GET /api/admin/policies/<id>. (SEC-4)
+      // readable back out via GET /api/admin/policies/<id>.
       try {
         content = await safeFetchText(url, { maxBytes: maxUploadBytes() });
       } catch (error) {
@@ -137,7 +131,6 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    // Create policy
     const keywordsArray = keywords ? keywords.split(',').map(k => k.trim()) : [];
 
     // Created inactive. Indexing happens after the row exists -- it needs the
@@ -148,7 +141,7 @@ export async function POST(request: NextRequest) {
     // state `policy-coverage.ts` exists to warn about ("a row with no chunks
     // is invisible to retrieval, so counting it would claim coverage the
     // system cannot deliver"). Activating only after the chunks land means a
-    // failure leaves nothing that claims coverage. (FLOW-73)
+    // failure leaves nothing that claims coverage.
     const policy = await prisma.policy.create({
       data: {
         title,
@@ -183,7 +176,6 @@ export async function POST(request: NextRequest) {
     // requirement spanning a boundary was severed; and writing PolicyChunk rows
     // directly left `embedding` null and Chroma untouched, making
     // admin-uploaded policies invisible to vector search.
-    // (FLOW-22, FLOW-23, SPEC-9, DEAD-11)
     let chunksCreated = 0;
     try {
       await ragSystem.addPolicyDocument(policy.id, content, {

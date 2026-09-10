@@ -23,7 +23,6 @@ export default function PromptEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Form state
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [description, setDescription] = useState('');
@@ -41,11 +40,9 @@ export default function PromptEditorPage() {
       }
       const data = await response.json();
 
-      // Ensure prompts is an array
       const promptsArray = data.prompts || [];
       setPrompts(promptsArray);
 
-      // Auto-select active prompt or first one
       const activePrompt = promptsArray.find((p: SystemPrompt) => p.isActive);
       if (activePrompt) {
         loadPrompt(activePrompt.id);
@@ -95,7 +92,6 @@ export default function PromptEditorPage() {
     setSaving(true);
     try {
       if (isCreating) {
-        // Create new prompt
         const response = await fetch('/api/admin/prompts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -109,7 +105,6 @@ export default function PromptEditorPage() {
         await loadPrompt(data.prompt.id);
         alert('Prompt created successfully');
       } else if (selectedPrompt) {
-        // Update existing prompt
         const response = await fetch(`/api/admin/prompts/${selectedPrompt.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -202,11 +197,10 @@ export default function PromptEditorPage() {
         </div>
 
         {/*
-          Says what this actually controls. It was labelled "System Prompt
-          Editor", which implied it governed the whole system: in fact it
-          governs the chat guidance only -- classification and summaries use
-          fixed prompts -- and it can no longer remove the compliance rules,
-          which live in code and are prepended to every call. (OQ-4)
+          Says what this actually controls, which is the chat guidance only:
+          classification and summaries use fixed prompts, and the compliance
+          rules live in code and are prepended to every call, so nothing edited
+          here can remove them. "System Prompt Editor" would imply otherwise.
         */}
         <div className="mb-6 rounded-[16px] border border-line bg-surface px-5 py-4 text-[14px] leading-[1.6] text-text-secondary">
           <span className="font-medium text-text">
@@ -240,8 +234,7 @@ export default function PromptEditorPage() {
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <span className="label-sm font-medium truncate">{prompt.name}</span>
-                        {/* Neutral: an isActive flag is not a deadline state.
-                            (SPEC-54) */}
+                        {/* Neutral: an isActive flag is not a deadline state. */}
                         {prompt.isActive && (
                           <span
                             className="badge flex-shrink-0 ml-2"

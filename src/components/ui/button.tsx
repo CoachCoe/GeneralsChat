@@ -13,7 +13,7 @@ const buttonVariants = cva(
         // which are destructive but are not deadline states -- and a red
         // button next to a red overdue countdown competes with the only signal
         // the UI is allowed to raise its voice with. The word on the button
-        // says what it does. (SPEC-54)
+        // says what it does.
         destructive: "btn-secondary",
         outline: "btn-secondary",
         secondary: "btn-secondary",

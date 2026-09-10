@@ -49,8 +49,7 @@ export default function Navbar() {
               pointed at /admin/policies for everyone, so a reporter clicking
               "Policies" was bounced to the home queue with no explanation and
               the library README documents was reachable only by typing the
-              URL. The page itself links admins onward to /admin/policies.
-              (SPEC-50) */}
+              URL. The page itself links admins onward to /admin/policies. */}
           <Link href="/policies" className="navbar-link">
             Policies
           </Link>

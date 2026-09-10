@@ -22,10 +22,6 @@ import { INCIDENT_TYPE_LABELS, SEVERITIES } from '@/types';
 // A red "critical severity" beside an amber deadline is two urgent signals
 // disagreeing about which one to act on. The label already reads
 // "{severity} severity", which carries the meaning without the hue.
-//
-// `docs/roadmap.md` recorded this as fixed by the 2026-09-01 audit ("severity
-// chips and error states lost their colour"). It was not; SPEC-44 is absent
-// from that audit's own fix list. (SPEC-54, FLOW-62)
 
 export function ClassificationChip({
   incidentType,

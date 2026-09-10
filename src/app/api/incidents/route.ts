@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const hasPendingActions = searchParams.get('hasPendingActions') === 'true';
     // Clamped: unbounded parseInt allowed ?limit=1000000 to dump the whole
     // incident table in one request, and ?limit=abc to reach Prisma as
-    // `take: NaN`. (SEC-12)
+    // `take: NaN`.
     const pagination = paginationSchema.safeParse({
       page: searchParams.get('page') ?? undefined,
       limit: searchParams.get('limit') ?? undefined,
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const { page, limit } = pagination.data;
 
     // Reporters see only what they filed; investigators and admins see all.
-    // The reporterId query param can narrow that but never widen it. (SEC-7)
+    // The reporterId query param can narrow that but never widen it.
     const where: {
       status?: string;
       reporterId?: string;
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       ...incidentScope(guard.user),
     };
     // "Pending" means outstanding compliance actions, not an incident status.
-    // Incident.status has no such value and never did. (FLOW-12b)
+    // Incident.status has no such value and never did.
     if (hasPendingActions) {
       where.complianceActions = { some: { status: 'pending' } };
     }
@@ -72,7 +72,6 @@ export async function GET(request: NextRequest) {
             // to 'pending' alone meant the list's "N of M done" counted every
             // in-progress obligation as *done* -- `M - pending` rather than
             // `completed` -- and the soonest-deadline column skipped them.
-            // (FLOW-64)
             where: { status: { not: 'completed' } },
             orderBy: { dueDate: 'asc' },
           },
@@ -115,7 +114,7 @@ export async function POST(request: NextRequest) {
   try {
     // createIncidentSchema existed but was imported nowhere, so incidentType,
     // severity and status reached Prisma unvalidated -- an out-of-vocabulary
-    // status silently hides an incident from every list view. (SEC-13)
+    // status silently hides an incident from every list view.
     const guard = await requireUser();
     if (!guard.ok) return guard.response;
 

@@ -12,10 +12,10 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    // Recursive patterns: the previous non-recursive ".next/**" matched only
-    // the repo root, so eslint walked a nested stray build tree and reported
-    // 80 errors from generated bundles -- a check that always fails is a check
-    // nobody runs. (REPO-5)
+    // Recursive patterns. A non-recursive ".next/**" matches only the repo
+    // root, so eslint walks any nested build tree and reports hundreds of
+    // errors from generated bundles -- a check that always fails is a check
+    // nobody runs.
     ignores: [
       "**/node_modules/**",
       "**/.next/**",

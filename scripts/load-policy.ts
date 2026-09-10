@@ -94,7 +94,7 @@ async function main() {
 
   if (existing && REPLACE) {
     // Purge the old chunks from the vector store as well as the database, so a
-    // superseded revision cannot keep being cited as authority. (SPEC-5/SPEC-15)
+    // superseded revision cannot keep being cited as authority.
     await ragSystem.deletePolicyChunks(existing.id);
     await prisma.policy.delete({ where: { id: existing.id } });
     console.log(`  superseded the previous "${title}" (${existing.id})`);

@@ -31,7 +31,7 @@ interface Policy {
  * The route computes and returns `chunksCreated`; all three call sites threw it
  * away and said "uploaded successfully" on any 2xx. A policy with no chunks is
  * invisible to retrieval, so that message was wrong in exactly the case the
- * operator most needed to know about. (B5)
+ * operator most needed to know about.
  */
 function reportUpload(data: { chunksCreated?: number }) {
   const chunks = data.chunksCreated;
@@ -54,7 +54,6 @@ export default function PoliciesPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadMethod, setUploadMethod] = useState<'file' | 'url' | 'text'>('text');
 
-  // Form state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [jurisdiction, setJurisdiction] = useState('district');
@@ -91,7 +90,6 @@ export default function PoliciesPage() {
     setUploading(true);
     try {
       if (uploadMethod === 'text') {
-        // Upload as JSON
         if (!content.trim()) {
           alert('Content is required');
           return;
@@ -117,7 +115,6 @@ export default function PoliciesPage() {
 
         reportUpload(await response.json());
       } else if (uploadMethod === 'url') {
-        // Upload from URL
         if (!url.trim()) {
           alert('URL is required');
           return;
@@ -143,7 +140,6 @@ export default function PoliciesPage() {
 
         reportUpload(await response.json());
       } else if (uploadMethod === 'file') {
-        // Upload file
         if (!file) {
           alert('File is required');
           return;
@@ -170,7 +166,6 @@ export default function PoliciesPage() {
         reportUpload(await response.json());
       }
 
-      // Reset form
       setShowUploadModal(false);
       setTitle('');
       setContent('');
@@ -263,8 +258,7 @@ export default function PoliciesPage() {
                             Neutral, not `--color-met`. Green means "this
                             obligation was discharged and recorded"; spending it
                             on a row's isActive flag is decoration, which
-                            CLAUDE.md's colour rule excludes. This site is newer
-                            than SPEC-44 and was not in its list. (SPEC-54)
+                            CLAUDE.md's colour rule excludes.
                           */}
                           {policy.isActive && (
                             <span className="badge" style={{ fontSize: '12px' }}>

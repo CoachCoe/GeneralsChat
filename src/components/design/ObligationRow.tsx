@@ -19,7 +19,7 @@ export interface Obligation {
    * Nullable, because that is what the column is. These were optional-but-not-null,
    * so every caller holding real rows needed an `as Obligation` cast -- and the
    * cast is what hid `deadlineSource` from the incident page's own overdue
-   * count, which then painted model-recalled deadlines red. (B5)
+   * count, which then painted model-recalled deadlines red.
    */
   citation?: string | null;
   /** 'policy' when a retrieved excerpt states this deadline, else 'model'. */
@@ -65,8 +65,8 @@ export function ObligationRow({
     <div
       // A stable handle for "one obligation row", so a test can assert the
       // queue is exhaustive -- that the number of rows rendered equals the
-      // number of open obligations the API reports. Three groups used to drop
-      // unverified late rows on the floor and nothing could see it. (B3)
+      // number of open obligations the API reports. Three groups of filters
+      // can each drop an unverified late row with nothing able to see it.
       data-testid="obligation-row"
       className="@container border-b border-input last:border-b-0"
     >

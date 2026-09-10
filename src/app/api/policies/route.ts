@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       // Explicit projection. This returned whole rows, so any authenticated
       // user could read `content` and `filePath` -- an absolute server path,
       // which is reconnaissance for the path-traversal bug class this codebase
-      // has already shipped twice. The library page uses six fields. (SEC-27)
+      // has already shipped twice. The library page uses six fields.
       select: {
         id: true,
         title: true,
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         // anyone reading the library -- which is the state production was once
         // in, after a re-index against an unmigrated schema left every policy
         // at zero chunks and nobody could tell from this page. It leaks
-        // nothing: a count, not content and not a path. (FLOW-74)
+        // nothing: a count, not content and not a path.
         _count: { select: { chunks: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -60,11 +60,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST is gone. It was the third of three ingestion routes, called by no
-// client, and it sat outside the /api/admin prefix -- so `isAdminPath` in
-// auth.config.ts did not cover it and the handler's own requireRole was the
-// only thing holding. It is also the route SEC-3 exploited.
+// Read-only by design: there is no POST here. This path sits outside the
+// /api/admin prefix, so `isAdminPath` in auth.config.ts does not cover it and
+// a handler's own requireRole would be the only thing holding.
 //
-// The canonical path is POST /api/admin/policies/upload (file or URL), with
+// Ingestion goes through POST /api/admin/policies/upload (file or URL), or
 // POST /api/admin/policies for pasted text. Both live behind the prefix the
-// middleware gates, and both write to policyUploadsDir(). (OQ-2)
+// middleware gates, and both write to policyUploadsDir().

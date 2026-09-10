@@ -43,16 +43,12 @@ export async function GET(request: NextRequest, { params }: Params) {
         },
         attachments: {
           orderBy: { createdAt: 'desc' },
-          // Projected, not raw. This returned whole rows -- including
-          // `filePath`, the on-disk name -- which contradicts the upload
-          // route's own comment that the row "stores a server-generated
-          // basename only" and that reads go "solely through
-          // GET /api/attachments/[id]". Handing out the storage name is how
-          // attachments were reachable as static assets before SEC-5; it also
-          // leaks `uploadedBy`, another user's id, to a co-reporter on a shared
-          // incident. The client needs the id to build the API URL, the
-          // filename to label it, and the size and type to describe it.
-          // (SEC-39, FLOW-80)
+          // Projected, not raw. A whole row carries `filePath`, the on-disk
+          // name, which is how attachments become reachable as static assets,
+          // and `uploadedBy`, another user's id, which leaks to a co-reporter
+          // on a shared incident. The client needs the id to build the API
+          // URL, the filename to label it, and the size and type to describe
+          // it.
           select: {
             id: true,
             filename: true,
@@ -64,8 +60,8 @@ export async function GET(request: NextRequest, { params }: Params) {
         complianceActions: {
           orderBy: { createdAt: 'desc' },
           // Same join as GET /api/obligations: the level of authority that
-          // imposes each obligation, so ObligationRow's AuthorityChip has the
-          // field it has always rendered on and never received. (SPEC-56)
+          // imposes each obligation, which is the field ObligationRow's
+          // AuthorityChip renders on.
           include: { policy: { select: { jurisdiction: true } } },
         },
       },
@@ -113,7 +109,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { id } = await params;
     // updateIncidentSchema existed but was imported nowhere, so PATCH accepted
     // any status string -- `status: "banana"` persisted and stranded the
-    // incident off every list view. (SEC-13, FLOW-15)
+    // incident off every list view.
     const parsed = validateRequest(updateIncidentSchema, await request.json());
     if (!parsed.success) {
       const response = validationError(
@@ -126,7 +122,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { status, title, description, incidentType, severity } = parsed.data;
 
     // Scope check first: update({ where: { id } }) alone would let any
-    // authenticated user rewrite any incident. (SEC-7)
+    // authenticated user rewrite any incident.
     const existing = await prisma.incident.findFirst({
       where: { id, ...incidentScope(guard.user) },
       select: { id: true },
@@ -146,7 +142,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         ...(incidentType && { incidentType }),
         ...(severity && { severity }),
         // schema.prisma defines closedAt for exactly this transition, but no
-        // code path ever wrote it, so closure timestamps were lost. (FLOW-15)
+        // code path ever wrote it, so closure timestamps were lost.
         ...(status && { closedAt: TERMINAL_STATUSES.has(status) ? new Date() : null }),
       },
       include: {

@@ -12,8 +12,8 @@ import { RATE_LIMITS } from '@/lib/rate-limit';
  * Body: { incidentId: string }
  *
  * The other half of the pair with /api/incidents/[id]/summary. Both are thin
- * adapters over generateIncidentSummary; they were previously two
- * implementations of one feature that had drifted apart. (DEAD-12)
+ * adapters over generateIncidentSummary, so the one feature has one
+ * implementation.
  */
 export async function POST(request: NextRequest) {
   try {

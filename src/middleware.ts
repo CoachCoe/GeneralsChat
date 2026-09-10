@@ -19,7 +19,7 @@ const authMiddleware = NextAuth(authConfig).auth;
  * runs `bcrypt.compare` at cost 12 deliberately even for an address with no
  * account, so every attempt costs roughly a quarter-second of *blocking* CPU on
  * a single event loop: a few hundred a minute make the app unavailable to every
- * administrator, while also giving unbounded password guessing. (SEC-11/SEC-23)
+ * administrator, while also giving unbounded password guessing.
  *
  * Keyed by client address. Behind Azure Container Apps' ingress the real
  * address is in x-forwarded-for, and its first entry is the one the edge saw.

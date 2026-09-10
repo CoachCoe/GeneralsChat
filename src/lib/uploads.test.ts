@@ -119,7 +119,7 @@ describe('assertWithinSizeLimit', () => {
 describe('assertIndexablePolicyText', () => {
   // Retrieval works from chunks and chunks come from this text, so a policy
   // with none is invisible to search while still counting as loaded. There are
-  // three ingestion routes; this is the rule all three call. (B5)
+  // three ingestion routes; this is the rule all three call.
 
   it('accepts text that will produce chunks', () => {
     expect(() => assertIndexablePolicyText('Staff must report within 24 hours.')).not.toThrow();
@@ -161,7 +161,7 @@ describe('uploads directory resolution', () => {
     // /app/app/uploads/attachments. On a container platform that is outside
     // the mounted volume, so every attachment -- student records -- is
     // destroyed on the next revision. Upload and download shared the same
-    // wrong expression, so nothing failed until a redeploy. (OQ-2, DEAD-62)
+    // wrong expression, so nothing failed until a redeploy.
     process.env.UPLOADS_DIR = '/srv/files';
     expect(uploadsRoot()).toBe('/srv/files');
     expect(attachmentUploadsDir()).toBe('/srv/files/attachments');
@@ -191,7 +191,7 @@ describe('readCappedFormData', () => {
   // The hole this closes: both upload routes called `request.formData()` and
   // then checked `file.size`. The check was accurate and useless -- parsing had
   // already read the whole body into memory. Size limits rejected the file; the
-  // memory was spent either way. (SEC-10)
+  // memory was spent either way.
 
   const original = process.env.MAX_FILE_SIZE;
 

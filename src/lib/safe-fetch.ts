@@ -7,7 +7,7 @@ import { isIP } from 'net';
  * Without this, `fetch(formData.get('url'))` is a read-anything-the-server-
  * can-reach oracle: cloud metadata endpoints (169.254.169.254), internal
  * services, and localhost are all reachable, and the response body was
- * stored where it could be read back out. (SEC-4)
+ * stored where it could be read back out.
  */
 
 export class UnsafeUrlError extends Error {
@@ -51,7 +51,6 @@ function isBlockedIPv6(ip: string): boolean {
   // and only the dotted-quad form was matched here -- so
   // `https://[::ffff:7f00:1]/` reached loopback and `[::ffff:a9fe:a9fe]`
   // reached the cloud metadata endpoint straight through the blocklist.
-  // (SEC-32)
   const dotted = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (dotted) return isBlockedIPv4(dotted[1]);
 
@@ -79,7 +78,7 @@ function isBlockedIPv6(ip: string): boolean {
 /**
  * Exported for test only. The blocklist is the whole of this module's security
  * value and it had no unit test, which is how the IPv4-mapped hex notation
- * went unnoticed. (SEC-32)
+ * went unnoticed.
  */
 export function isBlockedAddress(ip: string): boolean {
   const family = isIP(ip);
@@ -96,7 +95,7 @@ export function isBlockedAddress(ip: string): boolean {
  * a DNS-rebinding attacker who flips the record between this check and the
  * connection. Closing that gap requires pinning the resolved address into
  * the socket, which the platform fetch does not expose. The allowlist
- * recommended in the audit (SEC-4) is the stronger control.
+ * recommended in the audit is the stronger control.
  */
 async function assertSafeUrl(raw: string): Promise<URL> {
   let url: URL;

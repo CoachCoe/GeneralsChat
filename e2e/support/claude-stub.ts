@@ -6,7 +6,7 @@ import { createServer, type Server } from 'http';
  * The app calls Claude server-side, so a Playwright page.route() mock can
  * never intercept it -- with a real key the suite spent real money and got
  * nondeterministic text, and without one every response was swallowed into
- * canned filler. (TEST-3)
+ * canned filler.
  *
  * The app points at this via ANTHROPIC_BASE_URL. Responses are deterministic
  * and shaped by the request so tests can assert on specific text.
@@ -66,7 +66,7 @@ function replyFor(body: StubRequest): string {
   // Unique wording, not common words: 'title' also appears in the coverage-gap
   // instruction via 'title_ix', which routed a compliance call to the title
   // branch. An unmatched prompt throws rather than answering as something
-  // else. (TEST-32)
+  // else.
   if (system.includes('school incident classification expert')) {
     return classificationJson(userText);
   }
@@ -138,11 +138,10 @@ export function startClaudeStub(port: number): Promise<Server> {
           role: 'assistant',
           model: 'claude-sonnet-5',
           // A thinking block ahead of the text, because that is the shape the
-          // real API returns. The stub used to reply with a lone text block, so
-          // the suite passed while production read `content[0]`, found a
-          // thinking block, and stored an empty string as the assistant's
-          // answer. A stub that is easier to parse than the real thing tests
-          // the wrong system.
+          // real API returns. Replying with a lone text block would let the
+          // suite pass while production read `content[0]`, found a thinking
+          // block and stored an empty string as the answer: a stub easier to
+          // parse than the real thing tests the wrong system.
           content: [
             { type: 'thinking', thinking: '', signature: 'stub' },
             { type: 'text', text },

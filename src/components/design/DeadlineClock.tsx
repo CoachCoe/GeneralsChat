@@ -22,7 +22,6 @@ export function DeadlineClock({
    * attributed -- but it does not get red or amber. Colour in this UI means a
    * deadline state, and a deadline the system cannot substantiate has not
    * earned the one signal the interface is allowed to raise its voice with.
-   * (OQ-5)
    */
   verified = true,
   className = '',

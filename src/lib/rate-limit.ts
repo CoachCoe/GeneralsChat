@@ -16,7 +16,6 @@
  * one window and `limit` again at the start of the next. That burst is
  * acceptable here because the purpose is to bound sustained abuse -- unbounded
  * password guessing, and unbounded billed model calls -- not to smooth traffic.
- * (SEC-11, SEC-23)
  */
 
 export interface RateLimitResult {

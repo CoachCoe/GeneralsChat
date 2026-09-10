@@ -34,14 +34,13 @@ export async function POST(request: NextRequest) {
 
     // One turn can trigger classification, obligation derivation and the
     // guidance call, so this bounds billed spend as well as load. Keyed by
-    // user: the limit is on what an account can spend. (SEC-23)
+    // user: the limit is on what an account can spend.
     const limited = enforceRateLimit(`chat:${guard.user.id}`, RATE_LIMITS.CHAT);
     if (limited) return limited;
     userId = guard.user.id;
 
     const body = await request.json();
 
-    // Validate request body
     const validation = validateRequest(chatMessageSchema, body);
     if (!validation.success) {
       logError(new Error('Validation failed'), {
@@ -51,10 +50,9 @@ export async function POST(request: NextRequest) {
       return validationError('Invalid request data', formatValidationErrors(validation.errors));
     }
 
-    // userId comes from the session, never from the body. (SEC-8)
+    // userId comes from the session, never from the body.
     const { message, incidentId } = validation.data;
 
-    // Get or create incident
     let incident;
     if (incidentId) {
       incident = await prisma.incident.findFirst({
@@ -62,20 +60,17 @@ export async function POST(request: NextRequest) {
         include: {
           conversations: {
             // Newest-first with a take, then reversed below. `asc` + `take`
-            // returned the ten OLDEST messages, so from turn six onward the
-            // model never saw anything said in between -- which is exactly the
-            // context looping this was meant to fix. (FLOW-2, SPEC-11)
+            // would pin the window to the ten OLDEST messages, so from turn six
+            // onward the model would never see anything said in between.
             orderBy: { timestamp: 'desc' },
             take: 20,
           },
         },
       });
     } else {
-      // Generate a meaningful title from the first message
       const { claudeService } = await import('@/lib/ai/claude-service');
       const title = await claudeService.generateIncidentTitle(message);
 
-      // Create new incident with AI-generated title
       incident = await prisma.incident.create({
         data: {
           reporterId: userId,
@@ -110,12 +105,11 @@ export async function POST(request: NextRequest) {
 
     // The API rejects a leading assistant message. The window is a fixed row
     // count, so it starts on one whenever an odd number of rows was dropped --
-    // which an unpaired user turn or a filtered summary row both cause. (FLOW-36)
+    // which an unpaired user turn or a filtered summary row both cause.
     while (priorMessages.length > 0 && priorMessages[0].sender !== 'user') {
       priorMessages.shift();
     }
 
-    // Save user message
     await prisma.conversation.create({
       data: {
         incidentId: incident.id,
@@ -124,41 +118,31 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Determine data sensitivity. The return value used to be discarded
-    // entirely; it is now recorded on the message metadata below. (FLOW-10)
+    // Recorded on the message metadata below, not just computed.
     const dataSensitivity = determineDataSensitivity(message, incident);
 
-    // Prior turns only. The current message is appended once by
-    // generateComplianceResponse, which already receives it as userQuery --
-    // adding it here too sent it to the model twice on every request. (FLOW-1)
+    // Prior turns only. `generateComplianceResponse` already receives the
+    // current message as `userQuery` and appends it itself; including it here
+    // sends it to the model twice.
     const conversationHistory = priorMessages.map(conv => ({
       role: conv.sender as 'user' | 'assistant',
       content: conv.message,
     }));
 
-    // Classify incident if this is the first substantive message.
-    //
-    // `incidentType` is the gate, and it is now written in the same
-    // transaction as the obligations it implies (`commitClassification`), so
-    // anything that throws in between -- a timeout inside `deriveObligations`,
-    // which guards its parse but not its model call -- rolls the stamp back and
-    // this gate retries on the next turn. Before that, the stamp committed
-    // first and nothing ever re-derived: a classified incident with zero
-    // obligations, which looks complete. OQ-5 names that outcome directly:
-    // "*nothing* is how a mandated report gets missed." (B2)
+    // `incidentType` is the gate, and it is written in the same transaction as
+    // the obligations it implies (`commitClassification`), so anything that
+    // throws in between rolls the stamp back and this gate retries next turn.
+    // A stamp that commits first leaves a classified incident with zero
+    // obligations, which reads as complete -- and nothing is how a mandated
+    // report gets missed.
     //
     // The gate is deliberately *not* "or has no obligations". `requiredActions`
     // is `z.array` with no minimum, so a model returning none is schema-valid
-    // and a genuinely obligation-free incident is a real state -- and that gate
-    // would re-classify it, at the cost of a model call, on every subsequent
-    // turn forever.
+    // and a genuinely obligation-free incident is a real state -- that gate
+    // would re-classify it, at the cost of a model call, on every turn forever.
     //
-    // Previously `conversations.length === 0 && message.length > 50`. Both had
-    // to hold in the same request, but the first is only true on turn one --
-    // so a short opening message (SYSTEM_STATUS's own example, "A student was
-    // bullied today", is 27 chars) skipped classification permanently, leaving
-    // incidentType, severity, timeline null and zero ComplianceAction rows.
-    // (FLOW-18, SPEC-10)
+    // Nor may it require a message length: a short opening message ("A student
+    // was bullied today" is 27 chars) must still classify.
     let classification = null;
 
     if (!incident.incidentType) {
@@ -172,24 +156,22 @@ export async function POST(request: NextRequest) {
         // categories are what retrieval filters on -- so at this point no
         // policy has been consulted and any deadline would be the model's
         // recall of state law. The classification and the obligations it
-        // implies are committed together after retrieval, below. (OQ-5, B2)
+        // implies are committed together after retrieval, below.
       } catch (error) {
         if (!(error instanceof ClassificationUnavailableError)) throw error;
         // Leave incidentType null so the next turn retries. The guidance call
         // below still runs -- an administrator mid-incident should get an
         // answer -- it is just retrieved without a category filter, and the
         // incident stays visibly unclassified rather than being stamped
-        // `other` forever. (FLOW-35)
+        // `other` forever.
         logError(error, { endpoint: '/api/chat', note: 'classification unavailable; will retry next turn' });
         classification = null;
       }
     }
 
-    // Retrieval is driven by the classification, so it runs after it. When the
-    // opening turn was retrieved before classifying, incidentType was still
-    // null and the category filter matched nothing -- on the one turn that
-    // matters most. Diagnosing the incident is what tells us which policies
-    // apply, which is the whole point of the tool.
+    // Retrieval is driven by the classification, so it runs after it.
+    // Retrieving first leaves incidentType null and the category filter
+    // matching nothing, on the one turn that matters most.
     const {
       response: policyContext,
       citations,
@@ -205,9 +187,9 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Phase two: now that policy has been retrieved, derive the obligations
-    // from it and record where each deadline actually came from, and commit
-    // them together with the classification that implied them. (OQ-5, B2)
+    // With policy retrieved, derive the obligations from it, record where each
+    // deadline actually came from, and commit them together with the
+    // classification that implied them.
     if (classification) {
       await commitClassification(incident, message, policyContext, references, classification);
     }
@@ -219,7 +201,6 @@ export async function POST(request: NextRequest) {
       coverage
     );
 
-    // Save AI response
     const aiMessage = await prisma.conversation.create({
       data: {
         incidentId: incident.id,
@@ -264,7 +245,6 @@ export async function POST(request: NextRequest) {
     // written -- the throw happens before the conversation.create below, so
     // the incident record never gains filler text presented as guidance.
     // The user's own message is still persisted, which is intentional.
-    // (FLOW-7, TEST-5)
     if (error instanceof LLMUnavailableError) {
       logError(error, { operation: 'chat', userId, duration });
       logResponse('POST', '/api/chat', 503, duration);
@@ -308,16 +288,14 @@ export async function POST(request: NextRequest) {
  * nothing (an empty library, or an unparseable response). Those are recorded
  * as model-sourced, which is exactly what they are: losing the obligation
  * entirely would be worse, because "you must report this to DCYF" is worth
- * saying even when no deadline can be attributed. (OQ-5)
+ * saying even when no deadline can be attributed.
  *
- * Why one transaction: `incidentType` used to be written in phase one, before
- * this function ran. Anything that threw in between -- a timeout inside
- * `deriveObligations`, which guards its parse but not its model call -- left the
- * incident classified with zero obligations. The caller only classifies when
- * `incidentType` is null, and `complianceAction.create` exists nowhere else, so
- * nothing retried: a classified report with an empty obligation queue, which
- * reads as "nothing is required of you". The model call is made *before* the
- * transaction opens, so no database work is held open across it. (B2)
+ * One transaction, because the caller only classifies when `incidentType` is
+ * null and `complianceAction.create` exists nowhere else: if the stamp were
+ * written separately and anything threw in between, the incident would be left
+ * classified with an empty obligation queue and nothing would ever retry. The
+ * model call is made *before* the transaction opens, so no database work is
+ * held open across it.
  */
 async function commitClassification(
   incident: { id: string; title: string },
@@ -380,7 +358,6 @@ async function commitClassification(
 }
 
 function determineDataSensitivity(message: string, incident: any): DataSensitivity {
-  // Simple heuristic - in production, use more sophisticated analysis
   const sensitiveKeywords = [
     'student name', 'student id', 'social security', 'address',
     'phone number', 'email', 'medical', 'disability', 'special needs'

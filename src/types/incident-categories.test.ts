@@ -69,7 +69,7 @@ describe('guaranteedCategoriesFor', () => {
   // an `other` incident -- the classifier's own failure default -- therefore
   // retrieved no mandatory-reporting policy AND had its coverage assessment
   // skipped, so every gap warning was suppressed at the same time. These two
-  // callers must never collapse back into one. (B3)
+  // callers must never collapse back into one.
 
   it('always includes mandatory reporting, whatever the classification', () => {
     for (const type of [...INCIDENT_TYPES, 'other']) {
@@ -103,7 +103,7 @@ describe('guaranteedCategoriesFor', () => {
 describe('abuse and neglect', () => {
   // The taxonomy had no value for this, so a disclosure about a child's home
   // life classified as `other` -- the highest-stakes report this tool handles,
-  // on the shortest clock, in the bucket that means "we could not tell". (OQ-3)
+  // on the shortest clock, in the bucket that means "we could not tell".
 
   it('is a first-class incident type', () => {
     expect(INCIDENT_TYPES).toContain('abuse_neglect');

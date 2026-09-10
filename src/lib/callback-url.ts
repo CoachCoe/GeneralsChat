@@ -5,7 +5,7 @@
  * router, so `/login?callbackUrl=https://evil.test/` redirected off-site
  * immediately after a successful sign-in -- from a link whose domain is
  * genuinely this application's, on the page where a convincing look-alike is
- * worth the most. (FLOW-55)
+ * worth the most.
  *
  * Lives in `src/lib` rather than beside the page because it is pure, and the
  * property it has is worth a test.

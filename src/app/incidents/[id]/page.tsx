@@ -40,15 +40,14 @@ interface Action {
   dueDate: string | null;
   completedAt: string | null;
   /**
-   * Whether a retrieved policy states this deadline. `GET /api/incidents/[id]`
-   * has always returned it -- `complianceActions` is a raw include -- but this
-   * interface omitted it, so the "N overdue" pill, the stamp bar and the
-   * timeline all painted a model-recalled deadline red while the obligation
-   * row 150 lines away dimmed the same one. (B5)
+   * Whether a retrieved policy states this deadline. Omitting it here leaves
+   * the "N overdue" pill, the stamp bar and the timeline painting a
+   * model-recalled deadline red while the obligation row below dims the same
+   * one.
    */
   deadlineSource: string | null;
   citation: string | null;
-  /** Joined through `policyId`, so the AuthorityChip can render. (SPEC-56) */
+  /** Joined through `policyId`, so the AuthorityChip can render. */
   policy?: { jurisdiction: string } | null;
 }
 
@@ -75,8 +74,8 @@ type TimelineEvent = {
   meta?: string;
   /**
    * The deadline state this rung represents, and whether a policy states it.
-   * Only obligation rungs carry them; `kind` alone used to decide the colour,
-   * which made every open obligation amber regardless of when it was due. (B5)
+   * Only obligation rungs carry them. `kind` alone cannot decide the colour --
+   * that makes every open obligation amber regardless of when it is due.
    */
   state?: DeadlineState;
   deadlineSource?: string | null;
@@ -123,17 +122,15 @@ export default function IncidentDetailPage() {
   }, [fetchIncident]);
 
   /**
-   * Every mutation on this page used to be `if (response.ok) { ... }` with no
-   * else. So a 401 from an expired session, a 429 from the rate limiter, a 503
-   * from the model, or a 404 from a scope check all produced *nothing*: the
-   * spinner stopped and the screen was unchanged.
+   * Every mutation on this page reports its failure. An `if (response.ok)`
+   * with no else turns a 401 from an expired session, a 429 from the limiter,
+   * a 503 from the model and a 404 from a scope check all into *nothing*: the
+   * spinner stops and the screen is unchanged.
    *
-   * On `Mark done` that is the worst of them. The administrator clicks it, sees
-   * the row stay where it is, and has no way to tell "the click did not
-   * register" from "the obligation is still outstanding" -- on the control
-   * whose whole purpose is recording that a statutory obligation was
-   * discharged. Closing an incident and attaching a document had the same
-   * shape. (FLOW-65)
+   * `Mark done` is the worst case. The administrator clicks, sees the row stay
+   * where it is, and cannot tell "the click did not register" from "the
+   * obligation is still outstanding" -- on the control whose whole purpose is
+   * recording that a statutory obligation was discharged.
    */
   const reportFailure = async (response: Response, fallback: string) => {
     if (response.status === 401) {
@@ -161,7 +158,7 @@ export default function IncidentDetailPage() {
       const data = await response.json();
       setSummary(data.summary);
       // The timeline renders summaries from the incident record, so the new
-      // row is invisible until the incident is re-read. (FLOW-67)
+      // row is invisible until the incident is re-read.
       await fetchIncident();
     } catch {
       toast.error('Could not reach the server. Check your connection.');
@@ -268,7 +265,7 @@ export default function IncidentDetailPage() {
   // Counted the way the home page counts it: a headline number stating that
   // something is legally late must rest on a deadline a retrieved policy
   // actually states. Unverified ones are still listed below, and still say on
-  // their own row that they need confirming. (OQ-5, B5)
+  // their own row that they need confirming.
   const overdue = open.filter(
     a =>
       isPolicyBacked(a.deadlineSource) &&
@@ -510,11 +507,11 @@ const KIND_TONE: Record<TimelineEvent['kind'], string> = {
   attachment: 'bg-line-strong',
   met: 'bg-met',
   missed: 'bg-overdue',
-  // Neutral by default. This was `bg-attention`, which made every open
-  // obligation amber whatever its deadline said -- so a dot due in three weeks
-  // read as urgently as one due this afternoon. An `upcoming` rung earns amber
-  // only when describeDeadline actually returned `attention` and a policy
-  // states the deadline; `dotTone` below decides. (B5, SPEC-44)
+  // Neutral by default: amber here would make every open obligation urgent
+  // whatever its deadline said, so a dot due in three weeks would read like
+  // one due this afternoon. An `upcoming` rung earns amber only when
+  // describeDeadline returned `attention` and a policy states the deadline;
+  // `dotTone` below decides.
   upcoming: 'bg-line-strong',
 };
 

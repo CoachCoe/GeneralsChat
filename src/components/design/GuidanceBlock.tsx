@@ -27,8 +27,6 @@ import remarkGfm from 'remark-gfm';
  *   `rel="noopener noreferrer nofollow"`. A `javascript:` href would be script
  *   execution on this origin; `noreferrer` keeps the incident URL out of the
  *   Referer sent to whatever a link points at.
- *
- * (SEC-33, the egress half of SEC-25)
  */
 
 /**
