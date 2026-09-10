@@ -27,7 +27,7 @@ const DAY = 24 * HOUR;
  * no test reading a `dueDate` produced from a `dueInHours` anywhere in either
  * suite. Changing `* 60 * 60 * 1000` to `* 60 * 1000` turned a 24-hour
  * mandatory-report clock into 24 minutes with all 210 tests green. It is one
- * function with one test now so that cannot happen quietly. (B6)
+ * function with one test now so that cannot happen quietly.
  */
 export function dueDateFromHours(hours: number, now: Date = new Date()): Date {
   return new Date(now.getTime() + hours * HOUR);
@@ -70,7 +70,7 @@ function formatInterval(ms: number): string {
   // Round to whole minutes once, then carry. Rounding each unit independently
   // let Math.round return 60: 59m30s rendered "in 60m" and 23h59m30s rendered
   // "in 23h 60m". On a countdown in tabular mono, the last thirty seconds of
-  // every hour displayed a time that does not exist. (TEST-36)
+  // every hour displayed a time that does not exist.
   const totalMinutes = Math.round(abs / MINUTE);
   if (totalMinutes < 60) return `${Math.max(1, totalMinutes)}m`;
 
@@ -122,7 +122,7 @@ export function describeDeadline(
 }
 
 /** Token colour class for a deadline state. */
-export const DEADLINE_COLOR: Record<DeadlineState, string> = {
+const DEADLINE_COLOR: Record<DeadlineState, string> = {
   overdue: 'text-overdue',
   attention: 'text-attention',
   met: 'text-met',
@@ -134,11 +134,10 @@ export const DEADLINE_COLOR: Record<DeadlineState, string> = {
  *
  * `deadlineSource` is a free-text column with a `'model'` default, so this asks
  * the question in one place rather than leaving callers to pick between
- * `=== 'policy'` and `!== 'model'`. Those are complements only while exactly two
- * values exist, and they were already being used interchangeably on the server
- * and the client. Anything that is not the recorded policy value is unverified,
- * which is the safe direction: a new value added later reads as unverified
- * rather than silently earning a red countdown. (B5, DEAD-82)
+ * `=== 'policy'` and `!== 'model'` -- complements only while exactly two values
+ * exist. Anything that is not the recorded policy value is unverified, which is
+ * the safe direction: a value added later reads as unverified rather than
+ * silently earning a red countdown.
  */
 export function isPolicyBacked(deadlineSource: string | null | undefined): boolean {
   return deadlineSource === 'policy';
@@ -147,16 +146,15 @@ export function isPolicyBacked(deadlineSource: string | null | undefined): boole
 /**
  * The colour a deadline has earned.
  *
- * OQ-5: "A model-sourced deadline gets no red or amber countdown." Red and
- * amber are claims about a statutory clock, and a deadline the loaded library
- * does not state has not earned one -- so an unverified deadline is dimmed
- * instead. `met` keeps its green either way: "this was done" is a fact about
- * the administrator's own action, not about a policy.
+ * A model-sourced deadline gets no red or amber countdown: those are claims
+ * about a statutory clock, and a deadline the loaded library does not state has
+ * not earned one, so it is dimmed instead. `met` keeps its green either way --
+ * "this was done" is a fact about the administrator's own action, not about a
+ * policy.
  *
- * This existed only inside `DeadlineClock`, so the obligation row was dimmed
- * while the "N overdue" pill in the header above it, the incidents-list
- * countdown and the timeline dots all painted the same row red from the same
- * data. One helper, one rule, one test. (B5)
+ * One helper, one rule, one test. Spread across the callers, the obligation row
+ * ends up dimmed while the "N overdue" pill above it, the incidents-list
+ * countdown and the timeline dots paint the same row red from the same data.
  */
 export function deadlineColor(
   state: DeadlineState,

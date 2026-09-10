@@ -16,17 +16,10 @@ import { embeddingsService } from './embeddings';
 import { splitPolicyIntoSectionedChunks } from '@/lib/utils/documentProcessor';
 import { formatSectionCitation, parsePolicySections } from '@/lib/policy-sections';
 
-/**
- * Enhanced RAG System with Vector Search
- *
- * Uses OpenAI embeddings + Chroma vector database for semantic search
- * Falls back to keyword search if vector search fails
- */
-export class RAGSystem {
+class RAGSystem {
   private isInitialized: boolean = false;
 
   constructor() {
-    // Will initialize on first use
   }
 
   async initialize() {
@@ -44,9 +37,6 @@ export class RAGSystem {
     }
   }
 
-  /**
-   * Add policy document with embeddings to both database and vector store
-   */
   async addPolicyDocument(
     policyId: string,
     content: string,
@@ -60,11 +50,9 @@ export class RAGSystem {
       const sections = parsePolicySections(content);
       const chunks = splitPolicyIntoSectionedChunks(content, sections, 1000, 200);
 
-      // Check if embeddings are available
       const hasEmbeddings = process.env.OPENAI_API_KEY &&
                            process.env.OPENAI_API_KEY !== 'your-openai-api-key-here';
 
-      // Prepare chunks for database and vector store
       const chunkRecords = [];
 
       for (let i = 0; i < chunks.length; i++) {
@@ -73,7 +61,6 @@ export class RAGSystem {
 
         let embeddingJson: string | null = null;
 
-        // Only generate embedding if API key is configured
         if (hasEmbeddings) {
           try {
             const embedding = await embeddingsService.generateEmbedding(chunkContent);
@@ -83,7 +70,6 @@ export class RAGSystem {
           }
         }
 
-        // Save to database
         const dbChunk = await prisma.policyChunk.create({
           data: {
             policyId,
@@ -108,7 +94,6 @@ export class RAGSystem {
         }
       }
 
-      // Add to Chroma vector database only if embeddings were generated
       if (chunkRecords.length > 0) {
         try {
           await chromaService.addPolicyChunks(chunkRecords);
@@ -127,10 +112,6 @@ export class RAGSystem {
     }
   }
 
-  /**
-   * Search for relevant policy chunks using semantic search
-   * Falls back to keyword search if vector search fails
-   */
   async searchRelevantPolicies(
     query: string,
     limit: number = 5,
@@ -139,15 +120,11 @@ export class RAGSystem {
     await this.initialize();
 
     try {
-      // Only category is mirrored into Chroma chunk metadata, so only that
-      // can be filtered vector-side. Passing isActive here would filter on a
-      // metadata key no chunk has, which matches nothing and would silently
-      // kill vector search entirely. isActive is enforced against the database
-      // during enrichment below, where it also covers chunks indexed before
-      // that field existed.
-      // Chroma metadata carries `category`, so that much can be filtered
-      // vector-side. isActive is enforced against the database below, where
-      // it also covers chunks indexed before that field existed.
+      // Only `category` is mirrored into Chroma chunk metadata, so only that
+      // can be filtered vector-side; filtering on `isActive` here would match
+      // no chunk and kill vector search entirely. It is enforced against the
+      // database during enrichment below, which also covers chunks indexed
+      // before that field existed.
       const categoryFilter =
         filter?.categories && filter.categories.length > 0
           ? { category: { $in: filter.categories } }
@@ -159,24 +136,22 @@ export class RAGSystem {
         categoryFilter
       );
 
-      // Enrich with database data if needed
       const enrichedResults = await Promise.all(
         vectorResults.map(async result => {
-          // Get full chunk data from database
           const dbChunk = await prisma.policyChunk.findUnique({
             where: { id: result.id },
             include: { policy: { select: { title: true, jurisdiction: true, category: true, isActive: true } } },
           });
 
           // A vector hit with no surviving DB row is an orphan: the policy was
-          // deleted but its Chroma entry was not purged. Returning the Chroma
-          // copy meant a deleted policy kept being served to the model as
-          // authoritative context indefinitely. Drop it instead. (SPEC-15)
+          // deleted but its Chroma entry was not purged. Serving the Chroma
+          // copy would keep a deleted policy in front of the model as
+          // authoritative context indefinitely.
           if (!dbChunk) {
             return null;
           }
 
-          // Deactivated policies must not be cited as authority. (SPEC-5)
+          // Deactivated policies must not be cited as authority.
           if (filter?.isActive !== false && !dbChunk.policy.isActive) {
             return null;
           }
@@ -196,12 +171,10 @@ export class RAGSystem {
 
       const liveResults = enrichedResults.flatMap(chunk => (chunk ? [chunk] : []));
 
-      // An empty vector result is a miss, not a success. Chroma returns []
+      // An empty vector result is a miss, not a success: Chroma returns []
       // without throwing when the collection is empty or the filter matches
-      // nothing, so this path previously returned [] and skipped the fallback
-      // entirely -- which is exactly what happens to policies written while
-      // Chroma was unreachable, making them silently unretrievable the moment
-      // Chroma came back up. (FLOW-5, SPEC-3)
+      // nothing. Fall through to keyword search, or policies written while
+      // Chroma was unreachable stay unretrievable once it comes back.
       if (liveResults.length === 0) {
         return this.fallbackSearch(query, limit, filter);
       }
@@ -210,7 +183,6 @@ export class RAGSystem {
     } catch (error) {
       // This changes what is retrieved, and therefore what the administrator
       // is told, so it belongs in the structured stream rather than on stdout.
-      // (MT-5)
       logError(error as Error, {
         operation: 'searchRelevantPolicies',
         note: 'vector search unavailable; using the category-filtered keyword fallback',
@@ -219,16 +191,11 @@ export class RAGSystem {
     }
   }
 
-  /**
-   * Fallback keyword search when vector search is unavailable
-   * Extracts keywords from query and searches for them
-   */
   private async fallbackSearch(
     query: string,
     limit: number,
     filter?: { categories?: string[]; isActive?: boolean }
   ): Promise<PolicyChunk[]> {
-    // Extract keywords from query (simple approach: words 4+ chars, lowercase)
     const keywords = query
       .toLowerCase()
       .replace(/[^\w\s]/g, '')
@@ -241,16 +208,13 @@ export class RAGSystem {
     }
 
     // `mode: 'insensitive'` is required: the datasource is PostgreSQL
-    // (prisma/schema.prisma:10), where LIKE is case-sensitive. The comment
-    // this replaces asserted SQLite semantics, a leftover from before the
-    // Postgres migration -- so lowercased keywords could never match policy
-    // codes or capitalised terms ("JICK", "Title IX", "DCYF"), silently
-    // dropping recall to zero on exactly the queries this tool exists for.
-    // (FLOW-4, SPEC-6)
+    // (prisma/schema.prisma:10), where LIKE is case-sensitive. Without it the
+    // lowercased keywords never match policy codes or capitalised terms
+    // ("JICK", "Title IX", "DCYF") -- zero recall on exactly the queries this
+    // tool exists for.
     //
     // The isActive predicate joins through to Policy so that a deactivated or
-    // superseded policy stops being cited as authority. The filter argument
-    // was previously accepted and ignored here. (SPEC-5)
+    // superseded policy stops being cited as authority.
     const chunks = await prisma.policyChunk.findMany({
       where: {
         OR: keywords.map(keyword => ({
@@ -273,7 +237,6 @@ export class RAGSystem {
       },
     });
 
-    // Score chunks by number of keyword matches
     const scoredChunks = chunks.map(chunk => {
       const lowerContent = chunk.content.toLowerCase();
       const matchCount = keywords.filter(kw => lowerContent.includes(kw)).length;
@@ -284,18 +247,11 @@ export class RAGSystem {
       };
     });
 
-    // Sort by score and return top results
     return scoredChunks
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
   }
 
-  /**
-   * Split content into chunks with overlap for better context
-   */
-  /**
-   * Generate response with citations from relevant policy chunks
-   */
   async generateResponseWithCitations(
     query: string,
     context?: {
@@ -312,11 +268,10 @@ export class RAGSystem {
     coverage: PolicyCoverage;
     references: PolicyReference[];
   }> {
-    // Retrieval query includes the incident type and the last couple of user
-    // turns. Previously the context argument was named `_context` and never
-    // read, so a short follow-up ("no, just the one witness") retrieved on
-    // those words alone -- and since keywords under 4 chars are dropped, often
-    // retrieved nothing at all. (FLOW-6)
+    // The retrieval query carries the incident type and the last couple of
+    // user turns, not just the latest message: a short follow-up ("no, just
+    // the one witness") retrieves on almost nothing by itself, since keywords
+    // under 4 chars are dropped.
     const recentUserTurns = (context?.previousMessages ?? [])
       .filter(m => m.sender === 'user')
       .slice(-2)
@@ -332,7 +287,7 @@ export class RAGSystem {
     // crowding out the others.
     // The filter may be empty (unclassified, or `other`); the guaranteed set
     // never is. Search stays unconstrained in that case, but representation and
-    // coverage still run -- see guaranteedCategoriesFor. (B3)
+    // coverage still run -- see guaranteedCategoriesFor.
     const categories = categoriesForIncidentType(context?.incidentType);
     const guaranteed = guaranteedCategoriesFor(context?.incidentType);
     const matched = await this.searchRelevantPolicies(retrievalQuery, 12, {
@@ -416,16 +371,15 @@ export class RAGSystem {
   /**
    * Groups retrieved text by jurisdiction, strongest authority first.
    *
-   * The model previously received a flat `[1] ...` list with no indication of
-   * where any of it came from, so it could not distinguish a federal statute
-   * from a school handbook -- and the citations it was asked to produce were
-   * raw cuids nobody could look up.
+   * A flat list would leave the model unable to tell a federal statute from a
+   * school handbook, and the citations it produces have to be references a
+   * reader can look up rather than raw cuids.
    */
   private buildJurisdictionContext(
     chunks: PolicyChunk[],
     // Populated as the excerpts are numbered, so an attribution the model
     // makes can be checked against the excerpts it was actually given rather
-    // than taken on trust. (OQ-5)
+    // than taken on trust.
     references?: PolicyReference[]
   ): string {
     if (chunks.length === 0) return '';
@@ -500,19 +454,6 @@ export class RAGSystem {
   }
 
   /**
-   * Which jurisdictions hold a policy for each category this incident
-   * implicates.
-   *
-   * Queried against the policy library rather than inferred from what
-   * retrieval returned. A category with no policy at all returns nothing from
-   * search, so deriving coverage from the results would report the most
-   * serious gap -- no policy whatsoever -- as no gap.
-   *
-   * The district is expected to have a local policy for everything, so any
-   * implicated category without a district or school policy is a gap, whether
-   * or not federal or state authority exists above it.
-   */
-  /**
    * What the library does and does not cover for an incident of this type.
    *
    * Public because the chat history route needs the same answer when it
@@ -529,6 +470,18 @@ export class RAGSystem {
     return this.assessCoverage(guaranteedCategoriesFor(incidentType));
   }
 
+  /**
+   * Which jurisdictions hold a policy for each of these categories.
+   *
+   * Queried against the policy library rather than inferred from what
+   * retrieval returned: a category with no policy at all returns nothing from
+   * search, so deriving coverage from the results would report the most
+   * serious gap -- no policy whatsoever -- as no gap.
+   *
+   * The district is expected to have a local policy for everything, so any
+   * implicated category without a district or school policy is a gap, whether
+   * or not federal or state authority exists above it.
+   */
   private async assessCoverage(categories: string[]): Promise<PolicyCoverage> {
     if (categories.length === 0) {
       return { categories, byCategory: {}, categoriesWithoutLocalPolicy: [] };
@@ -536,8 +489,8 @@ export class RAGSystem {
 
     const policies = await prisma.policy.findMany({
       // Coverage means retrievable. A row with no chunks is invisible to
-      // search, so counting it suppresses the gap warning that says the
-      // library is empty -- the rule policy-coverage.ts already states. (B2)
+      // search, so counting it would suppress the very gap warning that says
+      // the library is empty.
       where: { isActive: true, category: { in: categories }, chunks: { some: {} } },
       select: { category: true, jurisdiction: true },
       distinct: ['category', 'jurisdiction'],
@@ -560,7 +513,6 @@ export class RAGSystem {
 
   async deletePolicyChunks(policyId: string): Promise<void> {
     try {
-      // Try to delete from Chroma (may fail if not available)
       if (this.isInitialized) {
         try {
           await chromaService.deletePolicyChunks(policyId);
@@ -569,7 +521,6 @@ export class RAGSystem {
         }
       }
 
-      // Delete from database
       await prisma.policyChunk.deleteMany({
         where: { policyId },
       });
@@ -581,9 +532,6 @@ export class RAGSystem {
     }
   }
 
-  /**
-   * Get statistics about the RAG system
-   */
   async getStats(): Promise<{
     totalChunks: number;
     totalPolicies: number;
