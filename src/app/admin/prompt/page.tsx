@@ -1,183 +1,119 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { Save, Plus, Trash2, Check, X } from 'lucide-react';
+import { Save } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { DEFAULT_ADVISOR_PROFILE } from '@/lib/ai/advisor-profile';
 
-interface SystemPrompt {
+/**
+ * One advisor profile, editable in place.
+ *
+ * There is deliberately no list. Only one profile can ever be active, so a
+ * gallery of alternatives offered a choice the product does not have -- and it
+ * hid the thing it was replacing: creating a second profile silently displaced
+ * the in-code default, which appeared nowhere in this UI, so an admin could
+ * not see what they had just stopped using.
+ *
+ * Both ways back are here instead. "Restore original" is the shipped default,
+ * read from the same constant the server sends to the model. "Undo last save"
+ * is the text this row held before the most recent edit. Neither writes on its
+ * own: they load the text into the editor, so the admin sees it before Save.
+ */
+interface Profile {
   id: string;
   name: string;
   content: string;
-  description?: string;
+  previousContent: string | null;
   isActive: boolean;
-  createdAt: string;
   updatedAt: string;
 }
 
+const PROFILE_NAME = 'Advisor profile';
+
 export default function PromptEditorPage() {
-  const [prompts, setPrompts] = useState<SystemPrompt[]>([]);
-  const [selectedPrompt, setSelectedPrompt] = useState<SystemPrompt | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [name, setName] = useState('');
-  const [content, setContent] = useState('');
-  const [description, setDescription] = useState('');
-
-  useEffect(() => {
-    fetchPrompts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchPrompts = async () => {
+  const load = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/prompts');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const response = await fetch('/api/admin/prompts/active');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const { prompt } = await response.json();
 
-      const promptsArray = data.prompts || [];
-      setPrompts(promptsArray);
-
-      const activePrompt = promptsArray.find((p: SystemPrompt) => p.isActive);
-      if (activePrompt) {
-        loadPrompt(activePrompt.id);
-      } else if (promptsArray.length > 0) {
-        loadPrompt(promptsArray[0].id);
+      if (!prompt) {
+        // Nothing configured: the model is being sent the in-code default, so
+        // that is what the editor should show rather than an empty box.
+        setProfile(null);
+        setContent(DEFAULT_ADVISOR_PROFILE);
+        return;
       }
+
+      setProfile(prompt);
+      setContent(prompt.content);
     } catch (error) {
-      console.error('Error fetching prompts:', error);
-      // Don't show alert, just silently fail and show empty state
-      setPrompts([]); // Set to empty array on error
+      console.error('Error loading advisor profile:', error);
+      toast.error('Could not load the advisor profile.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadPrompt = async (id: string) => {
-    try {
-      const response = await fetch(`/api/admin/prompts/${id}`);
-      const data = await response.json();
-      setSelectedPrompt(data.prompt);
-      setName(data.prompt.name);
-      setContent(data.prompt.content);
-      setDescription(data.prompt.description || '');
-      setIsEditing(false);
-      setIsCreating(false);
-    } catch (error) {
-      console.error('Error loading prompt:', error);
-      alert('Failed to load prompt');
-    }
-  };
-
-  const handleCreateNew = () => {
-    setSelectedPrompt(null);
-    setName('');
-    setContent('');
-    setDescription('');
-    setIsCreating(true);
-    setIsEditing(true);
-  };
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSave = async () => {
-    if (!name.trim() || !content.trim()) {
-      alert('Name and content are required');
+    if (content.trim().length < 10) {
+      toast.error('The profile needs at least 10 characters.');
       return;
     }
-
     setSaving(true);
     try {
-      if (isCreating) {
-        const response = await fetch('/api/admin/prompts', {
+      let id = profile?.id;
+
+      // No row yet: the district has been running on the in-code default.
+      if (!id) {
+        const created = await fetch('/api/admin/prompts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, content, description, createdBy: 'admin' })
+          body: JSON.stringify({ name: PROFILE_NAME, content }),
         });
-
-        if (!response.ok) throw new Error('Failed to create prompt');
-
-        const data = await response.json();
-        await fetchPrompts();
-        await loadPrompt(data.prompt.id);
-        alert('Prompt created successfully');
-      } else if (selectedPrompt) {
-        const response = await fetch(`/api/admin/prompts/${selectedPrompt.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, content, description })
-        });
-
-        if (!response.ok) throw new Error('Failed to update prompt');
-
-        await fetchPrompts();
-        await loadPrompt(selectedPrompt.id);
-        alert('Prompt updated successfully');
+        if (!created.ok) throw new Error('create failed');
+        id = (await created.json()).prompt.id as string;
       }
-    } catch (error) {
-      console.error('Error saving prompt:', error);
-      alert('Failed to save prompt');
-    } finally {
-      setSaving(false);
-    }
-  };
 
-  const handleActivate = async () => {
-    if (!selectedPrompt) return;
-
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/admin/prompts/${selectedPrompt.id}`, {
+      // Always through PUT, including straight after a create: POST leaves a
+      // prompt inactive by design, and activation is what this write is for.
+      const response = await fetch(`/api/admin/prompts/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: true })
+        body: JSON.stringify({ content, isActive: true }),
       });
+      if (!response.ok) throw new Error('save failed');
 
-      if (!response.ok) throw new Error('Failed to activate prompt');
-
-      await fetchPrompts();
-      await loadPrompt(selectedPrompt.id);
-      alert('Prompt activated successfully');
+      await load();
+      toast.success('Advisor profile saved.');
     } catch (error) {
-      console.error('Error activating prompt:', error);
-      alert('Failed to activate prompt');
+      console.error('Error saving advisor profile:', error);
+      toast.error('Could not save the advisor profile.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!selectedPrompt) return;
-
-    if (!confirm('Are you sure you want to delete this prompt?')) return;
-
-    try {
-      const response = await fetch(`/api/admin/prompts/${selectedPrompt.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to delete prompt');
-      }
-
-      await fetchPrompts();
-      setSelectedPrompt(null);
-      alert('Prompt deleted successfully');
-    } catch (error: any) {
-      console.error('Error deleting prompt:', error);
-      alert(error.message || 'Failed to delete prompt');
-    }
-  };
+  const dirty = profile ? content !== profile.content : content !== DEFAULT_ADVISOR_PROFILE;
+  const isOriginal = content === DEFAULT_ADVISOR_PROFILE;
+  const previous = profile?.previousContent ?? null;
 
   if (loading) {
     return (
       <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
         <Navbar />
-        <div className="flex items-center justify-center h-screen">
+        <div className="flex h-screen items-center justify-center">
           <p className="body-text" style={{ color: 'var(--color-text-muted)' }}>Loading...</p>
         </div>
       </div>
@@ -187,20 +123,14 @@ export default function PromptEditorPage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
       <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="heading-xl" style={{ color: 'var(--color-text)' }}>Advisor Profile</h1>
-          <Button onClick={handleCreateNew}>
-            <Plus size={20} style={{ marginRight: '8px' }} />
-            New Profile
-          </Button>
-        </div>
+      <div className="container mx-auto max-w-4xl px-4 py-8">
+        <h1 className="heading-xl mb-6" style={{ color: 'var(--color-text)' }}>Advisor Profile</h1>
 
         {/*
           Says what this actually controls, which is the chat guidance only:
           classification and summaries use fixed prompts, and the compliance
           rules live in code and are prepended to every call, so nothing edited
-          here can remove them. "System Prompt Editor" would imply otherwise.
+          here can remove them.
         */}
         <div className="mb-6 rounded-[16px] border border-line bg-surface px-5 py-4 text-[14px] leading-[1.6] text-text-secondary">
           <span className="font-medium text-text">
@@ -213,210 +143,78 @@ export default function PromptEditorPage() {
           use their own fixed prompts and are not affected by this profile.
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar - Prompt List */}
-          <div className="lg:col-span-1">
-            <div className="card">
-              <h2 className="heading-md mb-4" style={{ color: 'var(--color-text)' }}>Saved Prompts</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-2)' }}>
-                {(prompts || []).map((prompt) => (
-                  <button
-                    key={prompt.id}
-                    onClick={() => loadPrompt(prompt.id)}
-                    className={`list-row text-left ${
-                      selectedPrompt?.id === prompt.id ? 'bg-[var(--color-text)] text-[var(--color-bg)]' : ''
-                    }`}
-                    style={{
-                      width: '100%',
-                      justifyContent: 'flex-start'
-                    }}
-                  >
-                    {/* min-w-0 at both levels: `.list-row` is a flex container, so
-                        without it these items keep their content width and `truncate`
-                        never gets a bound to ellipsise against. */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="label-sm font-medium truncate min-w-0">{prompt.name}</span>
-                        {/* Neutral: an isActive flag is not a deadline state. */}
-                        {prompt.isActive && (
-                          <span
-                            className="badge flex-shrink-0 ml-2"
-                            style={{ fontSize: '12px' }}
-                          >
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      {prompt.description && (
-                        <p className="caption mt-1 truncate" style={{ opacity: 0.7 }}>
-                          {prompt.description}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="card">
+          <label htmlFor="profile-content" className="eyebrow mb-2 block">
+            Profile content
+          </label>
+          <textarea
+            id="profile-content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            spellCheck={false}
+            className="w-full rounded-[12px] border border-input bg-bg p-4 font-mono text-[13px] leading-[1.6] text-text"
+            style={{ minHeight: '420px', resize: 'vertical' }}
+          />
+
+          <p className="mt-2 text-[12px] text-text-muted">
+            <span className="font-mono tabular-nums">{content.length}</span> characters
+            {profile && !dirty && ' · saved'}
+            {dirty && ' · unsaved changes'}
+          </p>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <Button onClick={handleSave} disabled={saving || !dirty}>
+              <Save size={18} style={{ marginRight: '8px' }} />
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => setContent(DEFAULT_ADVISOR_PROFILE)}
+              disabled={isOriginal}
+              className="min-h-[44px] rounded-[12px] border border-line px-4 text-[14px] text-text-secondary transition-colors hover:border-line-strong hover:text-text disabled:opacity-40"
+            >
+              Restore original
+            </button>
+
+            {/* Absent, not merely disabled, until an edit has been saved -- an
+                undo that has never had anything to undo is noise. */}
+            {previous !== null && (
+              <button
+                type="button"
+                onClick={() => setContent(previous)}
+                disabled={content === previous}
+                className="min-h-[44px] rounded-[12px] border border-line px-4 text-[14px] text-text-secondary transition-colors hover:border-line-strong hover:text-text disabled:opacity-40"
+              >
+                Undo last save
+              </button>
+            )}
+
+            {dirty && (
+              <button
+                type="button"
+                onClick={() => setContent(profile ? profile.content : DEFAULT_ADVISOR_PROFILE)}
+                className="min-h-[44px] px-2 text-[14px] text-text-muted underline underline-offset-2 hover:text-text"
+              >
+                Discard changes
+              </button>
+            )}
           </div>
+        </div>
 
-          {/* Main Editor */}
-          <div className="lg:col-span-3">
-            <div className="card">
-              {selectedPrompt || isCreating ? (
-                <>
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex-1">
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          placeholder="Prompt name..."
-                          className="field heading-lg"
-                          style={{ fontWeight: 600 }}
-                        />
-                      ) : (
-                        <h2 className="heading-lg" style={{ color: 'var(--color-text)' }}>{selectedPrompt?.name}</h2>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      {!isEditing ? (
-                        <>
-                          <Button
-                            onClick={() => setIsEditing(true)}
-                            variant="secondary"
-                            size="sm"
-                          >
-                            Edit
-                          </Button>
-                          {!selectedPrompt?.isActive && (
-                            <Button
-                              onClick={handleActivate}
-                              disabled={saving}
-                              size="sm"
-                            >
-                              <Check size={20} style={{ marginRight: 'var(--spacing-2)' }} />
-                              Activate
-                            </Button>
-                          )}
-                          <Button
-                            onClick={handleDelete}
-                            variant="destructive"
-                            size="sm"
-                          >
-                            <Trash2 size={20} />
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            onClick={handleSave}
-                            disabled={saving}
-                            size="sm"
-                          >
-                            <Save size={20} style={{ marginRight: 'var(--spacing-2)' }} />
-                            {saving ? 'Saving...' : 'Save'}
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              if (selectedPrompt) {
-                                loadPrompt(selectedPrompt.id);
-                              } else {
-                                setIsCreating(false);
-                                setIsEditing(false);
-                              }
-                            }}
-                            variant="secondary"
-                            size="sm"
-                          >
-                            <X size={20} style={{ marginRight: 'var(--spacing-2)' }} />
-                            Cancel
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div className="mb-4">
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Optional description..."
-                        className="field body-text"
-                      />
-                    ) : (
-                      selectedPrompt?.description && (
-                        <p className="body-text" style={{ color: 'var(--color-text-muted)' }}>
-                          {selectedPrompt.description}
-                        </p>
-                      )
-                    )}
-                  </div>
-
-                  {/* Content Editor */}
-                  <div className="mb-4">
-                    <label className="block label-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-                      Profile Content
-                    </label>
-                    <textarea
-                      value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      disabled={!isEditing}
-                      placeholder="Tone, emphasis, and anything specific to your district..."
-                      className="field field-textarea"
-                      style={{
-                        width: '100%',
-                        height: '384px',
-                        fontFamily: 'SF Mono, ui-monospace, monospace',
-                        fontSize: '15px',
-                        resize: 'none',
-                        opacity: isEditing ? 1 : 0.7
-                      }}
-                    />
-                    <p className="caption mt-2" style={{ color: 'var(--color-text-muted)' }}>
-                      Characters: {content.length} | Lines: {content.split('\n').length}
-                    </p>
-                  </div>
-
-                  {/* Metadata */}
-                  {selectedPrompt && !isEditing && (
-                    <div className="mt-6 pt-6" style={{ borderTop: `0.5px solid var(--color-line)` }}>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="caption" style={{ color: 'var(--color-text-muted)' }}>Status</p>
-                          <p className="body-text font-medium" style={{ color: 'var(--color-text)' }}>
-                            {selectedPrompt.isActive ? (
-                              <span style={{ color: 'var(--color-text)' }}>Active</span>
-                            ) : (
-                              <span style={{ color: 'var(--color-text-muted)' }}>Inactive</span>
-                            )}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="caption" style={{ color: 'var(--color-text-muted)' }}>Last Updated</p>
-                          <p className="body-text font-medium" style={{ color: 'var(--color-text)' }}>
-                            {new Date(selectedPrompt.updatedAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center" style={{ padding: 'var(--spacing-8) 0' }}>
-                  <p className="body-text mb-4" style={{ color: 'var(--color-text-muted)' }}>No prompt selected</p>
-                  <Button onClick={handleCreateNew}>
-                    <Plus size={20} style={{ marginRight: 'var(--spacing-2)' }} />
-                    Create Your First Prompt
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="mt-6 flex flex-wrap gap-x-10 gap-y-2 text-[13px] text-text-muted">
+          <span>
+            <span className="eyebrow mr-2">Status</span>
+            <span data-testid="profile-status">
+              {profile ? 'Active' : 'Using the shipped default'}
+            </span>
+          </span>
+          {profile && (
+            <span>
+              <span className="eyebrow mr-2">Last updated</span>
+              <span className="font-mono tabular-nums">{profile.updatedAt.slice(0, 10)}</span>
+            </span>
+          )}
         </div>
       </div>
     </div>

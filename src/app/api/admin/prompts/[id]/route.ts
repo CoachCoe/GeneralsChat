@@ -79,11 +79,16 @@ export async function PUT(request: NextRequest, { params }: Params) {
       });
     }
 
+    // `previousContent` moves only when the text actually changes. Activating a
+    // prompt, or renaming it, must not consume the one undo an admin has.
+    const contentChanged = content !== undefined && content !== before?.content;
+
     const prompt = await prisma.systemPrompt.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(content !== undefined && { content }),
+        ...(contentChanged && { previousContent: before?.content ?? null }),
         ...(description !== undefined && { description }),
         ...(isActive !== undefined && { isActive })
       }
@@ -97,7 +102,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       details: {
         name: prompt.name,
         activated: isActive === true && before?.isActive !== true,
-        contentChanged: content !== undefined && content !== before?.content,
+        contentChanged,
         previousContent: before?.content,
       },
     });

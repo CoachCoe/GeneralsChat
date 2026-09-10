@@ -351,6 +351,24 @@ export async function resetDatabase(): Promise<SeededIds> {
  * The suite runs `workers: 1, fullyParallel: false`, so a test may mutate a
  * shared user for the length of one test. It must put the role back.
  */
+/**
+ * Put the advisor profile back to the state `resetDatabase` leaves: none
+ * configured, so the app is running on the in-code default.
+ *
+ * The profile tests write real rows, and one of them asserts that no undo is
+ * offered before anything has been saved. That is only true from a clean
+ * start, so they cannot inherit a row from an earlier attempt -- a retry would
+ * otherwise begin one save further along and pass or fail on leftovers.
+ */
+export async function clearAdvisorProfiles(): Promise<void> {
+  const prisma = new PrismaClient();
+  try {
+    await prisma.systemPrompt.deleteMany();
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 export async function setUserRole(email: string, role: string): Promise<string> {
   const prisma = new PrismaClient();
   try {

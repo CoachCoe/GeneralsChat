@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { STORAGE_STATE } from '../playwright.config';
-import { TEST_USERS, deleteUserByEmail, setUserRole } from './support/seed';
+import {
+  TEST_USERS,
+  clearAdvisorProfiles,
+  deleteUserByEmail,
+  setUserRole,
+} from './support/seed';
 
 /** Admin-only routes, which the reporter project cannot reach. */
 test.describe('Admin routes', () => {
@@ -137,5 +142,82 @@ test.describe('Policy update validation', () => {
       data: { title: policy.title },
     });
     expect(response.status()).toBe(200);
+  });
+});
+
+/**
+ * One advisor profile, and both ways back to a known text.
+ *
+ * The fixture seeds no `SystemPrompt`, which is the state a district starts
+ * in: the model is being sent the in-code default, so that is what the editor
+ * must show rather than an empty box.
+ */
+test.describe('Advisor profile', () => {
+  const editor = (page: import('@playwright/test').Page) =>
+    page.getByLabel('Profile content');
+
+  // These write real rows, and one asserts that no undo exists before the
+  // first save. Both need the seeded state, including on a retry.
+  test.beforeEach(async () => { await clearAdvisorProfiles(); });
+  test.afterAll(async () => { await clearAdvisorProfiles(); });
+
+  test('shows the shipped default when nothing is configured', async ({ page }) => {
+    await page.goto('/admin/prompt');
+    await expect(editor(page)).toContainText('trusted compliance advisor');
+    await expect(page.getByTestId('profile-status')).toHaveText('Using the shipped default');
+    // Already the original, so there is nothing to restore to.
+    await expect(page.getByRole('button', { name: 'Restore original' })).toBeDisabled();
+    // Nothing has been saved, so there is no save to undo.
+    await expect(page.getByRole('button', { name: 'Undo last save' })).toHaveCount(0);
+  });
+
+  test('saves an edit, then undoes the one after it', async ({ page }) => {
+    const first = 'Keep answers to three sentences and name the form section.';
+    const second = 'Ask about the bus route before anything else.';
+
+    /*
+     * Save, then wait for the write to land before navigating. Reloading on
+     * the click aborts the request in flight -- the server logs an ECONNRESET
+     * and the row keeps its old text -- so the wait is what makes each step
+     * mean what it says. Save going disabled is the app's own report that
+     * there is nothing unsaved left.
+     */
+    const save = async () => {
+      const button = page.getByRole('button', { name: 'Save', exact: true });
+      await button.click();
+      await expect(button).toBeDisabled();
+    };
+
+    await page.goto('/admin/prompt');
+    await editor(page).fill(first);
+    await save();
+    await expect(page.getByTestId('profile-status')).toHaveText('Active');
+
+    // The edit survives a reload, so it is the row the model will be sent.
+    await page.reload();
+    await expect(editor(page)).toHaveValue(first);
+
+    // Nothing to undo yet: this row had no earlier saved text, and the way
+    // back to the shipped wording is "Restore original".
+    await expect(page.getByRole('button', { name: 'Undo last save' })).toHaveCount(0);
+
+    await editor(page).fill(second);
+    await save();
+    await page.reload();
+    await expect(editor(page)).toHaveValue(second);
+
+    // One level, and it is the previous saved text rather than the default.
+    await page.getByRole('button', { name: 'Undo last save' }).click();
+    await expect(editor(page)).toHaveValue(first);
+    await save();
+    await page.reload();
+    await expect(editor(page)).toHaveValue(first);
+  });
+
+  test('restores the shipped default over an edit', async ({ page }) => {
+    await page.goto('/admin/prompt');
+    await editor(page).fill('Something else entirely.');
+    await page.getByRole('button', { name: 'Restore original' }).click();
+    await expect(editor(page)).toHaveValue(/trusted compliance advisor/);
   });
 });

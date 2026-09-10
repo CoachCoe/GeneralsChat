@@ -159,6 +159,7 @@ model ComplianceAction {
   @@index([status])
   @@index([assignedTo])
   @@index([dueDate])
+  @@index([policyId])
 }
 
 // ============================================
@@ -305,6 +306,13 @@ model SystemPrompt {
   name     String // Friendly name like "Friendly Advisor", "Strict Legal", etc.
   content  String // The full system prompt text
   isActive Boolean @default(false)
+
+  /// The content this row held before the most recent save, so an admin can
+  /// undo one. Null until the first edit. One level only: `AuditLog` records
+  /// that a prompt changed and who changed it, which is what a review needs;
+  /// this exists so a bad edit to the text the model is given is recoverable
+  /// without one.
+  previousContent String?
 
   // Metadata
   description String?
