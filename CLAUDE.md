@@ -102,11 +102,35 @@ state district deadlines. Don't remove that guard.
 
 **A missing local policy is information.** Coverage gaps are reported, not
 hidden, and never papered over by passing a statute off as district procedure.
-They are reported on every turn that gives guidance. A turn that only asks a
-clarifying question carries no coverage card and no source ladder, because that
-block is a claim about the text above it and a question makes no claim — the
-model labels its own turn and `parseTurnLabel` resolves anything unreadable to
-`guidance`, so the block is suppressed only by an explicit question label.
+They are reported in the sources rail beside the transcript, which is on screen
+for every turn that gives guidance: a dashed local rung labelled `gap`, or —
+when nothing the incident is about is loaded at all — the scope note, which
+names what the system thinks the incident is so the reader can disagree. One
+telling, not three: the transcript used to carry an amber card restating the
+gap under every answer, above prose in which the answer had already admitted
+it, and a warning repeated that often reads as furniture.
+
+A clarifying question contributes nothing to the rail, because provenance is a
+claim about text the assistant wrote and a question makes no claim — the model
+labels its own turn and `parseTurnLabel` resolves anything unreadable to
+`guidance`, so a turn is excluded only by an explicit question label. Sources
+accumulate across the conversation; coverage does not, because it describes the
+incident rather than the turn and classification is refined as the
+administrator says more. The decision lives in `src/lib/provenance.ts`,
+apart from the components that draw it, because it is the part that can be
+wrong and neither gate can reach the page: vitest runs in `node` over
+`.test.ts` files, and no e2e fixture can produce a turn with zero citations.
+
+**A report form is the district's, not ours.** `/incidents/[id]/report` parses
+the form out of the document the district loaded (`src/lib/report-template.ts`)
+and fills in only facts the incident record holds, each labelled with where it
+came from. Names, ages, grades and dates of the incident stay blank: they are
+in the reporter's prose, and inferring them from it is how a report names the
+wrong child. A deadline fills only from a policy-backed obligation. An
+unclassified incident gets no form rather than a guessed one. The form's text
+crosses the wire only as parsed blocks, for one incident, to a user the
+incident scope already lets read it — `GET /api/policies` still withholds
+`content` and `filePath` from everyone.
 
 **Attachments are student records.** They live outside `public/` and are served
 only through `GET /api/attachments/[id]`, which re-checks session and ownership.
@@ -159,9 +183,11 @@ These are asserted by the suite; move them deliberately and update the tests in
 the same commit:
 
 `data-testid="chat-input" | chat-send | chat-loading | chat-sources |
-chat-history-item | obligation-queue | obligation-row`, `aria-label="Send message"`,
-`nav[aria-label="Main"]`, the `Incidents` `<h1>`, and the button names
-`Close Incident` / `Reopen Incident` / `Generate Summary` / `Sign in` /
+chat-history-item | obligation-queue | obligation-row | incident-summary |
+incident-report | report-gap`, `aria-label="Send message"`,
+`nav[aria-label="Main"]`, `nav[aria-label="Documents"]`,
+`aside[aria-label="Sources"]`, the `Incidents` `<h1>`,
+and the button names `Close Incident` / `Reopen Incident` / `Generate Summary` / `Sign in` /
 `Sign out` / `Mark done`.
 
 `obligation-row` exists so a test can assert the queue is **exhaustive** — that

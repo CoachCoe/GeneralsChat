@@ -5,7 +5,7 @@ accumulated four status files that all drifted out of date, so keep this one
 current or delete it. The dated audit and history records are untracked working
 documents; nothing here should link to them.
 
-Last reviewed: 2026-09-09. Context: entering a single-user pilot.
+Last reviewed: 2026-09-10. Context: entering a single-user pilot.
 
 ---
 
@@ -482,6 +482,40 @@ why the e2e suite never saw it; the divergence was the problem, because anything
 checked locally about route protection was saying nothing. And the chat sidebar
 entry was a clickable `div`: the only route back to a past incident, unreachable
 by keyboard and announced as nothing.
+
+### 2026-09-10 — provenance moved to a rail, and the two documents made reachable
+
+**Provenance is a rail beside the transcript, not a block under each turn.**
+The ladder and an amber coverage card sat under every answer, between the
+reader and the next thing the assistant said, and the gap was stated three
+times in one turn: in the answer's own prose, in the zero-citation notice, and
+in the card. The rail names what the *incident* rests on — sources accumulate
+across turns, deduplicated, with a policy's provisions collected as later
+answers lean on them — while coverage is taken from the latest turn that knows
+it, because coverage describes the incident and classification is refined as
+the administrator says more. A clarifying question still contributes nothing.
+The gap is now told once, as a dashed local rung labelled `gap`, or as the
+scope note when nothing the incident is about is loaded at all. The decision
+lives in `src/lib/provenance.ts`, unit tested, because the page itself is
+out of reach of both gates.
+
+**The summary and the report are documents with addresses.** Both were
+reachable only by scrolling the transcript that produced them. Each now has a
+page — `/incidents/[id]/summary` and `/incidents/[id]/report` — linked from a
+`Documents` column at the top of the incident, and both print: `theme.css`
+re-lights the token layer for print rather than restyling components, since the
+screen palette is white on near-black.
+
+**The report is the district's own form, filled from the record.** Parsed out
+of the loaded document rather than modelled in code, because a mandatory report
+is a legal filing and a plausible form the district never adopted is worse than
+none. Only facts the record holds are filled in, each labelled with where it
+came from; names, ages, grades and dates of the incident stay blank, because
+they live in the reporter's prose and inferring them from it is how a report
+names the wrong child. The completion deadline fills only from a policy-backed
+obligation — counting ten school days needs a holiday calendar the system does
+not have. An unclassified incident gets no form at all rather than a guessed
+one, and a type with no form loaded is told plainly.
 
 ---
 

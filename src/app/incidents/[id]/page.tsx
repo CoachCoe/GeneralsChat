@@ -273,6 +273,7 @@ export default function IncidentDetailPage() {
       new Date(a.dueDate).getTime() < Date.now()
   );
   const closed = incident.status === 'closed';
+  const hasSummary = incident.conversations.some(c => c.sender === 'summary');
 
   const events: TimelineEvent[] = [
     {
@@ -382,6 +383,24 @@ export default function IncidentDetailPage() {
       <StampBar incident={incident} done={done} total={actions.length} overdue={overdue.length} />
 
       <div className="flex flex-col gap-8 lg:flex-row">
+        {/* The two documents an incident produces, named where they can be
+            reached without walking the transcript that produced them. */}
+        <nav aria-label="Documents" className="flex w-full flex-none flex-col gap-3 lg:w-[200px]">
+          <span className="eyebrow">Documents</span>
+          <div className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-surface">
+            <DocumentLink
+              href={`/incidents/${incident.id}/summary`}
+              title="Consultation summary"
+              note={hasSummary ? 'Generated' : 'Not generated yet'}
+            />
+            <DocumentLink
+              href={`/incidents/${incident.id}/report`}
+              title="Mandatory report"
+              note="Draft from the record"
+            />
+          </div>
+        </nav>
+
         <section className="flex min-w-0 flex-1 flex-col gap-3">
           <span className="eyebrow">Timeline</span>
           <div className="flex flex-col gap-2">
@@ -407,10 +426,15 @@ export default function IncidentDetailPage() {
           </div>
 
           {summary && (
-            <div className="mt-4 flex flex-col gap-2 rounded-[16px] border border-line bg-surface p-5">
-              <span className="eyebrow">Summary</span>
-              <GuidanceBlock>{summary}</GuidanceBlock>
-            </div>
+            <Link
+              href={`/incidents/${incident.id}/summary`}
+              className="mt-4 flex flex-col gap-1 rounded-[16px] border border-line bg-surface p-5 transition-colors hover:border-line-strong"
+            >
+              <span className="eyebrow">Summary generated</span>
+              <span className="text-[14px] text-text-secondary">
+                Open the consultation summary →
+              </span>
+            </Link>
           )}
         </section>
 
@@ -443,11 +467,23 @@ export default function IncidentDetailPage() {
   );
 }
 
+function DocumentLink({ href, title, note }: { href: string; title: string; note: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex flex-col gap-0.5 border-b border-line px-4 py-3 last:border-b-0 transition-colors hover:bg-input"
+    >
+      <span className="text-[14px] leading-[1.35] text-text">{title}</span>
+      <span className="text-[12px] text-text-muted">{note}</span>
+    </Link>
+  );
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-bg">
       <Navbar />
-      <main className="mx-auto flex max-w-[1100px] flex-col gap-8 px-6 py-10">{children}</main>
+      <main className="mx-auto flex max-w-[1280px] flex-col gap-8 px-6 py-10">{children}</main>
     </div>
   );
 }

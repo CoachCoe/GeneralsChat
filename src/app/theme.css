@@ -238,3 +238,33 @@
   .body-text { font-size: 15px; line-height: 1.65; color: var(--color-text-secondary); }
   .caption { font-size: 12px; line-height: 1.5; color: var(--color-text-muted); }
 }
+
+/*
+ * A summary and a report are filed on paper. The screen palette is white on
+ * near-black, which prints as a page of ink, so print re-lights the tokens
+ * rather than restyling each component; interface is dropped rather than
+ * printed.
+ */
+@media print {
+  :root {
+    --color-bg: #ffffff;
+    --color-surface: #ffffff;
+    --color-text: #000000;
+    --color-text-secondary: #1c1917;
+    --color-text-tertiary: #44403c;
+    --color-text-muted: #57534e;
+    --color-line: #d6d3d1;
+    --color-line-strong: #a8a29e;
+    --color-input: #ffffff;
+  }
+
+  [data-print='hide'] {
+    display: none !important;
+  }
+
+  /* A blank field is a line to write on, and borders survive a printer
+     dropping backgrounds where a background would not. */
+  .print-rule {
+    border-bottom: 1px solid #000000;
+  }
+}
