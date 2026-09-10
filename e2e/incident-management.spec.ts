@@ -336,6 +336,16 @@ test.describe('Obligation queue', () => {
     // before midnight.
     await expect(queue.getByTestId('obligation-row')).toHaveCount(open.length);
 
+    // Every row names its incident and that name is the way into it: the queue
+    // is cross-incident, so a row with no route to its record is a dead end.
+    // Asserted as a set, because the rows are grouped by deadline state and do
+    // not come back in the API's order.
+    const rowLinks = await queue.getByTestId('obligation-row').getByRole('link').all();
+    expect(rowLinks).toHaveLength(open.length);
+    const hrefs = await Promise.all(rowLinks.map(l => l.getAttribute('href')));
+    const expected = new Set(open.map((o: { incidentId: string }) => `/incidents/${o.incidentId}`));
+    for (const href of hrefs) expect(expected).toContain(href);
+
     // And specifically that an unverified, already-late row is among them,
     // under a heading that does not claim a statutory clock.
     const unverifiedLate = open.filter(

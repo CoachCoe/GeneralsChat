@@ -231,9 +231,12 @@ export default function PromptEditorPage() {
                       justifyContent: 'flex-start'
                     }}
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="label-sm font-medium truncate">{prompt.name}</span>
+                    {/* min-w-0 at both levels: `.list-row` is a flex container, so
+                        without it these items keep their content width and `truncate`
+                        never gets a bound to ellipsise against. */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="label-sm font-medium truncate min-w-0">{prompt.name}</span>
                         {/* Neutral: an isActive flag is not a deadline state. */}
                         {prompt.isActive && (
                           <span

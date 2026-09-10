@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { DeadlineClock } from './DeadlineClock';
 import { AuthorityChip } from './AuthorityChip';
 import { isPolicyBacked } from '@/lib/deadline';
@@ -87,8 +88,15 @@ export function ObligationRow({
             {obligation.description || obligation.actionType}
           </span>
 
+          {/* The title, not the row. `Mark done` is a button inside this row, and
+              an anchor wrapped around it would nest interactive elements. */}
           {obligation.incidentTitle && showIncident && (
-            <span className="text-[12px] text-text-muted">{obligation.incidentTitle}</span>
+            <Link
+              href={`/incidents/${obligation.incidentId}`}
+              className="w-fit text-[12px] text-text-muted underline underline-offset-2 hover:text-text"
+            >
+              {obligation.incidentTitle}
+            </Link>
           )}
 
           {!isPolicyBacked(obligation.deadlineSource) && !done && (
