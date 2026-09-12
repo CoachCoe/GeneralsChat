@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, copyFileSync } from 'fs';
 import { prisma } from '../src/lib/db';
 import { ragSystem } from '../src/lib/ai/rag';
 import { processDocument } from '../src/lib/utils/documentProcessor';
-import { POLICY_CATEGORIES, POLICY_JURISDICTIONS } from '../src/types';
+import { DOCUMENT_KINDS, POLICY_CATEGORIES, POLICY_JURISDICTIONS } from '../src/types';
 import { policyUploadsDir } from '../src/lib/uploads';
 
 config({ path: resolve(__dirname, '../.env') });
@@ -18,10 +18,20 @@ config({ path: resolve(__dirname, '../.env') });
  *     --title "Policy JICK: Bullying Prevention" \
  *     --jurisdiction district \
  *     --category bullying \
- *     [--effective 2026-07-31] [--replace]
+ *     [--effective 2026-07-31] [--kind policy|form] [--replace] [--inactive]
  *
  * Uses the same path the API does: processDocument to extract text, then
  * ragSystem.addPolicyDocument to chunk (1000 words, 200 overlap) and embed.
+ *
+ * `--kind form` is how a document becomes a report form. It is a property of
+ * the row and never a guess from the title, so the script has to be told:
+ * without it every document loaded here is a `policy`, and a form loaded that
+ * way can never be found by /incidents/[id]/report.
+ *
+ * `--inactive` loads a superseded revision: stored and chunked, listed in the
+ * library, but excluded from retrieval, which filters on `isActive`. Keeping
+ * the chunks means the row is retrievable the moment it is reactivated,
+ * without a re-index.
  *
  * Dry run by default -- it reports what it extracted and how it would chunk,
  * because a document that parses to nothing useful is worse than one that
@@ -29,6 +39,7 @@ config({ path: resolve(__dirname, '../.env') });
  */
 const APPLY = process.argv.includes('--apply');
 const REPLACE = process.argv.includes('--replace');
+const INACTIVE = process.argv.includes('--inactive');
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -41,9 +52,10 @@ async function main() {
   const jurisdiction = arg('--jurisdiction');
   const category = arg('--category');
   const effective = arg('--effective') ?? new Date().toISOString().slice(0, 10);
+  const documentKind = arg('--kind') ?? 'policy';
 
   if (!file || !title || !jurisdiction || !category) {
-    console.error('Usage: npm run policies:load -- --file <path> --title <title> --jurisdiction <j> --category <c> [--effective YYYY-MM-DD] [--replace] [--apply]');
+    console.error('Usage: npm run policies:load -- --file <path> --title <title> --jurisdiction <j> --category <c> [--effective YYYY-MM-DD] [--kind policy|form] [--replace] [--inactive] [--apply]');
     process.exit(1);
   }
   if (!existsSync(file)) {
@@ -58,6 +70,10 @@ async function main() {
     console.error(`Invalid category "${category}". One of: ${POLICY_CATEGORIES.join(', ')}`);
     process.exit(1);
   }
+  if (!(DOCUMENT_KINDS as readonly string[]).includes(documentKind)) {
+    console.error(`Invalid kind "${documentKind}". One of: ${DOCUMENT_KINDS.join(', ')}`);
+    process.exit(1);
+  }
 
   const processed = await processDocument(file);
   const content = processed.content.trim();
@@ -67,7 +83,9 @@ async function main() {
   console.log(`  title:        ${title}`);
   console.log(`  jurisdiction: ${jurisdiction}`);
   console.log(`  category:     ${category}`);
+  console.log(`  kind:         ${documentKind}`);
   console.log(`  effective:    ${effective}`);
+  console.log(`  active:       ${!INACTIVE}${INACTIVE ? ' (superseded revision — not retrievable)' : ''}`);
   console.log(`  extracted:    ${content.length} chars, ${words} words`);
   // 1000-word chunks with 200 overlap advance 800 words at a time.
   console.log(`  will chunk to ~${Math.max(1, Math.ceil(words / 800))} chunk(s)`);
@@ -115,7 +133,8 @@ async function main() {
       category,
       effectiveDate: new Date(effective),
       filePath: stored,
-      isActive: true,
+      documentKind,
+      isActive: !INACTIVE,
     },
   });
 
@@ -138,6 +157,9 @@ async function main() {
   }
 
   console.log(`\n  Loaded ${policy.id}: ${chunks} chunk(s), ${embedded} with embeddings`);
+  if (INACTIVE) {
+    console.log('  Loaded inactive: it is in the library but retrieval will not return it.');
+  }
   if (embedded === 0) {
     console.log('  (no OPENAI_API_KEY, so retrieval uses the keyword fallback)');
   }
