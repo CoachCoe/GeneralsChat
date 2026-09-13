@@ -246,6 +246,81 @@ against a `postgres:16` service container, on every push to `main`/`dev` and
 every pull request. It needs no secrets: the database is ephemeral and model
 calls go to the local stub.
 
+## Deploying
+
+The container is the portable part. `Dockerfile` builds two targets from one
+tree: `runner`, the Next.js standalone server, and `migrator`, which carries the
+Prisma CLI plus `src/` and `scripts/` and doubles as the ops image. Both run as
+a non-root user and the app answers `/api/health` without touching the database.
+Any container platform can run them.
+
+Two paths are scripted. Each is `provision.sh` once per environment, then
+`deploy.sh` on every change, with `ops.sh` for operational commands against the
+deployed database:
+
+| Target | Directory | Database | Uploads |
+|---|---|---|---|
+| Azure Container Apps | `deploy/azure/` | Postgres Flexible Server | Azure Files share |
+| Google Cloud Run | `deploy/gcp/` | Cloud SQL over the unix socket | Cloud Storage volume mount |
+
+```bash
+cd deploy/gcp          # or deploy/azure
+cp env.example .env    # names and secrets; gitignored
+./provision.sh         # once
+./deploy.sh            # every change
+./ops.sh user:create -- --email you@example.org --name 'You' --role admin
+```
+
+Both apply migrations as a **job that runs to completion before the new revision
+serves traffic**. Do not collapse that into the app's entrypoint: the schema
+must never be behind the code, and N replicas starting together would each
+attempt the same migration.
+
+### Three things any target must get right
+
+These are properties of the application, not of a cloud. Whatever you deploy
+onto has to satisfy them.
+
+**Uploads need a real persistent volume.** Attachments are student records,
+served only through `GET /api/attachments/[id]`, and policy source documents are
+what `policies:reindex` re-extracts from. Both live under `UPLOADS_DIR`. On a
+platform with an ephemeral filesystem they are destroyed on the next revision,
+silently and with no error — which has already happened here once, from a path
+that resolved outside the mount. AWS App Runner has no persistent volumes at
+all; on AWS this means ECS or Fargate with EFS, which is why there is no
+`deploy/aws/` here rather than an untested one.
+
+**One instance, pinned.** The rate limiter counts in this process's memory, so N
+instances make the effective limit N times what is configured — it degrades
+quietly rather than failing. Scale-to-zero is also wrong here: an administrator
+should not wait through a cold start mid-incident. Both scripts set min and max
+to 1. Raising either needs the counters in a shared store first.
+
+**`DATABASE_URL` needs an explicit role.** Prisma does not fall back to the OS
+user the way `psql` does; a userless URL fails `migrate` with `P1010: User was
+denied access` while `psql -l` against the same database works.
+
+### Check the uploads mount before trusting it
+
+The container runs as uid 1001, and a mounted object store does not necessarily
+present files as owned by it. If the mount is owned by root, every attachment
+write fails with `EACCES` — and the first person to find out is an
+administrator filing a report about a student.
+
+So on a first deploy, before anyone uses it: sign in, attach a file to an
+incident, then fetch it back through `GET /api/attachments/[id]`. A round trip
+through the running service is the only check that covers the mount's ownership,
+the path resolution under `UPLOADS_DIR`, and the read path together. Redeploy
+once and fetch it again — that is what catches a volume that was never really
+persistent.
+
+### What is not deployed
+
+No Chroma server, so retrieval runs on the category-filtered keyword fallback.
+That works, and `OPENAI_API_KEY` is deliberately absent from both `env.example`
+files: an advertised variable the deployment ignores reads as configured. Wire
+Chroma and the embedding key up together or neither.
+
 ## Architecture notes
 
 ```
