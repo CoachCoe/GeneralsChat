@@ -20,13 +20,7 @@ export interface CompletionSuggestion {
  * No colour. Colour here means a deadline state or a coverage gap, and this is
  * neither -- it is a question, and one the administrator can ignore.
  */
-export function CompletionConfirm({
-  suggestions,
-  onConfirmed,
-}: {
-  suggestions: CompletionSuggestion[];
-  onConfirmed?: (id: string) => void;
-}) {
+export function CompletionConfirm({ suggestions }: { suggestions: CompletionSuggestion[] }) {
   // Dismissed and confirmed are both "stop offering this", but only one of
   // them writes. Dismissal is local and deliberately not persisted: it is not
   // a statement that the step is undone, just that this offer was not wanted.
@@ -45,7 +39,6 @@ export function CompletionConfirm({
       });
       if (!response.ok) throw new Error(String(response.status));
       setSettled(prev => ({ ...prev, [id]: 'done' }));
-      onConfirmed?.(id);
     } catch {
       // The obligation is unchanged, so say so rather than hiding the row:
       // a queue that silently failed to record a completion is the same

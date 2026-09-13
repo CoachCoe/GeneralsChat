@@ -1,5 +1,6 @@
 /**
- * Whether a turn is asking for a letter to be drafted.
+ * Letter drafting: whether a turn is asking for one, and how the district's own
+ * letters are put to the model.
  *
  * Letter templates are not sent with every turn. They are the district's own
  * prose about past decisions -- long, and untrusted text in the one place a
@@ -44,12 +45,11 @@ export interface LetterTemplate {
  * as policy would read as what the district requires of everyone.
  */
 export function renderLetterTemplates(templates: LetterTemplate[]): string {
-  const usable = templates.filter(t => t.content?.trim());
-  if (usable.length === 0) return '';
-
-  const blocks = usable.map(
-    t => `--- TEMPLATE: ${t.title} ---\n${t.content!.trim()}`
-  );
+  const blocks = templates.flatMap(t => {
+    const content = t.content?.trim();
+    return content ? [`--- TEMPLATE: ${t.title} ---\n${content}`] : [];
+  });
+  if (blocks.length === 0) return '';
 
   return `LETTER TEMPLATES (structure to follow, never authority to cite):
 ${blocks.join('\n\n')}`;

@@ -17,7 +17,7 @@ import { SUMMARY_SENDER } from '@/lib/ai/incident-summary';
 import { incidentScope, requireUser } from '@/lib/session';
 import { actionTypeFor, ClassificationUnavailableError } from '@/lib/ai/classifier';
 import { resolveProvenance } from '@/lib/obligation-provenance';
-import { orderOpenSteps, renderStepPlan } from '@/lib/ai/step-plan';
+import { orderOpenSteps, renderStepPlan, stepLabel } from '@/lib/ai/step-plan';
 import { asksForALetter, renderLetterTemplates } from '@/lib/ai/letters';
 import { categoriesForIncidentType } from '@/types';
 import { dueDateFromHours } from '@/lib/deadline';
@@ -222,11 +222,12 @@ export async function POST(request: NextRequest) {
      * the same templates, and capped -- an administrator asking for one letter
      * does not need six examples, and which six would then depend on the query
      * planner.
+     *
+     * An empty category list means "no filter", as it does everywhere else this
+     * is called: an unclassified incident, or `other`, which maps to nothing
+     * specific. Passed to `in` it would match no row at all, and offer no
+     * template on exactly the turns with least else to go on.
      */
-    // An empty category list means "no filter", as everywhere else that calls
-    // this -- an unclassified incident, or `other`, which maps to nothing
-    // specific. Passing it to `in` would instead match no row at all and offer
-    // no template on exactly the turns where the model has least else to go on.
     const letterCategories = categoriesForIncidentType(
       classification?.type ?? incident.incidentType
     );
@@ -263,13 +264,12 @@ export async function POST(request: NextRequest) {
      * names a person, and a misread "I'll call them later" costs a dismissed
      * suggestion rather than a statutory obligation recorded as met.
      */
-    const suggestedCompletions = claimedSteps
-      .map(step => openSteps[step - 1])
-      .filter(Boolean)
-      .map(step => ({
-        id: step.id,
-        description: step.description ?? step.actionType.replace(/_/g, ' '),
-      }));
+    const suggestedCompletions = claimedSteps.map(position => {
+      // `parseCompletionClaims` was given this plan's length and drops anything
+      // outside it, so a claimed position always names a step.
+      const step = openSteps[position - 1];
+      return { id: step.id, description: stepLabel(step) };
+    });
 
     const aiMessage = await prisma.conversation.create({
       data: {

@@ -51,7 +51,8 @@ export function parseCompletionClaims(raw: string, stepCount: number): ClaimedCo
 
   return {
     steps: [...steps].sort((a, b) => a - b),
-    // Collapse only what the removal itself introduced.
+    // A marker on its own line leaves the blank lines that surrounded it, so
+    // a run of them is normalised back to one paragraph break.
     content: content.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(),
   };
 }

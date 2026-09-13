@@ -44,8 +44,14 @@ export function orderOpenSteps(obligations: PlannableObligation[]): PlannableObl
     });
 }
 
-/** What an obligation is called when its description was never written. */
-function stepLabel(step: PlannableObligation): string {
+/**
+ * What an obligation is called.
+ *
+ * Exported because the confirmation offered in chat has to name the step the
+ * same way the plan did. Two spellings of this drifted apart once already: one
+ * fell back on a blank description, the other did not.
+ */
+export function stepLabel(step: PlannableObligation): string {
   const description = step.description?.trim();
   if (description) return description;
   return step.actionType.replace(/_/g, ' ');
