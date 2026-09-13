@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import { SharePanel } from '@/components/design/SharePanel';
 import { StateBlock } from '@/components/design/StateBlock';
 import { ObligationRow } from '@/components/design/ObligationRow';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
@@ -399,6 +400,10 @@ export default function IncidentDetailPage() {
               note="Draft from the record"
             />
           </div>
+
+          {/* Under the documents, because "who else can read this" is a
+              property of the record rather than a step in the timeline. */}
+          <SharePanel incidentId={incident.id} />
         </nav>
 
         <section className="flex min-w-0 flex-1 flex-col gap-3">

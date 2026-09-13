@@ -32,6 +32,15 @@ export interface AuditEntry {
   action: AuditAction;
   entity: string;
   entityId?: string;
+  /**
+   * The incident this happened to, where there is one.
+   *
+   * `AuditLog.incidentId` has existed and been indexed since the table did, and
+   * nothing ever set it -- so "who has seen this child's incident" could not be
+   * asked of the log that exists to answer it, only reconstructed by reading
+   * every row's payload.
+   */
+  incidentId?: string;
   details?: Record<string, unknown>;
 }
 
@@ -42,7 +51,7 @@ export interface AuditEntry {
  * request that succeeded. Failures are logged so they are still visible.
  */
 export async function recordAudit(entry: AuditEntry): Promise<void> {
-  const { userId, action, entity, entityId, details } = entry;
+  const { userId, action, entity, entityId, incidentId, details } = entry;
 
   logAudit(userId, action, entity, entityId ?? '', details);
 
@@ -53,6 +62,7 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
         action,
         entity,
         entityId,
+        incidentId,
         details: details ? JSON.stringify(details) : null,
       },
     });

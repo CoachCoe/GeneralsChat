@@ -78,6 +78,20 @@ export async function GET(request: NextRequest, { params }: Params) {
       action: 'viewed',
       entity: 'incident',
       entityId: id,
+      incidentId: id,
+    });
+
+    /*
+     * Opening it is having seen it. This is the unread half of "someone shared
+     * an incident with you", and it is the caller's own notification state, so
+     * a read marking it is not a write anyone else can observe.
+     *
+     * `updateMany` with `seenAt: null` so a second visit costs nothing and the
+     * first time it was opened is not overwritten.
+     */
+    await prisma.incidentShare.updateMany({
+      where: { incidentId: id, userId: guard.user.id, seenAt: null },
+      data: { seenAt: new Date() },
     });
 
     const duration = Date.now() - startTime;
