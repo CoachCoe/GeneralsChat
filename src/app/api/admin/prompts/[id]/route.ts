@@ -1,9 +1,10 @@
 import { formatValidationErrors, updatePromptSchema, validateRequest } from '@/lib/validation';
-import { validationError } from '@/lib/errors';
+import { validationError, forbiddenError } from '@/lib/errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
+import { ADVISOR_PROFILE_EDITABLE } from '@/lib/ai/advisor-profile';
 
 type Params = {
   params: Promise<{
@@ -47,6 +48,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
     // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
+
+    // Read-only for the testing round. One switch, in the module that holds the
+    // text itself, so the page and the endpoint behind it cannot disagree.
+    if (!ADVISOR_PROFILE_EDITABLE) {
+      return forbiddenError(
+        'The advisor profile is read-only for this testing round.'
+      );
+    }
 
     const { id } = await params;
     const body = await request.json();
@@ -128,6 +137,14 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     // mistake must not silently expose policy or prompt mutation.
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
+
+    // Read-only for the testing round. One switch, in the module that holds the
+    // text itself, so the page and the endpoint behind it cannot disagree.
+    if (!ADVISOR_PROFILE_EDITABLE) {
+      return forbiddenError(
+        'The advisor profile is read-only for this testing round.'
+      );
+    }
 
     const { id } = await params;
     // Prevent deleting active prompt

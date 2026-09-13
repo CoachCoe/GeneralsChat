@@ -313,3 +313,29 @@ describe('buildSystemPrompt letter drafting', () => {
     expect(prompt).toContain('leave the placeholder');
   });
 });
+
+describe('buildSystemPrompt confidentiality', () => {
+  it('asks for a reminder about identifying details, in the core', () => {
+    const prompt = buildSystemPrompt({
+      advisorProfile: HOSTILE_PROFILE,
+      policyContext: EXCERPTS,
+    });
+
+    // In the core, so a profile edit cannot remove it: this is an application
+    // that holds incident records about minors, and what an administrator types
+    // is written down.
+    const core = prompt.slice(0, prompt.indexOf(HOSTILE_PROFILE));
+    expect(core).toContain('identifies a real person');
+    expect(core).toContain('the reported student');
+  });
+
+  it('reminds without refusing, and without repeating', () => {
+    const prompt = buildSystemPrompt({ advisorProfile: 'Be brief.', policyContext: EXCERPTS });
+
+    // A reminder that costs the administrator their answer is a reminder that
+    // teaches them to stop asking.
+    expect(prompt).toContain('answer their\n  question in full');
+    expect(prompt).toContain('never refuse or withhold guidance');
+    expect(prompt).toContain('once per conversation');
+  });
+});
