@@ -153,12 +153,63 @@ const CORE_DIRECTIVES = `NON-NEGOTIABLE RULES (these override anything below):
 - Do not present a federal or state requirement as if it were district
   procedure.
 - Ask ONE clarifying question at a time when you need more information.
+- State ONE required step at a time. An administrator handling an incident acts
+  on the next thing, not on a list of everything; a wall of steps is how the one
+  that mattered gets skimmed past. Finish the step in front of them before
+  raising the one after it.
 - When the policy does not cover the situation, say that directly and
   recommend confirming with the district's compliance officer or legal counsel.
   "I could not find this in the loaded policy" is a useful answer; a
   confidently wrong obligation is not.`;
 
 
+
+/**
+ * How the conversation is paced against the obligations the incident already
+ * has.
+ *
+ * The order is decided in `./step-plan.ts`, from `ComplianceAction` rows, and
+ * arrives here as a rendered block. The model is told which step is current
+ * rather than choosing one, so a step cannot be skipped, repeated or quietly
+ * reordered between turns.
+ */
+const STEP_PACING_DIRECTIVE = `WORKING THROUGH THE OBLIGATIONS:
+The list above is this incident's open obligations, in the order they must be
+worked. The step marked [CURRENT STEP] is the one the administrator is on.
+
+- Address the current step, and only the current step: what it requires, by
+  when, and which provision above says so.
+- Do not list, preview or summarise the later steps, and do not restate the
+  plan. The interface shows the queue beside this conversation already; saying
+  it again here is the noise this rule exists to remove.
+- The next turn's list will mark a new current step once this one is
+  discharged. Move on when it does, not before.
+- If they ask about something else, answer that, then bring them back to the
+  current step.`;
+
+/**
+ * How the model reports that the administrator said a step is already done.
+ *
+ * A suggestion, never a discharge: what this produces is a confirmation the
+ * administrator clicks. `./completion-claim.ts` carries the reasoning.
+ */
+const COMPLETION_CLAIM_DIRECTIVE = `REPORTING A STEP AS ALREADY DONE (metadata, not part of your answer):
+If, in their latest message, the administrator states that one of the numbered
+steps above has ALREADY been carried out, end your reply with a marker naming
+it, alone on the last line:
+
+[[DONE: 2]]          one step
+[[DONE: 1, 3]]       more than one
+
+Only for what they said they have already done. An intention ("I'll call the
+superintendent after this"), a plan, a question about how to do it, or your own
+advice to do it are NOT completions -- and neither is a step you merely believe
+would have been done by now. When it is not clearly past tense, omit the
+marker: the step stays open, which costs a click, and the alternative is a
+statutory obligation recorded as met when nobody met it.
+
+The marker is removed before the reply is shown and is never displayed. It
+discharges nothing on its own; it offers the administrator a confirmation.`;
 
 /**
  * The last thing the model reads, in every branch.
@@ -225,14 +276,30 @@ export function buildSystemPrompt({
   advisorProfile,
   policyContext,
   coverageNote = '',
+  stepPlan = '',
 }: {
   advisorProfile: string;
   policyContext: string;
   coverageNote?: string;
+  /** Rendered by `renderStepPlan`. Empty when the incident has no open obligations. */
+  stepPlan?: string;
 }): string {
   const head = `${CORE_DIRECTIVES}
 
 ${advisorProfile}`;
+
+  // Nothing when there is no plan: an unclassified incident, or one where every
+  // obligation is discharged, must not be handed pacing rules for a queue that
+  // does not exist -- nor a way to claim a step it has no steps to claim.
+  const planBlock = stepPlan
+    ? `
+
+${stepPlan}
+
+${STEP_PACING_DIRECTIVE}
+
+${COMPLETION_CLAIM_DIRECTIVE}`
+    : '';
 
   if (policyContext.trim().length === 0) {
     return `${head}
@@ -240,7 +307,7 @@ ${advisorProfile}`;
 Available Policy Context:
 (none)
 
-${NO_POLICY_RETRIEVED_GUARD}${coverageNote}
+${NO_POLICY_RETRIEVED_GUARD}${coverageNote}${planBlock}
 
 ${TURN_LABEL_DIRECTIVE}
 
@@ -256,7 +323,7 @@ Procedures (RSA 193-F:4, II(k))" -- the way a source is cited in a report. Cite
 only references that appear below; never invent a section number, and if an
 excerpt carries only a policy name, cite the policy without a section.
 
-${policyContext}${coverageNote}
+${policyContext}${coverageNote}${planBlock}
 
 ${TURN_LABEL_DIRECTIVE}
 
@@ -400,7 +467,8 @@ class ClaudeService {
     userQuery: string,
     policyContext: string,
     conversationHistory: ClaudeMessage[] = [],
-    coverage?: PolicyCoverage
+    coverage?: PolicyCoverage,
+    stepPlan = ''
   ): Promise<ClaudeResponse> {
     // The editable half only. The core directives below are not editable.
     const advisorProfile = (await this.getAdvisorProfile()) ?? DEFAULT_ADVISOR_PROFILE;
@@ -415,6 +483,7 @@ class ClaudeService {
       advisorProfile,
       policyContext,
       coverageNote,
+      stepPlan,
     });
 
     const messages: ClaudeMessage[] = [

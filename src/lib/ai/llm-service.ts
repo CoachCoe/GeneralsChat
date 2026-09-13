@@ -1,4 +1,5 @@
 import { claudeService, ClaudeMessage } from './claude-service';
+import { parseCompletionClaims } from './completion-claim';
 import { parseTurnLabel, type TurnKind } from './turn-label';
 import type { PolicyCoverage } from '@/types';
 
@@ -29,6 +30,12 @@ export interface LLMResponse {
    * and suppressed only on an explicit, well-formed question label.
    */
   kind: TurnKind;
+  /**
+   * Steps the administrator said were already done, as 1-based positions in
+   * the plan that was sent. Offers only: the caller turns them into
+   * confirmations, never into completions.
+   */
+  claimedSteps: number[];
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -54,7 +61,8 @@ export class LLMService {
     userMessage: string,
     policyContext?: string,
     conversationHistory: ChatMessage[] = [],
-    coverage?: PolicyCoverage
+    coverage?: PolicyCoverage,
+    plan: { text: string; stepCount: number } = { text: '', stepCount: 0 }
   ): Promise<LLMResponse> {
     try {
       const claudeHistory: ClaudeMessage[] = conversationHistory
@@ -68,13 +76,21 @@ export class LLMService {
         userMessage,
         policyContext || '',
         claudeHistory,
-        coverage
+        coverage,
+        plan.text
       );
 
       // Strip the turn label here, at the single guidance entry point, so no
       // caller can store or render it -- and so there is one place where an
       // unreadable label becomes `guidance` rather than several.
-      const { kind, content } = parseTurnLabel(response.content);
+      const { kind, content: labelled } = parseTurnLabel(response.content);
+
+      // Same reason, same place: a completion marker must never reach a
+      // transcript or a stored turn, whatever it claimed.
+      const { steps: claimedSteps, content } = parseCompletionClaims(
+        labelled,
+        plan.stepCount
+      );
 
       // A reply that is nothing but its own marker is a failed call, not a
       // blank answer to file under an incident. `generateResponse` already
@@ -88,6 +104,7 @@ export class LLMService {
       return {
         content,
         kind,
+        claimedSteps,
         usage: {
           inputTokens: response.usage.inputTokens,
           outputTokens: response.usage.outputTokens,

@@ -548,3 +548,86 @@ test.describe('A failed turn', () => {
     await expect(page.getByTestId('chat-input')).toHaveValue(question);
   });
 });
+
+test.describe('Working through the obligations', () => {
+  /**
+   * One chat turn per test, deliberately.
+   *
+   * The step plan is read after `commitClassification`, so the turn that
+   * classifies an incident is already paced against the obligations it just
+   * created -- which is the behaviour worth asserting, and it keeps the suite
+   * under the per-user chat rate limit that bounds billed spend in production.
+   */
+  async function open(page: import('@playwright/test').Page, text: string) {
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill(text);
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+    return response.json();
+  }
+
+  const BULLYING = 'A student is being bullied repeatedly by a classmate during recess.';
+  const ALREADY_DONE = `${BULLYING} I already notified the superintendent this morning.`;
+
+  test("paces the first turn against the obligations it just created", async ({ page }) => {
+    const body = await open(page, BULLYING);
+
+    // The stub echoes PLAN only when the prompt carried a [CURRENT STEP] line,
+    // so this fails if the queue stops reaching the model.
+    expect(body.response).toContain('PLAN');
+    expect(body.suggestedCompletions).toEqual([]);
+  });
+
+  test('offers a confirmation when a step is described as already done', async ({ page }) => {
+    const body = await open(page, ALREADY_DONE);
+
+    // The step the plan put first, resolved back to the obligation row.
+    expect(body.suggestedCompletions).toHaveLength(1);
+    expect(body.suggestedCompletions[0].description).toBe('Notify the superintendent');
+
+    // The marker is metadata and must never be shown.
+    expect(body.response).not.toContain('[[DONE');
+    await expect(page.getByText('[[DONE', { exact: false })).toHaveCount(0);
+    await expect(page.getByTestId('completion-suggestion')).toBeVisible();
+  });
+
+  test('nothing is discharged until the administrator confirms it', async ({ page }) => {
+    const body = await open(page, ALREADY_DONE);
+    const obligationId = body.suggestedCompletions[0].id;
+
+    // Still open: the model said so, which is not the same as it being done.
+    const before = await page.request.get('/api/obligations');
+    expect(((await before.json()).obligations as { id: string }[]).map((o) => o.id)).toContain(
+      obligationId
+    );
+
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes(`/api/obligations/${obligationId}`) && r.request().method() === 'PATCH'
+      ),
+      page.getByTestId('completion-suggestion').getByRole('button', { name: 'Mark done' }).click(),
+    ]);
+    await expect(page.getByTestId('completion-suggestion')).toHaveCount(0);
+
+    const after = await page.request.get('/api/obligations');
+    expect(((await after.json()).obligations as { id: string }[]).map((o) => o.id)).not.toContain(
+      obligationId
+    );
+  });
+
+  test('declining leaves the obligation open', async ({ page }) => {
+    const body = await open(page, ALREADY_DONE);
+    const obligationId = body.suggestedCompletions[0].id;
+
+    await page.getByTestId('completion-suggestion').getByRole('button', { name: 'Not yet' }).click();
+    await expect(page.getByTestId('completion-suggestion')).toHaveCount(0);
+
+    const after = await page.request.get('/api/obligations');
+    expect(((await after.json()).obligations as { id: string }[]).map((o) => o.id)).toContain(
+      obligationId
+    );
+  });
+});

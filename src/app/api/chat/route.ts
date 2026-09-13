@@ -17,6 +17,7 @@ import { SUMMARY_SENDER } from '@/lib/ai/incident-summary';
 import { incidentScope, requireUser } from '@/lib/session';
 import { actionTypeFor, ClassificationUnavailableError } from '@/lib/ai/classifier';
 import { resolveProvenance } from '@/lib/obligation-provenance';
+import { orderOpenSteps, renderStepPlan } from '@/lib/ai/step-plan';
 import { dueDateFromHours } from '@/lib/deadline';
 import { claudeService } from '@/lib/ai/claude-service';
 import { enforceRateLimit } from '@/lib/errors';
@@ -200,12 +201,40 @@ export async function POST(request: NextRequest) {
       severity: classification?.severity ?? incident.severity,
     });
 
-    const { content: response, usage, kind } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
+    // Read after `commitClassification`, so the turn that classifies the
+    // incident is already paced against the obligations it just created rather
+    // than against an empty queue.
+    const openSteps = orderOpenSteps(
+      await prisma.complianceAction.findMany({
+        where: { incidentId: incident.id },
+        select: { id: true, actionType: true, description: true, status: true, dueDate: true },
+      })
+    );
+
+    const { content: response, usage, kind, claimedSteps } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
       message,
       policyContext,
       conversationHistory,
-      coverage
+      coverage,
+      { text: renderStepPlan(openSteps), stepCount: openSteps.length }
     );
+
+    /*
+     * What the administrator said they had already done, resolved back to rows.
+     *
+     * Offers, not completions: nothing here writes `completedAt`. The client
+     * renders each as a confirmation, and discharging one goes through
+     * PATCH /api/obligations/[id] like any other -- so the audit row still
+     * names a person, and a misread "I'll call them later" costs a dismissed
+     * suggestion rather than a statutory obligation recorded as met.
+     */
+    const suggestedCompletions = claimedSteps
+      .map(step => openSteps[step - 1])
+      .filter(Boolean)
+      .map(step => ({
+        id: step.id,
+        description: step.description ?? step.actionType.replace(/_/g, ' '),
+      }));
 
     const aiMessage = await prisma.conversation.create({
       data: {
@@ -222,6 +251,9 @@ export async function POST(request: NextRequest) {
           // reloaded conversation cannot tell a question from an answer whose
           // provenance went missing.
           kind,
+          // Stored as well as returned, so reopening the incident still offers
+          // a confirmation the administrator has not acted on yet.
+          suggestedCompletions,
         }),
       },
     });
@@ -242,6 +274,7 @@ export async function POST(request: NextRequest) {
       // incident, not this turn, and the next turn that gives guidance uses
       // them.
       kind,
+      suggestedCompletions,
     });
 
   } catch (error) {
