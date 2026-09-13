@@ -120,13 +120,29 @@ export enum UserRole {
  * under the heading "Mandatory report" is exactly the mistake that page
  * exists to prevent.
  */
-export const DOCUMENT_KINDS = ['policy', 'form'] as const;
+export const DOCUMENT_KINDS = ['policy', 'form', 'letter'] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   policy: 'Policy',
   form: 'Report form',
+  letter: 'Letter template',
 };
+
+/**
+ * The kinds retrieval may put in front of the guidance model as authority.
+ *
+ * A letter template is a district's own prose about a past decision. It states
+ * findings and deadlines in the same voice a policy does, so an excerpt of one
+ * reads exactly like the thing the model is told to cite -- and citing it would
+ * attribute one family's outcome to the district as its standing rule. Letters
+ * reach the model only through the drafting path, which asks for structure and
+ * says so.
+ *
+ * A positive list rather than `not: 'letter'`: a kind added later is excluded
+ * until someone decides it is authority, which is the safe direction to fail.
+ */
+export const RETRIEVABLE_DOCUMENT_KINDS: readonly DocumentKind[] = ['policy', 'form'];
 
 export const POLICY_JURISDICTIONS = ['federal', 'state', 'district', 'school'] as const;
 export type PolicyJurisdiction = (typeof POLICY_JURISDICTIONS)[number];

@@ -105,6 +105,12 @@ function replyFor(body: StubRequest): string {
     system.includes(`${j} POLICY:`)
   );
   const gap = system.includes('POLICY COVERAGE GAP') ? ' GAP' : '';
+  // Whether the step plan reached the prompt, so a test can assert the turn was
+  // paced against the incident's obligations rather than guessing that it was.
+  const plan = system.includes('[CURRENT STEP]') ? ' PLAN' : '';
+  // Whether the district's letter templates were sent, which happens only on a
+  // turn that asked for a draft.
+  const letters = system.includes('LETTER TEMPLATES') ? ' LETTERS' : '';
 
   // Label the turn, because the real model is instructed to. A stub that
   // always omitted the marker would exercise only the unlabelled fallback --
@@ -115,7 +121,15 @@ function replyFor(body: StubRequest): string {
   if (/not sure/i.test(latestUserText)) {
     return `[[TURN: question]]\n${STUB_QUESTION_REPLY}`;
   }
-  return `[[TURN: guidance]]\n${STUB_REPLY} [context: ${seen.join(',') || 'none'}${gap}]`;
+
+  // Claim the current step when the administrator says it is already done, and
+  // only then. The real model is asked for exactly this marker, so the stub
+  // emits it the same way -- a stub that never did would leave the parse, the
+  // step-to-row mapping and the confirmation untested end to end.
+  const claim =
+    plan && /\balready\b/i.test(latestUserText) ? '\n\n[[DONE: 1]]' : '';
+
+  return `[[TURN: guidance]]\n${STUB_REPLY} [context: ${seen.join(',') || 'none'}${gap}${plan}${letters}]${claim}`;
 }
 
 export function startClaudeStub(port: number): Promise<Server> {

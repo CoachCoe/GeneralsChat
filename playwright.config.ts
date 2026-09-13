@@ -77,6 +77,14 @@ export default defineConfig({
       ANTHROPIC_API_KEY: 'stub-key-not-used',
       AUTH_TRUST_HOST: 'true',
       NEXTAUTH_URL: BASE_URL,
+      // The per-user chat limit exists to bound billed model spend for one
+      // administrator at one keyboard. This suite is dozens of scenarios
+      // driven through a single account against a stub that bills nothing, and
+      // Playwright's retries replay them -- so the production number bounds
+      // nothing here and only produces a 429 several tests after the one that
+      // exhausted the window, which is where it surfaced: two summary tests
+      // 404ing on an incident their chat POST was never allowed to create.
+      RATE_LIMIT_CHAT_PER_MINUTE: '1000',
     },
   },
 });

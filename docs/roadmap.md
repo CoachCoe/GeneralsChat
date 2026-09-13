@@ -40,19 +40,26 @@ npm run user:create -- --email demo@example.com --name "..." --role admin --pass
 
 **Loaded 2026-09-01 (bullying, the first test subject):**
 
-| Policy | Jurisdiction / category | Chunks |
-|---|---|---|
-| Policy JICK: Bullying Prevention — Pupil Safety and Violence Prevention | district / bullying | 8 |
-| SAU 24 School Bullying Investigation Form (July 2026) | district / bullying | 3 |
+| Policy | Jurisdiction / category | Kind | Chunks |
+|---|---|---|---|
+| Policy JICK: Bullying Prevention — Pupil Safety and Violence Prevention | district / bullying | policy | 13 |
+| SAU 24 School Bullying Investigation Form (July 2026) | district / bullying | form | 3 |
+
+JICK chunks along its own section boundaries, so it is two chunks of front
+matter plus one per lettered section A–K. The form has no parseable sections and
+falls back to plain 1000-word chunking.
 
 Two judgement calls worth knowing:
 
-- **`District Procedure bully form.docx` was not loaded.** It is a superseded
-  revision of the same SAU 24 form: it cites "RSA 193**:**F" (the statute is RSA
-  193**-**F) and lacks HB108, the cross-district reporting requirement, and the
-  July 2026 JICK revision. Loading it would put a superseded form with a wrong
-  statutory citation into retrieval, which is exactly what deactivation exists
-  to prevent.
+- **`District Procedure bully form.docx` is loaded inactive.** It is a
+  superseded revision of the same SAU 24 form: it cites "RSA 193**:**F" (the
+  statute is RSA 193**-**F) and lacks HB108, the cross-district reporting
+  requirement, and the July 2026 JICK revision. It is kept as a revision — in
+  the library, chunked, `isActive = false` — so the district's own history is
+  visible, but retrieval filters on `isActive` and never returns it. Activating
+  it would put a wrong statutory citation into guidance. The form carries no
+  date of its own; its effective date is the creation date recorded inside the
+  `.docx` (2018-07-11).
 - **The old "School District Bullying Prevention and Intervention Policy" was
   deactivated.** Its own text calls it `Policy Number: DISC-001`, a code that
   does not exist — it was synthetic sample data, and it would have competed with
@@ -80,6 +87,12 @@ npm run policies:load -- --file <path> --title "..." \
 Dry run by default; `--apply` writes, `--replace` supersedes an existing policy
 of the same title and purges its old chunks from the vector store.
 
+A report form needs `--kind form`. Which document is a form is a property of the
+row, never a guess from its title, so the script has to be told — without it the
+document loads as a `policy` and `/incidents/[id]/report` can never find it.
+`--inactive` loads a superseded revision: present and chunked, excluded from
+retrieval.
+
 ### ~~4. Policy-coverage report~~ — **done 2026-09-01**
 
 `npm run policies:coverage`. Two views: what a real incident gets today, and
@@ -98,8 +111,9 @@ incident — including a fully-covered bullying one — currently gets no
 mandatory-reporting policy. That is the single highest-value document to load
 next.
 
-Current state: 4 retrievable policies, 16 chunks, 0 embedded. 2 of 20 categories
-have a local policy. Bullying is fully covered; Title IX has federal only.
+Current state: 2 retrievable policies, 16 chunks, 0 embedded. 1 of 20 categories
+has a district or school policy. Run `npm run policies:coverage` for the live
+figures rather than trusting these.
 
 ### ~~5. Persist the incident-page summary~~ — **done 2026-09-01**
 

@@ -153,12 +153,129 @@ const CORE_DIRECTIVES = `NON-NEGOTIABLE RULES (these override anything below):
 - Do not present a federal or state requirement as if it were district
   procedure.
 - Ask ONE clarifying question at a time when you need more information.
+- State ONE required step at a time. An administrator handling an incident acts
+  on the next thing, not on a list of everything; a wall of steps is how the one
+  that mattered gets skimmed past. Finish the step in front of them before
+  raising the one after it.
 - When the policy does not cover the situation, say that directly and
   recommend confirming with the district's compliance officer or legal counsel.
   "I could not find this in the loaded policy" is a useful answer; a
   confidently wrong obligation is not.`;
 
 
+
+/**
+ * What the district's own appeals were actually argued about.
+ *
+ * Read across the appeal decisions loaded as letter templates, the findings
+ * were upheld every time. What was criticised, conceded or overturned was the
+ * process: an investigation logged as starting six days after the report
+ * rather than five, a completed report posted and never received, a required
+ * phone call inside 48 hours that nobody made, an earlier report of the same
+ * conduct never handled under the bullying policy at all, and incidents judged
+ * one at a time so no pattern could appear.
+ *
+ * Every one of those is checkable while the incident is open, which is the
+ * only time it is cheap. Not editable: this is the difference between a
+ * defensible file and a year of appeals, not a matter of tone.
+ *
+ * Phrased as questions to raise, never as requirements to assert. A specific
+ * window belongs to a policy excerpt or to nobody -- CORE_DIRECTIVES governs
+ * here as everywhere.
+ */
+const APPEAL_RISK_CHECKS = `WHERE THESE CASES ARE ACTUALLY LOST:
+On appeal it is rarely the finding that fails. It is the process around it.
+Keep these in view and raise the ones this incident is exposed to, as questions
+and as things to get right:
+
+- When the clock started. A policy window runs from when the report was first
+  made, not from when the paperwork was opened. Ask when the family first
+  raised it, and with whom.
+- Whether the decision reached the family. A report written, filed and never
+  delivered counts as never delivered. Ask how it will be sent and how delivery
+  will be evidenced.
+- Verbal notice as well as written, where the policy asks for both. Posting a
+  letter does not discharge a requirement to make contact.
+- Earlier reports of the same conduct. If something similar was reported before
+  and was not handled under this policy, that is a finding in its own right,
+  not background.
+- Whether incidents are being weighed together. Conduct assessed one incident
+  at a time can miss a pattern that only appears across them.
+- Whether names and dates in the record are right. Errors here are what a
+  family points to when arguing the whole investigation was careless.
+
+State a specific deadline, window or requirement only where an excerpt below
+supports it. Where none does, ask the question without attaching a number.`;
+
+/**
+ * How the conversation is paced against the obligations the incident already
+ * has.
+ *
+ * The order is decided in `./step-plan.ts`, from `ComplianceAction` rows, and
+ * arrives here as a rendered block. The model is told which step is current
+ * rather than choosing one, so a step cannot be skipped, repeated or quietly
+ * reordered between turns.
+ */
+const STEP_PACING_DIRECTIVE = `WORKING THROUGH THE OBLIGATIONS:
+The list above is this incident's open obligations, in the order they must be
+worked. The step marked [CURRENT STEP] is the one the administrator is on.
+
+- Address the current step, and only the current step: what it requires, by
+  when, and which provision above says so.
+- Do not list, preview or summarise the later steps, and do not restate the
+  plan. The interface shows the queue beside this conversation already; saying
+  it again here is the noise this rule exists to remove.
+- The next turn's list will mark a new current step once this one is
+  discharged. Move on when it does, not before.
+- If they ask about something else, answer that, then bring them back to the
+  current step.`;
+
+/**
+ * How the model reports that the administrator said a step is already done.
+ *
+ * A suggestion, never a discharge: what this produces is a confirmation the
+ * administrator clicks. `./completion-claim.ts` carries the reasoning.
+ */
+const COMPLETION_CLAIM_DIRECTIVE = `REPORTING A STEP AS ALREADY DONE (metadata, not part of your answer):
+If, in their latest message, the administrator states that one of the numbered
+steps above has ALREADY been carried out, end your reply with a marker naming
+it, alone on the last line:
+
+[[DONE: 2]]          one step
+[[DONE: 1, 3]]       more than one
+
+Only for what they said they have already done. An intention ("I'll call the
+superintendent after this"), a plan, a question about how to do it, or your own
+advice to do it are NOT completions -- and neither is a step you merely believe
+would have been done by now. When it is not clearly past tense, omit the
+marker: the step stays open, which costs a click, and the alternative is a
+statutory obligation recorded as met when nobody met it.
+
+The marker is removed before the reply is shown and is never displayed. It
+discharges nothing on its own; it offers the administrator a confirmation.`;
+
+/**
+ * How a draft is written from the district's own letters.
+ *
+ * The same rule `/incidents/[id]/report` follows: the structure comes from the
+ * district's document, the facts come only from the incident record, and what
+ * the record does not hold stays blank. Inferring a name, an age or a date out
+ * of the reporter's prose is how a letter names the wrong child.
+ */
+const LETTER_DRAFTING_DIRECTIVE = `DRAFTING FROM THESE TEMPLATES:
+The templates above are how this district writes. They are examples of form,
+not statements of what any policy requires.
+
+- Pick the one template that matches what is being written and follow its
+  structure, its section order and its register. Ignore the others.
+- Never cite a template, quote it as policy, or repeat a finding, deadline or
+  outcome from it. Those belong to a different incident and different children.
+  Requirements still come only from the policy excerpts.
+- Fill in ONLY facts this incident's record actually holds. Where the record is
+  silent -- names, ages, grades, dates, what was found -- leave the placeholder
+  in place for the administrator to complete. Do not infer a fact from the
+  administrator's prose to fill a blank.
+- Say plainly at the end that this is a draft for them to check and complete.`;
 
 /**
  * The last thing the model reads, in every branch.
@@ -225,14 +342,46 @@ export function buildSystemPrompt({
   advisorProfile,
   policyContext,
   coverageNote = '',
+  stepPlan = '',
+  letterTemplates = '',
 }: {
   advisorProfile: string;
   policyContext: string;
   coverageNote?: string;
+  /** Rendered by `renderStepPlan`. Empty when the incident has no open obligations. */
+  stepPlan?: string;
+  /** Rendered by `renderLetterTemplates`. Empty unless this turn asked for a draft. */
+  letterTemplates?: string;
 }): string {
   const head = `${CORE_DIRECTIVES}
 
+${APPEAL_RISK_CHECKS}
+
 ${advisorProfile}`;
+
+  // Nothing when there is no plan: an unclassified incident, or one where every
+  // obligation is discharged, must not be handed pacing rules for a queue that
+  // does not exist -- nor a way to claim a step it has no steps to claim.
+  const planBlock = stepPlan
+    ? `
+
+${stepPlan}
+
+${STEP_PACING_DIRECTIVE}
+
+${COMPLETION_CLAIM_DIRECTIVE}`
+    : '';
+
+  // Only on the turn that asked for a draft. The directive follows the
+  // templates rather than preceding them, so the last word on how to use that
+  // text is ours and not the uploader's.
+  const letterBlock = letterTemplates
+    ? `
+
+${letterTemplates}
+
+${LETTER_DRAFTING_DIRECTIVE}`
+    : '';
 
   if (policyContext.trim().length === 0) {
     return `${head}
@@ -240,7 +389,7 @@ ${advisorProfile}`;
 Available Policy Context:
 (none)
 
-${NO_POLICY_RETRIEVED_GUARD}${coverageNote}
+${NO_POLICY_RETRIEVED_GUARD}${coverageNote}${planBlock}${letterBlock}
 
 ${TURN_LABEL_DIRECTIVE}
 
@@ -256,7 +405,7 @@ Procedures (RSA 193-F:4, II(k))" -- the way a source is cited in a report. Cite
 only references that appear below; never invent a section number, and if an
 excerpt carries only a policy name, cite the policy without a section.
 
-${policyContext}${coverageNote}
+${policyContext}${coverageNote}${planBlock}${letterBlock}
 
 ${TURN_LABEL_DIRECTIVE}
 
@@ -400,7 +549,9 @@ class ClaudeService {
     userQuery: string,
     policyContext: string,
     conversationHistory: ClaudeMessage[] = [],
-    coverage?: PolicyCoverage
+    coverage?: PolicyCoverage,
+    stepPlan = '',
+    letterTemplates = ''
   ): Promise<ClaudeResponse> {
     // The editable half only. The core directives below are not editable.
     const advisorProfile = (await this.getAdvisorProfile()) ?? DEFAULT_ADVISOR_PROFILE;
@@ -415,6 +566,8 @@ class ClaudeService {
       advisorProfile,
       policyContext,
       coverageNote,
+      stepPlan,
+      letterTemplates,
     });
 
     const messages: ClaudeMessage[] = [
@@ -461,6 +614,11 @@ Consider:
 - Mandatory reporting requirements
 - Student safety and welfare
 - FERPA privacy requirements
+- Whether the description refers to EARLIER incidents involving the same
+  students. Conduct is judged as a pattern across incidents, not one at a time,
+  and an incident classified on its latest event alone is the commonest ground
+  of appeal. Where earlier events are described, classify on the pattern they
+  form together.
 
 ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
 

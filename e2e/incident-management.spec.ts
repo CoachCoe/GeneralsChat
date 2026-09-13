@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { chatBody } from './support/chat';
 import { readFileSync } from 'fs';
 
 /**
@@ -283,18 +284,24 @@ test.describe('Obligation queue', () => {
     expect(backed.length).toBeGreaterThan(0);
     expect(unverified.length).toBeGreaterThan(0);
 
-    // A backed obligation carries the provision it rests on; an unverified one
-    // must not, or the citation would be decoration.
-    expect(backed[0].citation).toBeTruthy();
-    expect(typeof backed[0].citation).toBe('string');
-    for (const o of unverified) expect(o.citation).toBeNull();
-
-    // And the level of authority that imposes it. ObligationRow renders an
-    // AuthorityChip only when `jurisdiction` is present, so an endpoint that
-    // omits the field silently costs the chip everywhere.
-    expect(backed[0].jurisdiction).toBeTruthy();
-    expect(['federal', 'state', 'district', 'school']).toContain(backed[0].jurisdiction);
-    for (const o of unverified) expect(o.jurisdiction).toBeNull();
+    // Every policy-backed row carries the provision it rests on, and the level
+    // of authority that imposes it. ObligationRow renders an AuthorityChip only
+    // when `jurisdiction` is present, so an endpoint that omits the field
+    // silently costs the chip everywhere.
+    //
+    // The converse is deliberately NOT asserted. `resolveProvenance` withdraws
+    // the deadline claim from an excerpt that states no time limit while
+    // keeping its citation and policy id, because the obligation does rest on
+    // that provision -- only the claim about the clock is withdrawn. So an
+    // unverified row may legitimately carry a citation, and requiring it to be
+    // null asserted the opposite of what the code promises. It passed until now
+    // only because the excerpt the model named happened to contain a clock;
+    // `src/lib/obligation-provenance.test.ts` pins the real contract.
+    for (const o of backed as { citation: string; jurisdiction: string; description: string }[]) {
+      expect(typeof o.citation, o.description).toBe('string');
+      expect(o.citation, o.description).toBeTruthy();
+      expect(['federal', 'state', 'district', 'school'], o.description).toContain(o.jurisdiction);
+    }
 
     // The tallies are assertions of fact about lateness, so they count only
     // deadlines a policy supports.
@@ -538,7 +545,7 @@ test.describe('Incident summary', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    const { incidentId } = await chat.json();
+    const { incidentId } = await chatBody(chat);
 
     const before = await page.request.get(`/api/incidents/${incidentId}`);
     const conversationsBefore = (await before.json()).conversations.length;
@@ -625,7 +632,7 @@ test.describe('Incident documents', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    const { incidentId } = await chat.json();
+    const { incidentId } = await chatBody(chat);
     const generated = await page.request.post(`/api/incidents/${incidentId}/summary`);
     expect(generated.status()).toBe(200);
 

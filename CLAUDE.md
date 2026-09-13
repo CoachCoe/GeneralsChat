@@ -59,8 +59,11 @@ here*; make one. `npm test` is safe by construction — its setup refuses a
 database whose name lacks `test`.
 
 The `policies:*` and `prisma` commands are **not** safe, and take whatever
-`.env` gives them. These now carry the same `test`-in-the-name guard the e2e
-setup has, and refuse to run against anything else:
+`.env` gives them. These now carry a guard: they accept a database whose name
+contains `test`, as the e2e setup does, or one whose name contains `dev` on
+localhost, and refuse anything else. The `dev` allowance needs both halves — a
+hosted `...-dev` database is still refused — so clearing a local checkout is
+routine without the guard losing what it is for:
 
 | Script | What it does |
 |---|---|
@@ -70,7 +73,8 @@ setup has, and refuse to run against anything else:
 | `scripts/migrate-chat-titles.ts` | Rewrites `Incident` titles in place |
 
 The `test-` prefix on the first three does not mean they are tests; they are not
-part of any gate. The guard lives in `scripts/support/require-test-database.ts`.
+part of any gate. The guard lives in `scripts/support/require-test-database.ts`
+and is the one thing under `scripts/` that vitest covers.
 Re-indexing against production with an unmigrated schema is what once
 left every policy with zero chunks and retrieval silently returning nothing.
 Prefer `npm run policies:reindex` with no flag — it is a dry run — and read what

@@ -55,6 +55,25 @@ export async function GET(request: NextRequest, { params }: Params) {
       ? await ragSystem.coverageFor(incident.incidentType)
       : undefined;
 
+    /*
+     * A stored suggestion is worth offering only while its obligation is still
+     * open. Once the step is discharged -- by this confirmation or by `Mark
+     * done` on the queue -- the offer is spent, and re-rendering it would
+     * invite an administrator to complete something already complete.
+     *
+     * Resolved against the obligations as they stand now, for the same reason
+     * coverage is recomputed rather than replayed: the record says what was
+     * suggested, not what is still true.
+     */
+    const openObligationIds = new Set(
+      (
+        await prisma.complianceAction.findMany({
+          where: { incidentId: incident.id, status: { not: 'completed' } },
+          select: { id: true },
+        })
+      ).map(o => o.id)
+    );
+
     const messages = stored.map(({ conv, turn }) => ({
       id: conv.id,
       // Summaries render like any assistant turn; they are part of the record.
@@ -71,6 +90,9 @@ export async function GET(request: NextRequest, { params }: Params) {
       citations: turn.citations,
       coverage: turn.citations === undefined ? undefined : coverage,
       kind: turn.kind,
+      suggestedCompletions: turn.suggestedCompletions?.filter(s =>
+        openObligationIds.has(s.id)
+      ),
     }));
 
     return NextResponse.json({

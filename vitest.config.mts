@@ -16,7 +16,10 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    // `scripts/` is here for the guard that decides whether a destructive
+    // script may touch the database at all -- pure string logic, and the one
+    // thing in scripts/ that must not break silently.
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
     exclude: ['e2e/**', 'node_modules/**', '.next/**'],
     environment: 'node',
     globals: false,

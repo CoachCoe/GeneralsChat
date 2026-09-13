@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkRateLimit, resetRateLimits, RATE_LIMITS } from './rate-limit';
 
 describe('checkRateLimit', () => {
@@ -59,5 +59,49 @@ describe('checkRateLimit', () => {
     const signInPerMinute = RATE_LIMITS.SIGN_IN.limit / (RATE_LIMITS.SIGN_IN.windowMs / 60_000);
     const chatPerMinute = RATE_LIMITS.CHAT.limit / (RATE_LIMITS.CHAT.windowMs / 60_000);
     expect(signInPerMinute).toBeLessThan(chatPerMinute);
+  });
+});
+
+describe('limits configured from the environment', () => {
+  const KEY = 'RATE_LIMIT_CHAT_PER_MINUTE';
+  const original = process.env[KEY];
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[KEY];
+    else process.env[KEY] = original;
+    vi.resetModules();
+  });
+
+  async function chatLimit(value: string | undefined) {
+    if (value === undefined) delete process.env[KEY];
+    else process.env[KEY] = value;
+    vi.resetModules();
+    const { RATE_LIMITS } = await import('./rate-limit');
+    return RATE_LIMITS.CHAT.limit;
+  }
+
+  it('uses the default when nothing is set', async () => {
+    expect(await chatLimit(undefined)).toBe(30);
+  });
+
+  it('honours a positive integer', async () => {
+    expect(await chatLimit('1000')).toBe(1000);
+  });
+
+  it('falls back rather than honouring a value that would remove the bound', async () => {
+    // "someone typed none" must not become an unlimited endpoint.
+    for (const bad of ['none', '', '0', '-5', '1.5', 'Infinity']) {
+      expect(await chatLimit(bad), bad).toBe(30);
+    }
+  });
+
+  it('does not let the environment touch the sign-in limit', async () => {
+    // The one unauthenticated write path, running bcrypt at cost 12. There is
+    // no deployment for which a looser bound is right, so there is no knob.
+    process.env.RATE_LIMIT_SIGN_IN_PER_MINUTE = '10000';
+    vi.resetModules();
+    const { RATE_LIMITS } = await import('./rate-limit');
+    expect(RATE_LIMITS.SIGN_IN.limit).toBe(10);
+    delete process.env.RATE_LIMIT_SIGN_IN_PER_MINUTE;
   });
 });

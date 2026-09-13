@@ -85,21 +85,43 @@ export function resetRateLimits(): void {
 }
 
 /**
+ * How many of a limit an environment allows, when the default is not the right
+ * number for it.
+ *
+ * A malformed or non-positive value falls back rather than being honoured: the
+ * failure mode of "someone typed RATE_LIMIT_CHAT_PER_MINUTE=none" must not be
+ * an unlimited endpoint.
+ */
+function limitFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/**
  * Limits, and why each is what it is.
  *
  * SIGN_IN is the one that matters most: `/api/auth/*` is public, and
  * `src/auth.ts` runs `bcrypt.compare` at cost 12 even for an address with no
  * account, so every attempt costs roughly a quarter-second of *blocking* CPU on
  * a single event loop. A few hundred a minute make the app unavailable to every
- * administrator while also giving unbounded password guessing.
+ * administrator while also giving unbounded password guessing. It is
+ * deliberately **not** configurable: there is no deployment for which a looser
+ * bound on unauthenticated bcrypt is the right answer, and an env var here
+ * would only ever be used to weaken it.
  *
  * CHAT bounds billed spend: one chat turn can trigger classification,
  * obligation derivation and the guidance call. 30/minute is far above what an
  * administrator typing into a chat box can produce and far below what a loop
- * can.
+ * can. It is configurable because that sizing is a statement about one human at
+ * one keyboard, and not every caller is one: the e2e suite drives dozens of
+ * scenarios through a single account against a stubbed model, where the limit
+ * bounds nothing real and its only effect is to fail a test several cases after
+ * the one that exhausted the window.
  */
 export const RATE_LIMITS = {
   SIGN_IN: { limit: 10, windowMs: 5 * 60_000 },
-  CHAT: { limit: 30, windowMs: 60_000 },
-  UPLOAD: { limit: 20, windowMs: 60_000 },
+  CHAT: { limit: limitFromEnv('RATE_LIMIT_CHAT_PER_MINUTE', 30), windowMs: 60_000 },
+  UPLOAD: { limit: limitFromEnv('RATE_LIMIT_UPLOAD_PER_MINUTE', 20), windowMs: 60_000 },
 } as const;

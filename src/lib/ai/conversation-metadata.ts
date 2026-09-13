@@ -26,9 +26,15 @@ const citationSchema = z.object({
 // `.catch` per field, so the two are read independently: a citations array we
 // cannot make sense of must not also cost us the turn's kind, and an
 // unrecognised kind must not cost the administrator the citations.
+const suggestedCompletionSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+});
+
 const storedTurnSchema = z.object({
   citations: z.array(citationSchema).optional().catch(undefined),
   kind: z.enum(['question', 'guidance']).optional().catch(undefined),
+  suggestedCompletions: z.array(suggestedCompletionSchema).optional().catch(undefined),
 });
 
 export interface StoredTurn {
@@ -43,6 +49,16 @@ export interface StoredTurn {
    */
   citations?: PolicyCitation[];
   kind?: TurnKind;
+  /**
+   * Obligations the administrator said, on this turn, that they had already
+   * carried out.
+   *
+   * Stored so reopening an incident still offers a confirmation nobody acted
+   * on. Whether one is still worth offering is decided when the conversation
+   * is read, against the obligations that are open then -- a suggestion for a
+   * step since discharged is spent, not pending.
+   */
+  suggestedCompletions?: { id: string; description: string }[];
 }
 
 /**
@@ -67,5 +83,9 @@ export function readStoredTurn(raw: string | null | undefined): StoredTurn {
   const result = storedTurnSchema.safeParse(parsed);
   if (!result.success) return {};
 
-  return { citations: result.data.citations, kind: result.data.kind };
+  return {
+    citations: result.data.citations,
+    kind: result.data.kind,
+    suggestedCompletions: result.data.suggestedCompletions,
+  };
 }

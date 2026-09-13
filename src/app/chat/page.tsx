@@ -9,6 +9,10 @@ import Image from 'next/image';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
 import type { TurnKind } from '@/lib/ai/turn-label';
 import { ClassificationChip } from '@/components/design/ClassificationChip';
+import {
+  CompletionConfirm,
+  type CompletionSuggestion,
+} from '@/components/design/CompletionConfirm';
 import { ProvenanceRail } from '@/components/design/ProvenanceRail';
 import { conversationProvenance } from '@/lib/provenance';
 
@@ -70,6 +74,13 @@ interface Message {
   kind?: TurnKind;
   /** Present only on the turn where the incident was classified. */
   classification?: Classification | null;
+  /**
+   * Obligations the administrator said on this turn were already done.
+   *
+   * Offers, not completions. Confirming one is what writes; the turn itself
+   * changes nothing about the queue.
+   */
+  suggestedCompletions?: CompletionSuggestion[];
 }
 
 /**
@@ -288,7 +299,8 @@ export default function ChatPage() {
         citations: data.citations ?? [],
         coverage: data.coverage,
         classification: data.classification,
-        kind: data.kind
+        kind: data.kind,
+        suggestedCompletions: data.suggestedCompletions ?? [],
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch {
@@ -648,6 +660,12 @@ export default function ChatPage() {
                                 </div>
                               )}
                               <GuidanceBlock>{message.content}</GuidanceBlock>
+                              {message.suggestedCompletions &&
+                                message.suggestedCompletions.length > 0 && (
+                                  <CompletionConfirm
+                                    suggestions={message.suggestedCompletions}
+                                  />
+                                )}
                             </>
                           ) : (
                             message.content
