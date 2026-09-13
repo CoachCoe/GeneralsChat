@@ -566,7 +566,7 @@ test.describe('Working through the obligations', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    return response.json();
+    return chatBody(response);
   }
 
   const BULLYING = 'A student is being bullied repeatedly by a classmate during recess.';
