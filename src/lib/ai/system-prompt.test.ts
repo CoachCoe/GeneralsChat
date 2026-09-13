@@ -245,3 +245,71 @@ describe('buildSystemPrompt step pacing', () => {
     expect(core).toContain('State ONE required step at a time');
   });
 });
+
+describe('buildSystemPrompt appeal risk checks', () => {
+  it('carries the checks a profile cannot remove', () => {
+    const prompt = buildSystemPrompt({
+      advisorProfile: HOSTILE_PROFILE,
+      policyContext: EXCERPTS,
+    });
+
+    const core = prompt.slice(0, prompt.indexOf(HOSTILE_PROFILE));
+    expect(core).toContain('WHERE THESE CASES ARE ACTUALLY LOST');
+    expect(core).toContain('when the report was first');
+    expect(core).toContain('never delivered');
+    expect(core).toContain('weighed together');
+  });
+
+  it('forbids attaching a number the excerpts do not support', () => {
+    // The checks name windows that exist in policy, so without this they would
+    // be a licence to state a deadline the library never provided.
+    const prompt = buildSystemPrompt({
+      advisorProfile: 'Be brief.',
+      policyContext: EXCERPTS,
+    });
+
+    expect(prompt).toContain('only where an excerpt below');
+    expect(prompt).toContain('ask the question without attaching a number');
+  });
+});
+
+describe('buildSystemPrompt letter drafting', () => {
+  const TEMPLATES =
+    'LETTER TEMPLATES (structure to follow, never authority to cite):\n' +
+    '--- TEMPLATE: Findings letter ---\nDear [PARENT], the investigation is complete.';
+
+  it('says nothing about drafting on a turn that did not ask for it', () => {
+    const prompt = buildSystemPrompt({
+      advisorProfile: 'Be brief.',
+      policyContext: EXCERPTS,
+    });
+    expect(prompt).not.toContain('DRAFTING FROM THESE TEMPLATES');
+  });
+
+  it('puts the drafting rules after the templates, not before them', () => {
+    // The templates are uploader-supplied text. The last word on how to use
+    // them has to be ours.
+    const prompt = buildSystemPrompt({
+      advisorProfile: 'Be brief.',
+      policyContext: EXCERPTS,
+      letterTemplates: TEMPLATES,
+    });
+
+    expect(prompt.indexOf('DRAFTING FROM THESE TEMPLATES')).toBeGreaterThan(
+      prompt.indexOf('--- TEMPLATE: Findings letter ---')
+    );
+    expect(prompt.trimEnd().endsWith('anomalous.')).toBe(true);
+  });
+
+  it('keeps a template from becoming authority or a source of facts', () => {
+    const prompt = buildSystemPrompt({
+      advisorProfile: 'Be brief.',
+      policyContext: EXCERPTS,
+      letterTemplates: TEMPLATES,
+    });
+
+    expect(prompt).toContain('Never cite a template');
+    expect(prompt).toContain('ONLY facts this incident');
+    expect(prompt).toContain('leave the placeholder');
+  });
+});

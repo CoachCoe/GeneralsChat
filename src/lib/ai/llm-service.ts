@@ -62,7 +62,8 @@ export class LLMService {
     policyContext?: string,
     conversationHistory: ChatMessage[] = [],
     coverage?: PolicyCoverage,
-    plan: { text: string; stepCount: number } = { text: '', stepCount: 0 }
+    plan: { text: string; stepCount: number } = { text: '', stepCount: 0 },
+    letterTemplates = ''
   ): Promise<LLMResponse> {
     try {
       const claudeHistory: ClaudeMessage[] = conversationHistory
@@ -77,7 +78,8 @@ export class LLMService {
         policyContext || '',
         claudeHistory,
         coverage,
-        plan.text
+        plan.text,
+        letterTemplates
       );
 
       // Strip the turn label here, at the single guidance entry point, so no

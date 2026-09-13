@@ -18,6 +18,8 @@ import { incidentScope, requireUser } from '@/lib/session';
 import { actionTypeFor, ClassificationUnavailableError } from '@/lib/ai/classifier';
 import { resolveProvenance } from '@/lib/obligation-provenance';
 import { orderOpenSteps, renderStepPlan } from '@/lib/ai/step-plan';
+import { asksForALetter, renderLetterTemplates } from '@/lib/ai/letters';
+import { categoriesForIncidentType } from '@/types';
 import { dueDateFromHours } from '@/lib/deadline';
 import { claudeService } from '@/lib/ai/claude-service';
 import { enforceRateLimit } from '@/lib/errors';
@@ -211,12 +213,45 @@ export async function POST(request: NextRequest) {
       })
     );
 
+    /*
+     * The district's own letters, and only on the turn that asks for a draft.
+     * They are long, and they are uploader-supplied text; fetching them every
+     * turn would spend tokens and widen the injection surface for nothing.
+     *
+     * Scoped to what the incident implicates, ordered so the same request gets
+     * the same templates, and capped -- an administrator asking for one letter
+     * does not need six examples, and which six would then depend on the query
+     * planner.
+     */
+    // An empty category list means "no filter", as everywhere else that calls
+    // this -- an unclassified incident, or `other`, which maps to nothing
+    // specific. Passing it to `in` would instead match no row at all and offer
+    // no template on exactly the turns where the model has least else to go on.
+    const letterCategories = categoriesForIncidentType(
+      classification?.type ?? incident.incidentType
+    );
+    const letterTemplates = asksForALetter(message)
+      ? renderLetterTemplates(
+          await prisma.policy.findMany({
+            where: {
+              isActive: true,
+              documentKind: 'letter',
+              ...(letterCategories.length > 0 ? { category: { in: letterCategories } } : {}),
+            },
+            select: { title: true, content: true },
+            orderBy: [{ category: 'asc' }, { title: 'asc' }],
+            take: 3,
+          })
+        )
+      : '';
+
     const { content: response, usage, kind, claimedSteps } = await (await import('@/lib/ai/llm-service')).llmService.generateSchoolComplianceResponse(
       message,
       policyContext,
       conversationHistory,
       coverage,
-      { text: renderStepPlan(openSteps), stepCount: openSteps.length }
+      { text: renderStepPlan(openSteps), stepCount: openSteps.length },
+      letterTemplates
     );
 
     /*

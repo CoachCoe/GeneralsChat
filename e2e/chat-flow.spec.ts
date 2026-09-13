@@ -618,6 +618,15 @@ test.describe('Working through the obligations', () => {
     );
   });
 
+  test('sends the district letter templates only when asked for a draft', async ({ page }) => {
+    const drafting = await open(
+      page,
+      `${BULLYING} Can you draft a letter to the parents?`
+    );
+    // The stub echoes LETTERS only when the prompt carried the templates.
+    expect(drafting.response).toContain('LETTERS');
+  });
+
   test('declining leaves the obligation open', async ({ page }) => {
     const body = await open(page, ALREADY_DONE);
     const obligationId = body.suggestedCompletions[0].id;

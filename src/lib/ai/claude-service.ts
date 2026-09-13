@@ -165,6 +165,49 @@ const CORE_DIRECTIVES = `NON-NEGOTIABLE RULES (these override anything below):
 
 
 /**
+ * What the district's own appeals were actually argued about.
+ *
+ * Read across the appeal decisions loaded as letter templates, the findings
+ * were upheld every time. What was criticised, conceded or overturned was the
+ * process: an investigation logged as starting six days after the report
+ * rather than five, a completed report posted and never received, a required
+ * phone call inside 48 hours that nobody made, an earlier report of the same
+ * conduct never handled under the bullying policy at all, and incidents judged
+ * one at a time so no pattern could appear.
+ *
+ * Every one of those is checkable while the incident is open, which is the
+ * only time it is cheap. Not editable: this is the difference between a
+ * defensible file and a year of appeals, not a matter of tone.
+ *
+ * Phrased as questions to raise, never as requirements to assert. A specific
+ * window belongs to a policy excerpt or to nobody -- CORE_DIRECTIVES governs
+ * here as everywhere.
+ */
+const APPEAL_RISK_CHECKS = `WHERE THESE CASES ARE ACTUALLY LOST:
+On appeal it is rarely the finding that fails. It is the process around it.
+Keep these in view and raise the ones this incident is exposed to, as questions
+and as things to get right:
+
+- When the clock started. A policy window runs from when the report was first
+  made, not from when the paperwork was opened. Ask when the family first
+  raised it, and with whom.
+- Whether the decision reached the family. A report written, filed and never
+  delivered counts as never delivered. Ask how it will be sent and how delivery
+  will be evidenced.
+- Verbal notice as well as written, where the policy asks for both. Posting a
+  letter does not discharge a requirement to make contact.
+- Earlier reports of the same conduct. If something similar was reported before
+  and was not handled under this policy, that is a finding in its own right,
+  not background.
+- Whether incidents are being weighed together. Conduct assessed one incident
+  at a time can miss a pattern that only appears across them.
+- Whether names and dates in the record are right. Errors here are what a
+  family points to when arguing the whole investigation was careless.
+
+State a specific deadline, window or requirement only where an excerpt below
+supports it. Where none does, ask the question without attaching a number.`;
+
+/**
  * How the conversation is paced against the obligations the incident already
  * has.
  *
@@ -210,6 +253,29 @@ statutory obligation recorded as met when nobody met it.
 
 The marker is removed before the reply is shown and is never displayed. It
 discharges nothing on its own; it offers the administrator a confirmation.`;
+
+/**
+ * How a draft is written from the district's own letters.
+ *
+ * The same rule `/incidents/[id]/report` follows: the structure comes from the
+ * district's document, the facts come only from the incident record, and what
+ * the record does not hold stays blank. Inferring a name, an age or a date out
+ * of the reporter's prose is how a letter names the wrong child.
+ */
+const LETTER_DRAFTING_DIRECTIVE = `DRAFTING FROM THESE TEMPLATES:
+The templates above are how this district writes. They are examples of form,
+not statements of what any policy requires.
+
+- Pick the one template that matches what is being written and follow its
+  structure, its section order and its register. Ignore the others.
+- Never cite a template, quote it as policy, or repeat a finding, deadline or
+  outcome from it. Those belong to a different incident and different children.
+  Requirements still come only from the policy excerpts.
+- Fill in ONLY facts this incident's record actually holds. Where the record is
+  silent -- names, ages, grades, dates, what was found -- leave the placeholder
+  in place for the administrator to complete. Do not infer a fact from the
+  administrator's prose to fill a blank.
+- Say plainly at the end that this is a draft for them to check and complete.`;
 
 /**
  * The last thing the model reads, in every branch.
@@ -277,14 +343,19 @@ export function buildSystemPrompt({
   policyContext,
   coverageNote = '',
   stepPlan = '',
+  letterTemplates = '',
 }: {
   advisorProfile: string;
   policyContext: string;
   coverageNote?: string;
   /** Rendered by `renderStepPlan`. Empty when the incident has no open obligations. */
   stepPlan?: string;
+  /** Rendered by `renderLetterTemplates`. Empty unless this turn asked for a draft. */
+  letterTemplates?: string;
 }): string {
   const head = `${CORE_DIRECTIVES}
+
+${APPEAL_RISK_CHECKS}
 
 ${advisorProfile}`;
 
@@ -301,13 +372,24 @@ ${STEP_PACING_DIRECTIVE}
 ${COMPLETION_CLAIM_DIRECTIVE}`
     : '';
 
+  // Only on the turn that asked for a draft. The directive follows the
+  // templates rather than preceding them, so the last word on how to use that
+  // text is ours and not the uploader's.
+  const letterBlock = letterTemplates
+    ? `
+
+${letterTemplates}
+
+${LETTER_DRAFTING_DIRECTIVE}`
+    : '';
+
   if (policyContext.trim().length === 0) {
     return `${head}
 
 Available Policy Context:
 (none)
 
-${NO_POLICY_RETRIEVED_GUARD}${coverageNote}${planBlock}
+${NO_POLICY_RETRIEVED_GUARD}${coverageNote}${planBlock}${letterBlock}
 
 ${TURN_LABEL_DIRECTIVE}
 
@@ -323,7 +405,7 @@ Procedures (RSA 193-F:4, II(k))" -- the way a source is cited in a report. Cite
 only references that appear below; never invent a section number, and if an
 excerpt carries only a policy name, cite the policy without a section.
 
-${policyContext}${coverageNote}${planBlock}
+${policyContext}${coverageNote}${planBlock}${letterBlock}
 
 ${TURN_LABEL_DIRECTIVE}
 
@@ -468,7 +550,8 @@ class ClaudeService {
     policyContext: string,
     conversationHistory: ClaudeMessage[] = [],
     coverage?: PolicyCoverage,
-    stepPlan = ''
+    stepPlan = '',
+    letterTemplates = ''
   ): Promise<ClaudeResponse> {
     // The editable half only. The core directives below are not editable.
     const advisorProfile = (await this.getAdvisorProfile()) ?? DEFAULT_ADVISOR_PROFILE;
@@ -484,6 +567,7 @@ class ClaudeService {
       policyContext,
       coverageNote,
       stepPlan,
+      letterTemplates,
     });
 
     const messages: ClaudeMessage[] = [
@@ -530,6 +614,11 @@ Consider:
 - Mandatory reporting requirements
 - Student safety and welfare
 - FERPA privacy requirements
+- Whether the description refers to EARLIER incidents involving the same
+  students. Conduct is judged as a pattern across incidents, not one at a time,
+  and an incident classified on its latest event alone is the commonest ground
+  of appeal. Where earlier events are described, classify on the pattern they
+  form together.
 
 ${policyContext ? `\nRelevant Policies:\n${policyContext}` : ''}`;
 
