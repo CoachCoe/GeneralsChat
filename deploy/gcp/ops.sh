@@ -23,7 +23,12 @@ source .provisioned
 
 [ $# -gt 0 ] || { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
-TAG="$(git -C ../.. rev-parse --short HEAD)"
+# The same computation deploy.sh uses, because it has to name the same image.
+# Computing it differently meant a dirty tree deployed `<sha>-dirty` and then
+# asked for `<sha>`, which was never pushed.
+REPO_ROOT="$(cd ../.. && pwd)"
+TAG="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
+[ -z "$(git -C "$REPO_ROOT" status --porcelain)" ] || TAG="${TAG}-dirty"
 IMAGE="${AR_HOST}/${PROJECT_ID}/${AR_REPO}/${APP_NAME}-migrate:${TAG}"
 
 # `^|^` changes gcloud's --args delimiter from a comma, which a value here can

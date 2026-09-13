@@ -6,8 +6,13 @@
 # Run once per environment. deploy.sh is what you run on every code change.
 #
 # Cloud Run rather than GKE because this app is one container and one replica.
-# Cloud SQL over the unix socket rather than a public IP, so the database is
-# not reachable from the internet and the app needs no VPC connector.
+#
+# The database keeps its public address and adds no authorized networks. That
+# is not a gap: connections arrive through the Cloud SQL Auth proxy, which
+# authenticates with IAM, so the address answers nothing without credentials.
+# Removing the address instead would need a private IP and Serverless VPC
+# Access for Cloud Run to reach it at all -- more moving parts for the same
+# property.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -22,6 +27,12 @@ for v in PROJECT_ID REGION APP_NAME AR_REPO SERVICE_NAME MIGRATE_JOB_NAME OPS_JO
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 
+# `|| true` on a create would report success for a quota denial, a tier not
+# offered in this region, or a missing permission, and the next step would run
+# against a resource that does not exist. Every create is followed by a check
+# that it is actually there.
+fatal() { echo "    FAILED: $1" >&2; exit 1; }
+
 echo "==> enabling APIs"
 gcloud services enable \
   run.googleapis.com sqladmin.googleapis.com artifactregistry.googleapis.com \
@@ -32,6 +43,8 @@ echo "==> artifact registry"
 gcloud artifacts repositories create "$AR_REPO" \
   --repository-format=docker --location="$REGION" \
   --description="${APP_NAME} images" --quiet 2>/dev/null || echo "    exists"
+gcloud artifacts repositories describe "$AR_REPO" --location="$REGION" --quiet >/dev/null 2>&1 \
+  || fatal "artifact registry repository ${AR_REPO} does not exist in ${REGION}"
 
 echo "==> cloud sql postgres 16"
 if [ -z "${SQL_PASSWORD:-}" ]; then
@@ -42,7 +55,9 @@ fi
 gcloud sql instances create "$SQL_INSTANCE" \
   --database-version=POSTGRES_16 --tier="$SQL_TIER" --region="$REGION" \
   --storage-size=20 --storage-auto-increase \
-  --no-assign-ip --quiet 2>/dev/null || echo "    exists"
+  --quiet 2>/dev/null || echo "    exists"
+gcloud sql instances describe "$SQL_INSTANCE" --quiet >/dev/null 2>&1 \
+  || fatal "Cloud SQL instance ${SQL_INSTANCE} does not exist. Re-run without 2>/dev/null to see why the create was refused -- an unavailable SQL_TIER for this region is the usual cause."
 gcloud sql databases create "$SQL_DATABASE" --instance="$SQL_INSTANCE" --quiet 2>/dev/null || true
 # Re-run sets the password, so .provisioned and the instance cannot disagree.
 gcloud sql users create "$SQL_USER" --instance="$SQL_INSTANCE" \
@@ -54,13 +69,20 @@ echo "==> uploads bucket (student records — must outlive any revision)"
 gcloud storage buckets create "gs://${UPLOADS_BUCKET}" \
   --location="$REGION" --uniform-bucket-level-access \
   --public-access-prevention --quiet 2>/dev/null || echo "    exists"
+gcloud storage buckets describe "gs://${UPLOADS_BUCKET}" --quiet >/dev/null 2>&1 \
+  || fatal "bucket gs://${UPLOADS_BUCKET} does not exist. Bucket names are globally unique; pick another UPLOADS_BUCKET."
 
 echo "==> service account"
 SA_EMAIL="${SERVICE_ACCOUNT}@${PROJECT_ID}.iam.gserviceaccount.com"
 gcloud iam service-accounts create "$SERVICE_ACCOUNT" \
   --display-name="${APP_NAME} Cloud Run" --quiet 2>/dev/null || echo "    exists"
+gcloud iam service-accounts describe "$SA_EMAIL" --quiet >/dev/null 2>&1 \
+  || fatal "service account ${SA_EMAIL} does not exist"
 
 echo "==> secrets"
+# A new version each run. Re-running with a *different* AUTH_SECRET silently
+# signs every administrator out, because the JWTs in their browsers were signed
+# with the old one -- so change it deliberately, not by editing .env in passing.
 put_secret() {
   local name="$1" value="$2"
   gcloud secrets describe "$name" --quiet >/dev/null 2>&1 \

@@ -300,6 +300,20 @@ to 1. Raising either needs the counters in a shared store first.
 user the way `psql` does; a userless URL fails `migrate` with `P1010: User was
 denied access` while `psql -l` against the same database works.
 
+### Check the uploads mount before trusting it
+
+The container runs as uid 1001, and a mounted object store does not necessarily
+present files as owned by it. If the mount is owned by root, every attachment
+write fails with `EACCES` — and the first person to find out is an
+administrator filing a report about a student.
+
+So on a first deploy, before anyone uses it: sign in, attach a file to an
+incident, then fetch it back through `GET /api/attachments/[id]`. A round trip
+through the running service is the only check that covers the mount's ownership,
+the path resolution under `UPLOADS_DIR`, and the read path together. Redeploy
+once and fetch it again — that is what catches a volume that was never really
+persistent.
+
 ### What is not deployed
 
 No Chroma server, so retrieval runs on the category-filtered keyword fallback.
