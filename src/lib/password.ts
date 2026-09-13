@@ -11,7 +11,7 @@ import bcrypt from 'bcryptjs';
  * cleaner enumeration oracle than having no dummy compare at all. That has
  * happened here once, at cost 10 against 12.
  */
-export const BCRYPT_COST = 12;
+const BCRYPT_COST = 12;
 
 /** Long enough that the generated value is not the weak link. */
 const GENERATED_BYTES = 12;

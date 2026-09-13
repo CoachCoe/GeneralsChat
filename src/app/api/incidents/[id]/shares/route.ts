@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { incidentReadScope, incidentScope, requireUser } from '@/lib/session';
+import { canReadAllIncidents, incidentReadScope, incidentScope, requireUser } from '@/lib/session';
 import { createErrorResponse, notFoundError, validationError } from '@/lib/errors';
 import { formatValidationErrors, validateRequest } from '@/lib/validation';
 import { recordAudit } from '@/lib/audit';
@@ -60,7 +60,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
       invitations,
       // Only the reporter and staff may widen the circle, so the client knows
       // whether to offer the control at all rather than rendering one that 404s.
-      canShare: incident.reporterId === guard.user.id || Object.keys(incidentScope(guard.user)).length === 0,
+      canShare: incident.reporterId === guard.user.id || canReadAllIncidents(guard.user),
     });
   } catch (error) {
     return createErrorResponse(error, 'Failed to list shares', {
@@ -137,6 +137,15 @@ export async function POST(request: NextRequest, { params }: Params) {
 
       return NextResponse.json({ share }, { status: 201 });
     }
+
+    // A new link supersedes any pending one for this address on this incident.
+    // The old token cannot be recovered -- only its hash is stored -- so
+    // reissuing is the only way to send another, and leaving both live would
+    // mean a link the sharer thinks they replaced still works.
+    await prisma.invitation.updateMany({
+      where: { incidentId: id, email, acceptedAt: null, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
 
     const token = generateInvitationToken();
     const invitation = await prisma.invitation.create({

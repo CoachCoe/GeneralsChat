@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@/generated/prisma';
@@ -56,6 +56,16 @@ export async function resetDatabase(): Promise<SeededIds> {
   const prisma = new PrismaClient();
   try {
     // Order matters: children before parents.
+    //
+    // The collaboration tables reference `User` with onDelete: Restrict -- a
+    // share, an invitation or a message must not vanish because the account
+    // that made it was removed -- so they come out before the users do, and
+    // before the incidents they hang off.
+    await prisma.message.deleteMany();
+    await prisma.threadParticipant.deleteMany();
+    await prisma.messageThread.deleteMany();
+    await prisma.invitation.deleteMany();
+    await prisma.incidentShare.deleteMany();
     await prisma.auditLog.deleteMany();
     await prisma.complianceAction.deleteMany();
     await prisma.attachment.deleteMany();
@@ -478,8 +488,45 @@ export async function setUserRole(email: string, role: string): Promise<string> 
 export async function deleteUserByEmail(email: string): Promise<void> {
   const prisma = new PrismaClient();
   try {
-    await prisma.user.deleteMany({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (!user) return;
+
+    /*
+     * Shares, threads and messages hold the user with onDelete: Restrict --
+     * deliberately, so the record that an incident was disclosed to someone
+     * cannot vanish with their account. Removing them first is what a real
+     * deletion would have to do, and the awkwardness is the argument for
+     * revoking instead, which is what `/admin/users` offers.
+     */
+    await prisma.message.deleteMany({ where: { senderId: user.id } });
+    await prisma.threadParticipant.deleteMany({ where: { userId: user.id } });
+    await prisma.messageThread.deleteMany({ where: { createdById: user.id } });
+    await prisma.invitation.deleteMany({ where: { invitedById: user.id } });
+    await prisma.incidentShare.deleteMany({
+      where: { OR: [{ userId: user.id }, { sharedById: user.id }] },
+    });
+
+    /*
+     * And the audit trail, which `AuditLog.userId` holds with Restrict so that
+     * the record of who read which student's incident cannot be removed by
+     * removing the reader. Doing it here is a test destroying evidence in a
+     * throwaway database to reach a state the application will not produce --
+     * it is the clearest statement of why `/admin/users` revokes instead.
+     */
+    await prisma.auditLog.deleteMany({ where: { userId: user.id } });
+    await prisma.user.delete({ where: { id: user.id } });
   } finally {
     await prisma.$disconnect();
   }
+}
+
+/**
+ * Ids of the rows `resetDatabase` wrote, as global-setup recorded them.
+ *
+ * A test that must prove it cannot reach something needs the real id of that
+ * something. Exported here rather than re-declared per spec: it was already
+ * copied into one, with a narrower type that omitted the attachments.
+ */
+export function seededIds(): SeededIds {
+  return JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8')) as SeededIds;
 }

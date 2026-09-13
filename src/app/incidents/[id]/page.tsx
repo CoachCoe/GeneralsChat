@@ -399,6 +399,11 @@ export default function IncidentDetailPage() {
               title="Mandatory report"
               note="Draft from the record"
             />
+            <DocumentLink
+              href={`/incidents/${incident.id}/transcript`}
+              title="Consultation transcript"
+              note="Everything asked and answered"
+            />
           </div>
 
           {/* Under the documents, because "who else can read this" is a

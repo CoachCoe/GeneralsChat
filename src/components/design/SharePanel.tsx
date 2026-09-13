@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { INVITATION_TTL_DAYS } from '@/lib/invitation';
 
 /**
  * Who else can read this incident.
@@ -186,8 +187,8 @@ export function SharePanel({ incidentId }: { incidentId: string }) {
           <span className="eyebrow">Send this to {issued.email}</span>
           <p className="text-[13px]" style={{ color: 'var(--color-text-secondary)' }}>
             They have no account yet. This link creates one for that address — anyone who
-            holds it can use it, so send it to them directly. It works once and expires in a
-            week.
+            holds it can use it, so send it to them directly. It works once and expires in{' '}
+            {INVITATION_TTL_DAYS} days.
           </p>
           <code
             className="select-all break-all rounded-[8px] px-3 py-2 text-[13px]"

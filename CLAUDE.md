@@ -96,9 +96,25 @@ user kept working. A deleted account is 401, not 403. `src/middleware.ts` still
 gates `/admin` on the token's role because Prisma cannot run on the Edge — that
 is a page shell, and every `/api/admin` handler re-checks against the row.
 
-**Scope every by-id lookup.** `incidentScope(user)` — reporters see only what
-they filed. An out-of-scope row returns **404, not 403**, so ids are not
-confirmed to people who may not read them.
+**Scope every by-id lookup, and read is not write.** Two helpers in
+`src/lib/incident-scope.ts`, and which one a handler imports is the whole of its
+access decision. `incidentScope(user)` is the reporter and staff: every write
+takes it. `incidentReadScope(user)` adds anyone the incident is shared with:
+every read takes it. An out-of-scope row returns **404, not 403**, so ids are
+not confirmed to people who may not read them.
+
+A share grants reading and nothing else — not changing the incident, not
+discharging an obligation, not attaching a student record, not adding a turn to
+the transcript, not sharing onward. That rule fits in a sentence, which is why
+it is that rather than a capability matrix. `GET /api/attachments/[id]` resolves
+through the read scope for the same reason: it once compared `reporterId`
+inline, so a shared incident listed its attachments and 404d every download.
+
+**Revoking is not deleting.** `AuditLog.userId` is a required relation so the
+record of who read which student's incident outlives the account. A revoked user
+is `deactivatedAt`: `authorize` refuses sign-in *after* the bcrypt compare so
+timing does not separate revoked from never-existed, and `requireUser` answers
+401 — a 403 would confirm the account exists.
 
 **Never assert policy the system did not retrieve.** If retrieval returns
 nothing, the prompt gets an explicit instruction not to cite policy codes or
@@ -147,6 +163,31 @@ incident scope already lets read it — `GET /api/policies` still withholds
 **Attachments are student records.** They live outside `public/` and are served
 only through `GET /api/attachments/[id]`, which re-checks session and ownership.
 Never reintroduce a direct file URL.
+
+**Notifications are derived, never stored.** `src/lib/notifications.ts` builds
+them from rows that already exist: a deadline from `ComplianceAction`, an unseen
+share from `IncidentShare.seenAt`, unread messages from
+`ThreadParticipant.lastReadAt`. There is no notification table and no scheduler,
+so nothing can drift from what it describes. Only a policy-backed deadline may
+be shown as overdue — colour means what it means everywhere else. In-app only:
+there is no mail transport, so a deadline that passes while nobody is signed in
+waits until somebody is, and the UI does not imply otherwise.
+
+**An invitation link is a credential.** There is no mail transport, so the
+sharer copies the link and sends it. One address, single use, seven days,
+revocable, and only a SHA-256 of a 32-byte token is stored. Acceptance claims it
+with a conditional update inside the transaction, not on the strength of the
+read above it. The body carries a name and a password and nothing else — the
+address comes from the invitation row and the role is `reporter` in code.
+
+`/invite/` and `/api/invitations/` are the only paths added to the
+deny-by-default gate since it was written, and accepting is the *second*
+unauthenticated write path: it hashes a password, so it is rate limited in
+`middleware.ts` on the same key as sign-in.
+
+**Person-to-person messaging is never called chat.** `Conversation` is the
+assistant's transcript. People talk in `MessageThread` / `Message`, shown as
+"Messages". A thread may name an incident; membership grants nothing over it.
 
 **Time-derived text needs `useMounted()`.** Anything from `new Date()` renders
 differently on the server and the client — a countdown, a formatted date in a
@@ -197,11 +238,17 @@ the same commit:
 
 `data-testid="chat-input" | chat-send | chat-loading | chat-sources |
 chat-history-item | obligation-queue | obligation-row | incident-summary |
-incident-report | report-gap`, `aria-label="Send message"`,
+incident-report | report-gap | incident-transcript | completion-suggestion |
+share-panel | share-row | share-email | thread-list-item | message-row |
+message-input | message-send | person-option | notification-bell |
+notification-item | user-row | user-name | user-email | new-credentials |
+invite-name | invite-password | invite-accept`, `aria-label="Send message"`,
 `nav[aria-label="Main"]`, `nav[aria-label="Documents"]`,
-`aside[aria-label="Sources"]`, the `Incidents` `<h1>`,
+`nav[aria-label="Conversations"]`, `aside[aria-label="Sources"]`,
+`region[aria-label="Notifications"]`, the `Incidents` `<h1>`,
 and the button names `Close Incident` / `Reopen Incident` / `Generate Summary` / `Sign in` /
-`Sign out` / `Mark done`.
+`Sign out` / `Mark done` / `Share` / `Stop sharing` / `Add reporter` / `Revoke` /
+`Restore` / `Print` / `Download` / `New` / `Send` / `Start conversation`.
 
 `obligation-row` exists so a test can assert the queue is **exhaustive** — that
 the number of rows rendered equals the number of open obligations the API

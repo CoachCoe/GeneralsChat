@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { MIN_PASSWORD_LENGTH } from '@/lib/password';
+import { INVITATION_TTL_DAYS } from '@/lib/invitation';
 
 /**
  * Claiming an invitation.
@@ -99,8 +100,8 @@ export default function InvitePage() {
               This link is no longer valid
             </h1>
             <p className="body-text" style={{ color: 'var(--color-text-secondary)' }}>
-              Invitations can be used once and expire after a week. Ask whoever sent it to
-              share the incident again.
+              Invitations can be used once and expire after {INVITATION_TTL_DAYS} days. Ask
+              whoever sent it to share the incident again.
             </p>
           </>
         )}
