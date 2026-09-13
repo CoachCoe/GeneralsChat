@@ -10,7 +10,22 @@ import { logAudit, logError } from '@/lib/logger';
  * file", which is the core disclosure-accounting obligation, and could not
  * scope a breach after the fact.
  */
-export type AuditAction = 'created' | 'updated' | 'deleted' | 'viewed' | 'exported';
+/**
+ * `revoked` and `restored` are their own actions rather than an `updated` with
+ * a flag in `details`: ending someone's access to incident records about minors
+ * is the event a reviewer searches this log for, and it should not have to be
+ * found by reading the payload of every update.
+ */
+export type AuditAction =
+  | 'created'
+  | 'updated'
+  | 'deleted'
+  | 'viewed'
+  | 'exported'
+  | 'revoked'
+  | 'restored'
+  | 'shared'
+  | 'unshared';
 
 export interface AuditEntry {
   userId: string;

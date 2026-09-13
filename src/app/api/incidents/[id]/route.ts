@@ -7,7 +7,7 @@ import {
   updateIncidentSchema,
   validateRequest,
 } from '@/lib/validation';
-import { incidentScope, requireUser } from '@/lib/session';
+import { incidentReadScope, incidentScope, requireUser } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
 
 /** Statuses that close an incident, and so stamp closedAt. */
@@ -29,7 +29,9 @@ export async function GET(request: NextRequest, { params }: Params) {
     const { id } = await params;
 
     const incident = await prisma.incident.findFirst({
-      where: { id, ...incidentScope(guard.user) },
+      // Read scope: anyone the incident is shared with may open it. The PATCH
+      // below keeps `incidentScope`, so a recipient reads and changes nothing.
+      where: { id, ...incidentReadScope(guard.user) },
       include: {
         reporter: {
           select: {

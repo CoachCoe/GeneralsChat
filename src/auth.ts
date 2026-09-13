@@ -33,7 +33,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const hash = user?.passwordHash ?? DUMMY_HASH;
         const ok = await bcrypt.compare(password, hash);
 
-        if (!ok || !user?.passwordHash) return null;
+        // A revoked account cannot sign in. Checked after the compare, not
+        // instead of it, so the timing does not separate "revoked" from "never
+        // existed" -- the same reason the dummy hash is there at all.
+        if (!ok || !user?.passwordHash || user.deactivatedAt) return null;
 
         return {
           id: user.id,

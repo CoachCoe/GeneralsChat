@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isPolicyBacked } from '@/lib/deadline';
 import { prisma } from '@/lib/db';
-import { incidentScope, requireUser } from '@/lib/session';
+import { incidentReadScope, requireUser } from '@/lib/session';
 import { createErrorResponse } from '@/lib/errors';
 
 /**
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       where: {
         // Scoped through the incident, so a reporter sees only obligations on
         // incidents they filed.
-        incident: incidentScope(guard.user),
+        incident: incidentReadScope(guard.user),
         ...(includeCompleted ? {} : { status: { not: 'completed' } }),
       },
       include: {

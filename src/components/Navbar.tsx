@@ -60,6 +60,12 @@ export default function Navbar() {
             </Link>
           )}
 
+          {isAdmin && (
+            <Link href="/admin/users" className="navbar-link">
+              People
+            </Link>
+          )}
+
           {/* Incidents Link */}
           <Link href="/incidents" className="navbar-link">
             Incidents

@@ -29,16 +29,29 @@ model User {
   emailVerified DateTime?
   image         String?
 
+  /// Revoked rather than deleted. `AuditLog.userId` is a required relation
+  /// precisely because the record of who read which student's incident has to
+  /// outlive the account that read it, so an administrator who leaves is
+  /// deactivated: sign-in is refused and every guarded request is 401, the same
+  /// answer a deleted account gets.
+  deactivatedAt DateTime?
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  reportedIncidents Incident[]         @relation("IncidentReporter")
-  assignedActions   ComplianceAction[] @relation("AssignedActions")
-  conversations     Conversation[]
-  attachments       Attachment[]
-  auditLogs         AuditLog[]
+  reportedIncidents     Incident[]          @relation("IncidentReporter")
+  assignedActions       ComplianceAction[]  @relation("AssignedActions")
+  conversations         Conversation[]
+  attachments           Attachment[]
+  auditLogs             AuditLog[]
+  incidentsSharedWithMe IncidentShare[]     @relation("ShareRecipient")
+  sharesIGranted        IncidentShare[]     @relation("ShareGrantor")
+  invitationsSent       Invitation[]        @relation("Inviter")
+  threadsCreated        MessageThread[]     @relation("ThreadCreator")
+  threadMemberships     ThreadParticipant[]
+  messagesSent          Message[]
 
   @@index([email])
   @@index([role])
@@ -76,6 +89,9 @@ model Incident {
   complianceActions ComplianceAction[]
   attachments       Attachment[]
   auditLogs         AuditLog[]
+  shares            IncidentShare[]
+  invitations       Invitation[]
+  threads           MessageThread[]
 
   @@index([reporterId])
   @@index([status])
@@ -338,4 +354,127 @@ model SystemPrompt {
 
   @@index([isActive])
   @@index([createdAt])
+}
+
+// ============================================
+// COLLABORATION
+// ============================================
+
+/// Who else may read an incident.
+///
+/// Read only, deliberately. A share is "look at this with me", and every write
+/// -- changing the incident, discharging an obligation, attaching a student
+/// record, asking the assistant -- stays with the reporter and with staff. The
+/// alternative was a capability matrix, which is a permission system to design,
+/// test and explain for a pilot with one user type.
+///
+/// Only the reporter and staff may grant one, so a share cannot widen the
+/// circle the reporter chose.
+model IncidentShare {
+  id         String   @id @default(cuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  /// The recipient. Restrict, not Cascade: revoking a user deactivates the row
+  /// rather than deleting it, and a share that vanished would take with it the
+  /// record that the incident had been disclosed to them.
+  userId String
+  user   User   @relation("ShareRecipient", fields: [userId], references: [id])
+
+  sharedById String
+  sharedBy   User   @relation("ShareGrantor", fields: [sharedById], references: [id])
+
+  /// Null until the recipient has seen it. The unread half of "someone shared
+  /// an incident with you", which is why there is no notification table.
+  seenAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([incidentId, userId])
+  @@index([userId, seenAt])
+}
+
+/// Registration authorised by an existing user, for one email address.
+///
+/// Not self-registration, which this application deliberately does not have:
+/// an invitation names one address, is single use, and expires. Only the hash
+/// is stored, so the database cannot be read for live tokens.
+///
+/// There is no mail transport here, so the sharer copies the link and sends it
+/// themselves -- which makes the link the credential. Short expiry, single use,
+/// revocable, and audited on issue and on acceptance are what bound that.
+model Invitation {
+  id    String @id @default(cuid())
+  email String
+
+  /// SHA-256 of a 32-byte random token. The token itself is shown once.
+  tokenHash String @unique
+
+  invitedById String
+  invitedBy   User   @relation("Inviter", fields: [invitedById], references: [id])
+
+  /// The incident that prompted it, shared with the new account on acceptance.
+  incidentId String?
+  incident   Incident? @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+}
+
+/// Person-to-person messaging, 1:1 or group.
+///
+/// `Conversation` is the assistant's transcript and always has been, so this is
+/// `MessageThread` in the schema and "Messages" in the interface. Nothing here
+/// is ever called a chat.
+model MessageThread {
+  id String @id @default(cuid())
+
+  /// Null for a 1:1, which is named by its participants instead.
+  title String?
+
+  /// Optional context. A thread started from an incident links back to it, and
+  /// membership of the thread grants nothing over the incident.
+  incidentId String?
+  incident   Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  createdById String
+  createdBy   User   @relation("ThreadCreator", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  /// Bumped when a message lands, so the thread list orders by recency without
+  /// a join to the messages.
+  updatedAt DateTime @updatedAt
+
+  participants ThreadParticipant[]
+  messages     Message[]
+}
+
+model ThreadParticipant {
+  threadId String
+  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User          @relation(fields: [userId], references: [id])
+
+  /// What "unread" means, and the second reason there is no notification table.
+  lastReadAt DateTime?
+
+  @@id([threadId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id       String        @id @default(cuid())
+  threadId String
+  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId String
+  sender   User          @relation(fields: [senderId], references: [id])
+  body     String
+
+  createdAt DateTime @default(now())
+
+  @@index([threadId, createdAt])
 }

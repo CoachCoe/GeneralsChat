@@ -7,7 +7,8 @@ import {
   validateRequest,
   formatValidationErrors,
 } from '@/lib/validation';
-import { canReadAllIncidents, incidentScope, requireUser } from '@/lib/session';
+import { canReadAllIncidents, incidentReadScope, requireUser } from '@/lib/session';
+import type { Prisma } from '@/generated/prisma';
 import { recordAudit } from '@/lib/audit';
 
 export async function GET(request: NextRequest) {
@@ -36,12 +37,11 @@ export async function GET(request: NextRequest) {
 
     // Reporters see only what they filed; investigators and admins see all.
     // The reporterId query param can narrow that but never widen it.
-    const where: {
-      status?: string;
-      reporterId?: string;
-      complianceActions?: { some: { status: string } };
-    } = {
-      ...incidentScope(guard.user),
+    // `Prisma.IncidentWhereInput` rather than a literal: the scope is an OR for
+    // a reporter now that a share can grant read, and a hand-written shape
+    // cannot express it. Narrowing filters below are ANDed with it.
+    const where: Prisma.IncidentWhereInput = {
+      ...incidentReadScope(guard.user),
     };
     // "Pending" means outstanding compliance actions, not an incident status.
     // Incident.status has no such value and never did.
