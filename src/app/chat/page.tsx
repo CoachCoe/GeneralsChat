@@ -607,7 +607,11 @@ export default function ChatPage() {
                   the policy requires, and what has to happen by when.
                 </p>
 
-                <FirstRunNote />
+                {/* Only on a thread that does not exist yet. `messages` is
+                    also empty while an existing incident is still loading, and
+                    "Before you start" is wrong over a conversation someone is
+                    coming back to. */}
+                {!incidentId && <FirstRunNote />}
               </div>
             ) : (
               <div style={{ padding: '24px 16px' }}>

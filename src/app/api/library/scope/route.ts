@@ -2,17 +2,20 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/session';
 import { createErrorResponse } from '@/lib/errors';
-import { LOCAL_JURISDICTIONS, RETRIEVABLE_DOCUMENT_KINDS } from '@/types';
+import { LOCAL_JURISDICTIONS, RETRIEVABLE_POLICY_WHERE } from '@/types';
 
 /**
  * What subjects the district has actually loaded.
  *
  * Answered here rather than derived in the browser from `GET /api/policies`,
- * because "counts as coverage" is a rule with three parts -- active, a kind
- * that may be cited, and at least one searchable chunk -- and it already exists
- * in `assessCoverage`. A second copy in a component would drift from the one
- * retrieval uses, and the first symptom would be a screen promising a subject
- * the assistant cannot answer on.
+ * because "loaded" is a rule -- `RETRIEVABLE_POLICY_WHERE` -- and a copy of it
+ * in a component would drift from the one retrieval uses. The first symptom
+ * would be a screen promising a subject the assistant cannot answer on.
+ *
+ * The local-jurisdiction filter is this route's own, and deliberately not part
+ * of that shared rule: a loaded federal Title IX rule is not the district
+ * having written a Title IX policy, and this sentence says "your district has
+ * loaded".
  *
  * Categories only: no titles, no counts, nothing about a document. Which
  * subjects a district has written policy for is the least that can be said and
@@ -25,12 +28,8 @@ export async function GET() {
 
     const covered = await prisma.policy.findMany({
       where: {
-        isActive: true,
-        documentKind: { in: [...RETRIEVABLE_DOCUMENT_KINDS] },
+        ...RETRIEVABLE_POLICY_WHERE,
         jurisdiction: { in: [...LOCAL_JURISDICTIONS] },
-        // A row with no chunks is invisible to retrieval, so counting it would
-        // claim coverage the system cannot deliver.
-        chunks: { some: {} },
       },
       select: { category: true },
       distinct: ['category'],

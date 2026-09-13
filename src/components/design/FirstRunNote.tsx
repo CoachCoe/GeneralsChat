@@ -21,6 +21,10 @@ import { describeLibraryScope } from '@/lib/library-scope';
  * No colour. A coverage gap for a specific incident is an amber signal; this is
  * an orientation, and painting it would spend the one thing this interface
  * raises its voice with on something nobody has to act on.
+ *
+ * The scope sentence is absent until the server answers, rather than standing
+ * in for it. A placeholder saying something else -- however true -- is a claim
+ * the reader watches get replaced by a different claim.
  */
 export function FirstRunNote() {
   const [scope, setScope] = useState<string | null>(null);
@@ -29,8 +33,6 @@ export function FirstRunNote() {
     fetch('/api/library/scope')
       .then(response => (response.ok ? response.json() : null))
       .then(body => {
-        // Silence rather than a guess: a sentence about what the library covers
-        // is worth having only if it is true.
         if (body) setScope(describeLibraryScope(body.categories));
       })
       .catch(() => {});
@@ -52,7 +54,8 @@ export function FirstRunNote() {
         </p>
         <p className="text-[14px] leading-[1.6]" style={{ color: 'var(--color-text-secondary)' }}>
           <span style={{ color: 'var(--color-text)' }}>Answers rest on loaded policy.</span>{' '}
-          {scope ?? 'Every answer names the policies it rests on, beside the conversation.'}
+          Beside every answer is what it was drawn from, down to the provision.
+          {scope ? ` ${scope}` : ''}
         </p>
         <p className="text-[14px] leading-[1.6]" style={{ color: 'var(--color-text-secondary)' }}>
           <span style={{ color: 'var(--color-text)' }}>What it produces are drafts.</span> The

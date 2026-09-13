@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { test, expect } from '@playwright/test';
 import { chatBody } from './support/chat';
+import { seededIds } from './support/seed';
 import { STUB_REPLY, STUB_QUESTION_REPLY } from './support/claude-stub';
 
 /**
@@ -657,6 +658,24 @@ test.describe('Before the first question', () => {
     // markup, so a screen cannot promise a subject the assistant has nothing
     // loaded for. The seed loads bullying.
     await expect(note).toContainText('Bullying');
+  });
+
+  test('it does not appear over a conversation being reopened', async ({ page }) => {
+    // `messages` is empty while an existing incident loads too, and "Before you
+    // start" is wrong over a thread someone is coming back to.
+    const { reporterIncidentId } = seededIds();
+
+    // Waiting on the load itself, not on something it happens to render: the
+    // seeded conversation need not contain a turn that carries citations, and
+    // asserting absence without a signal would pass before loading began.
+    await Promise.all([
+      page.waitForResponse(
+        r => r.url().includes(`/api/chat/${reporterIncidentId}`) && r.status() === 200
+      ),
+      page.goto(`/chat?incident=${reporterIncidentId}`),
+    ]);
+
+    await expect(page.getByTestId('first-run-note')).toHaveCount(0);
   });
 
   test('it gives way once there is a conversation', async ({ page }) => {
