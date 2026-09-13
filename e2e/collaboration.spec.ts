@@ -11,6 +11,17 @@ import { seededIds, TEST_USERS } from './support/seed';
  * reporter only meant to show it to.
  */
 
+/**
+ * The directory returns names, not addresses -- it exists so a picker can show
+ * who you are messaging, and sharing takes an address you type.
+ */
+async function findPerson(page: { request: APIRequestContext }, name: string): Promise<string> {
+  const { users } = await (await page.request.get('/api/users')).json();
+  const person = users.find((u: { name: string }) => u.name === name);
+  expect(person, `no person named ${name}`).toBeTruthy();
+  return person.id;
+}
+
 /** A second reporter's session, for the far side of a share. */
 async function asRecipient(browser: Browser): Promise<APIRequestContext> {
   const context = await browser.newContext({ storageState: STORAGE_STATE.revocable });
@@ -218,10 +229,7 @@ test.describe('Messages', () => {
     page,
     browser,
   }) => {
-    const people = await (await page.request.get('/api/users')).json();
-    const recipientId = people.users.find(
-      (u: { email: string }) => u.email === TEST_USERS.revocable.email
-    )?.id;
+    const recipientId = await findPerson(page, TEST_USERS.revocable.name);
     expect(recipientId).toBeTruthy();
 
     const created = await page.request.post('/api/threads', {
@@ -245,10 +253,7 @@ test.describe('Messages', () => {
   });
 
   test('someone outside a thread cannot read or write it', async ({ page, browser }) => {
-    const people = await (await page.request.get('/api/users')).json();
-    const recipientId = people.users.find(
-      (u: { email: string }) => u.email === TEST_USERS.revocable.email
-    )?.id;
+    const recipientId = await findPerson(page, TEST_USERS.revocable.name);
     const { thread } = await (
       await page.request.post('/api/threads', {
         data: { participantIds: [recipientId], body: 'Private.' },
@@ -360,5 +365,48 @@ test.describe('The screens', () => {
 
     await context.close();
     expect(reporterIncidentId).toBeTruthy();
+  });
+});
+
+test.describe('What a share does not grant', () => {
+  test('the shared incident’s obligations appear, without a control that would refuse', async ({
+    page,
+    browser,
+  }) => {
+    const { reporterIncidentId } = seededIds();
+    await page.request.post(`/api/incidents/${reporterIncidentId}/shares`, {
+      data: { email: TEST_USERS.revocable.email },
+    });
+
+    const recipient = await asRecipient(browser);
+    const { obligations } = await (await recipient.get('/api/obligations')).json();
+    const shared = obligations.filter(
+      (o: { incidentId: string }) => o.incidentId === reporterIncidentId
+    );
+    expect(shared.length, 'the shared incident should contribute obligations').toBeGreaterThan(0);
+
+    // Reading one and discharging one are different permissions. The row
+    // renders `Mark done` on this, so a recipient is not offered a button whose
+    // PATCH answers 404.
+    for (const obligation of shared) expect(obligation.canComplete).toBe(false);
+
+    // And the reporter's own still are.
+    const { obligations: mine } = await (await page.request.get('/api/obligations')).json();
+    expect(
+      mine
+        .filter((o: { incidentId: string }) => o.incidentId === reporterIncidentId)
+        .every((o: { canComplete: boolean }) => o.canComplete)
+    ).toBe(true);
+  });
+
+  test('a thread cannot name an incident the author cannot read', async ({ browser }) => {
+    const { adminIncidentId } = seededIds();
+    const recipient = await asRecipient(browser);
+    const someone = await findPerson({ request: recipient }, TEST_USERS.reporter.name);
+
+    const response = await recipient.post('/api/threads', {
+      data: { participantIds: [someone], body: 'Context I should not have.', incidentId: adminIncidentId },
+    });
+    expect(response.status()).toBe(400);
   });
 });

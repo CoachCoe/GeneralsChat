@@ -19,7 +19,6 @@ import { useMounted } from '@/lib/useMounted';
 interface Person {
   id: string;
   name: string;
-  email?: string;
 }
 
 interface ThreadSummary {

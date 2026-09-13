@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { canReadAllIncidents, incidentReadScope, incidentScope, requireUser } from '@/lib/session';
-import { createErrorResponse, notFoundError, validationError } from '@/lib/errors';
+import { createErrorResponse, enforceRateLimit, notFoundError, validationError } from '@/lib/errors';
+import { RATE_LIMITS } from '@/lib/rate-limit';
 import { formatValidationErrors, validateRequest } from '@/lib/validation';
 import { recordAudit } from '@/lib/audit';
 import {
@@ -84,6 +85,12 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     const guard = await requireUser();
     if (!guard.ok) return guard.response;
+
+    // Bounded: this mints account-creation links, which is a heavier thing to
+    // be able to do in a loop than uploading a file, and that is limited.
+    const limited = enforceRateLimit(`share:${guard.user.id}`, RATE_LIMITS.UPLOAD);
+    if (limited) return limited;
+
     const { id } = await params;
 
     const incident = await prisma.incident.findFirst({

@@ -6,10 +6,10 @@ import { createErrorResponse } from '@/lib/errors';
 /**
  * The people you can share with and message.
  *
- * Signed-in users only, and only their name and address -- the same two things
- * that appear on any incident they file. A colleague directory is the minimum
- * for sharing and messaging to be usable at all; without it the only way to
- * reach someone is to already know the exact spelling of their address.
+ * Names, not addresses. The people picker needs to show who you are messaging;
+ * sharing takes an address you type. Returning every colleague's email to every
+ * signed-in user would hand out the whole staff directory to answer a question
+ * nothing asked -- before this, a reporter knew nothing about other accounts.
  *
  * Revoked accounts are excluded: offering one leads to a share that can never
  * be opened.
@@ -21,7 +21,7 @@ export async function GET() {
 
     const users = await prisma.user.findMany({
       where: { deactivatedAt: null, id: { not: guard.user.id } },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { requireUser } from '@/lib/session';
+import { incidentReadScope, requireUser } from '@/lib/session';
 import { createErrorResponse, validationError } from '@/lib/errors';
 import { formatValidationErrors, validateRequest } from '@/lib/validation';
 
@@ -106,10 +106,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    /*
+     * Resolved through the read scope, never taken from the body. A thread
+     * renders "Open the incident" from this, and an id written straight from a
+     * request is the thing this application does not do -- the link would 404,
+     * but an unchecked foreign key out of a request body is how that stops
+     * being true later.
+     */
+    const context = incidentId
+      ? await prisma.incident.findFirst({
+          where: { id: incidentId, ...incidentReadScope(guard.user) },
+          select: { id: true },
+        })
+      : null;
+    if (incidentId && !context) {
+      return validationError('That incident is not available', {
+        incidentId: ['Not found'],
+      });
+    }
+
     const thread = await prisma.messageThread.create({
       data: {
         title: title || null,
-        incidentId: incidentId ?? null,
+        incidentId: context?.id ?? null,
         createdById: guard.user.id,
         participants: {
           create: [

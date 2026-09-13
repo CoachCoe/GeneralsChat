@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isPolicyBacked } from '@/lib/deadline';
 import { prisma } from '@/lib/db';
-import { incidentReadScope, requireUser } from '@/lib/session';
+import { canReadAllIncidents, incidentReadScope, requireUser } from '@/lib/session';
 import { createErrorResponse } from '@/lib/errors';
 
 /**
@@ -25,14 +25,16 @@ export async function GET(request: NextRequest) {
 
     const actions = await prisma.complianceAction.findMany({
       where: {
-        // Scoped through the incident, so a reporter sees only obligations on
-        // incidents they filed.
+        // Read scope: a reporter sees obligations on incidents they filed and
+        // on incidents shared with them. Discharging one is a write and stays
+        // with the reporter, so each row says whether this caller may do it --
+        // see `canComplete` below.
         incident: incidentReadScope(guard.user),
         ...(includeCompleted ? {} : { status: { not: 'completed' } }),
       },
       include: {
         incident: {
-          select: { id: true, title: true, incidentType: true, severity: true },
+          select: { id: true, title: true, incidentType: true, severity: true, reporterId: true },
         },
         // The level of authority that imposes the obligation. `ObligationRow`
         // renders an `AuthorityChip` when `jurisdiction` is present, so
@@ -60,6 +62,15 @@ export async function GET(request: NextRequest) {
       deadlineSource: action.deadlineSource,
       citation: action.citation,
       jurisdiction: action.policy?.jurisdiction ?? null,
+      /*
+       * Whether this caller may discharge it. Reading an obligation and
+       * discharging one are different permissions now that an incident can be
+       * shared, and the row renders `Mark done` on this rather than on its own
+       * existence -- a button that 404s is the thing the share panel exists to
+       * avoid.
+       */
+      canComplete:
+        action.incident.reporterId === guard.user.id || canReadAllIncidents(guard.user),
     }));
 
     const now = Date.now();
