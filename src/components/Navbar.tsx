@@ -76,7 +76,7 @@ export default function Navbar() {
             Messages
           </Link>
 
-          <NotificationBell />
+          {session?.user && <NotificationBell />}
 
           {/* Settings Menu */}
           <div className="relative">

@@ -19,7 +19,9 @@ import type { NotificationItem } from '@/lib/notifications';
  * unread message are neutral: they are news, not a deadline state.
  *
  * Polled rather than pushed. There is one instance and no socket layer, so the
- * honest options were polling or nothing.
+ * honest options were polling or nothing. Rendered only for a signed-in user --
+ * `/about` is reachable without a session, and a bell there would poll a route
+ * that answers 401 every minute forever.
  */
 const POLL_MS = 60_000;
 
