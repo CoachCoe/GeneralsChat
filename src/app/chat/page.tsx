@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
 import type { TurnKind } from '@/lib/ai/turn-label';
 import { ClassificationChip } from '@/components/design/ClassificationChip';
+import { FirstRunNote } from '@/components/design/FirstRunNote';
 import {
   CompletionConfirm,
   type CompletionSuggestion,
@@ -599,11 +600,14 @@ export default function ChatPage() {
                   fontSize: '15px',
                   color: 'var(--color-text-muted)',
                   maxWidth: '420px',
-                  lineHeight: '1.5'
+                  lineHeight: '1.5',
+                  marginBottom: '28px',
                 }}>
-                  I&apos;m here to help you navigate complex disciplinary incident compliance requirements.
-                  Describe your incident and I&apos;ll guide you through the process.
+                  Describe what happened, in your own words. I&apos;ll work out what it is, what
+                  the policy requires, and what has to happen by when.
                 </p>
+
+                <FirstRunNote />
               </div>
             ) : (
               <div style={{ padding: '24px 16px' }}>

@@ -641,3 +641,46 @@ test.describe('Working through the obligations', () => {
     );
   });
 });
+
+test.describe('Before the first question', () => {
+  test('the empty state says what not to type, what answers rest on, and what it produces', async ({
+    page,
+  }) => {
+    await page.goto('/chat');
+
+    const note = page.getByTestId('first-run-note');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('Leave names out');
+    await expect(note).toContainText('drafts');
+
+    // The library scope is read from the server rather than asserted in the
+    // markup, so a screen cannot promise a subject the assistant has nothing
+    // loaded for. The seed loads bullying.
+    await expect(note).toContainText('Bullying');
+  });
+
+  test('it gives way once there is a conversation', async ({ page }) => {
+    await page.goto('/chat');
+    await expect(page.getByTestId('first-run-note')).toBeVisible();
+
+    await page.getByTestId('chat-input').fill('A student was targeted during recess.');
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    // Orientation, not furniture: it is there before the first question and
+    // gone after it.
+    await expect(page.getByTestId('first-run-note')).toHaveCount(0);
+  });
+
+  test('the library scope names only what retrieval can actually return', async ({ page }) => {
+    const { categories } = await (await page.request.get('/api/library/scope')).json();
+
+    // The seeded letter template is district/bullying with chunks, and an
+    // unchunked policy is seeded for school_safety. Neither may count: one is
+    // not authority, the other is invisible to retrieval.
+    expect(categories).toContain('bullying');
+    expect(categories).not.toContain('school_safety');
+  });
+});
