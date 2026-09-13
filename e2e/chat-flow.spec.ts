@@ -127,6 +127,30 @@ test.describe('Policy retrieval across jurisdictions', () => {
     expect(new Set(jurisdictions).size).toBeGreaterThan(1);
   });
 
+  test('never cites a letter template as authority', async ({ page }) => {
+    await page.goto('/chat');
+    await page.getByTestId('chat-input').fill(
+      'A student is being bullied repeatedly by a classmate during recess.'
+    );
+
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Send message' }).click(),
+    ]);
+
+    const body = await response.json();
+    const titles = body.citations.map((c: { title: string }) => c.title);
+
+    // The seeded letter is district/bullying and repeats the same terms the
+    // policies do, so a retrieval that filtered only on category and isActive
+    // would return it. It asserts a finding about one child; cited here it
+    // would read as what the district requires.
+    expect(titles).not.toContain('Letter template: Investigation findings');
+    // And the turn still found real authority, so this is not passing because
+    // retrieval returned nothing at all.
+    expect(titles).toContain('Policy JICK: Bullying Prevention');
+  });
+
   test('renders the policies it referenced', async ({ page }) => {
     await page.goto('/chat');
     await page.getByTestId('chat-input').fill(

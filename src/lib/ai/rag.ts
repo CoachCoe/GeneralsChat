@@ -10,6 +10,7 @@ import {
   PolicyReference,
   PolicyCoverage,
   LOCAL_JURISDICTIONS,
+  RETRIEVABLE_DOCUMENT_KINDS,
 } from '@/types';
 import { chromaService } from './chroma';
 import { embeddingsService } from './embeddings';
@@ -140,7 +141,17 @@ class RAGSystem {
         vectorResults.map(async result => {
           const dbChunk = await prisma.policyChunk.findUnique({
             where: { id: result.id },
-            include: { policy: { select: { title: true, jurisdiction: true, category: true, isActive: true } } },
+            include: {
+              policy: {
+                select: {
+                  title: true,
+                  jurisdiction: true,
+                  category: true,
+                  isActive: true,
+                  documentKind: true,
+                },
+              },
+            },
           });
 
           // A vector hit with no surviving DB row is an orphan: the policy was
@@ -153,6 +164,13 @@ class RAGSystem {
 
           // Deactivated policies must not be cited as authority.
           if (filter?.isActive !== false && !dbChunk.policy.isActive) {
+            return null;
+          }
+
+          // Nor may a letter template. Chroma metadata carries no
+          // documentKind, so the vector filter cannot express this and it is
+          // enforced here, on the database row, alongside isActive.
+          if (!RETRIEVABLE_DOCUMENT_KINDS.includes(dbChunk.policy.documentKind as never)) {
             return null;
           }
 
@@ -225,6 +243,7 @@ class RAGSystem {
         })),
         policy: {
           isActive: filter?.isActive ?? true,
+          documentKind: { in: [...RETRIEVABLE_DOCUMENT_KINDS] },
           ...(filter?.categories && filter.categories.length > 0
             ? { category: { in: filter.categories } }
             : {}),
@@ -340,7 +359,11 @@ class RAGSystem {
 
     const supplements = await prisma.policyChunk.findMany({
       where: {
-        policy: { isActive: true, category: { in: missing } },
+        policy: {
+          isActive: true,
+          documentKind: { in: [...RETRIEVABLE_DOCUMENT_KINDS] },
+          category: { in: missing },
+        },
       },
       include: { policy: { select: { title: true, jurisdiction: true, category: true } } },
       orderBy: [{ policy: { jurisdiction: 'asc' } }, { chunkIndex: 'asc' }],
@@ -491,7 +514,12 @@ class RAGSystem {
       // Coverage means retrievable. A row with no chunks is invisible to
       // search, so counting it would suppress the very gap warning that says
       // the library is empty.
-      where: { isActive: true, category: { in: categories }, chunks: { some: {} } },
+      where: {
+        isActive: true,
+        documentKind: { in: [...RETRIEVABLE_DOCUMENT_KINDS] },
+        category: { in: categories },
+        chunks: { some: {} },
+      },
       select: { category: true, jurisdiction: true },
       distinct: ['category', 'jurisdiction'],
     });

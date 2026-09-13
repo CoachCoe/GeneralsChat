@@ -131,7 +131,6 @@ export default function PoliciesPage() {
         formData.append('jurisdiction', jurisdiction);
         formData.append('category', category);
         formData.append('documentKind', documentKind);
-        formData.append('documentKind', documentKind);
         formData.append('effectiveDate', effectiveDate);
         formData.append('keywords', keywords);
 
@@ -280,10 +279,14 @@ export default function PoliciesPage() {
                             <span className="capitalize">{policy.jurisdiction}</span>
                             <span>·</span>
                             <span>{CATEGORY_LABELS[policy.category] ?? policy.category}</span>
-                            {policy.documentKind === 'form' && (
+                            {policy.documentKind !== 'policy' && (
                               <>
                                 <span>·</span>
-                                <span>Report form</span>
+                                <span>
+                                  {DOCUMENT_KIND_LABELS[
+                                    policy.documentKind as keyof typeof DOCUMENT_KIND_LABELS
+                                  ] ?? policy.documentKind}
+                                </span>
                               </>
                             )}
                           </div>

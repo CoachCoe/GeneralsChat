@@ -119,6 +119,26 @@ export async function resetDatabase(): Promise<SeededIds> {
         ].join('\n'),
       },
       {
+        // A letter template: the district's own prose about a past decision,
+        // written in the same voice a policy is and dense with the words a
+        // bullying query matches on. Retrieval must never return it, or one
+        // family's outcome is cited back as the district's standing rule.
+        title: 'Letter template: Investigation findings',
+        jurisdiction: 'district',
+        category: 'bullying',
+        documentKind: 'letter',
+        content: [
+          'Dear [PARENT],',
+          '',
+          'This letter reports the findings of the bullying investigation',
+          'conducted under Policy JICK and RSA 193-F. The principal completed',
+          'the investigation and notified the parents within 48 hours.',
+          '',
+          'You may appeal this decision to the superintendent within five (5)',
+          'school days.',
+        ].join('\n'),
+      },
+      {
         // The district's report form, in the shape a real one is written:
         // labelled blanks, a checkbox row, and ruled space to write in. The
         // report page parses this rather than carrying a form of its own, so

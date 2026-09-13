@@ -8,6 +8,7 @@ import {
   INCIDENT_TYPE_LABELS,
   JURISDICTION_LABELS,
   type PolicyJurisdiction,
+  RETRIEVABLE_DOCUMENT_KINDS,
 } from '../src/types';
 
 config({ path: resolve(__dirname, '../.env') });
@@ -45,6 +46,10 @@ function bar(jurisdictions: string[]): string {
 
 async function main() {
   const policies = await prisma.policy.findMany({
+    // Letter templates are not policy and must not be counted as coverage --
+    // the same predicate `assessCoverage` applies, so the report and the
+    // retrieval it describes cannot disagree.
+    where: { documentKind: { in: [...RETRIEVABLE_DOCUMENT_KINDS] } },
     select: {
       title: true,
       jurisdiction: true,
