@@ -9,12 +9,37 @@ import Navbar from '@/components/Navbar';
  * The frame around it -- the way back, the title, the print control -- is not
  * part of the document, so printing drops it (`theme.css`).
  */
+/**
+ * Taking a copy away.
+ *
+ * Built here from what the page already holds, rather than from a second server
+ * route rendering the same records: one fewer path to a child's incident, and
+ * one fewer access check to get wrong. `markdown` is a function so the work
+ * happens on the click and not on every render.
+ */
+export interface DocumentDownload {
+  filename: string;
+  markdown: () => string;
+}
+
+function download({ filename, markdown }: DocumentDownload): void {
+  const url = URL.createObjectURL(new Blob([markdown()], { type: 'text/markdown' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  // Revoked on the next tick: Safari has not finished reading the blob when
+  // click() returns, and a revoked URL downloads an empty file.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export function DocumentPage({
   incidentId,
   incidentTitle,
   eyebrow,
   title,
   meta,
+  documentDownload,
   children,
 }: {
   incidentId: string;
@@ -22,6 +47,7 @@ export function DocumentPage({
   eyebrow: string;
   title: string;
   meta?: React.ReactNode;
+  documentDownload?: DocumentDownload;
   children: React.ReactNode;
 }) {
   return (
@@ -38,13 +64,24 @@ export function DocumentPage({
           >
             ← {incidentTitle ?? 'Incident'}
           </Link>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="min-h-[44px] rounded-[12px] border border-line px-4 text-[14px] text-text-secondary transition-colors hover:border-line-strong hover:text-text"
-          >
-            Print
-          </button>
+          <div className="flex gap-2">
+            {documentDownload && (
+              <button
+                type="button"
+                onClick={() => download(documentDownload)}
+                className="min-h-[44px] rounded-[12px] border border-line px-4 text-[14px] text-text-secondary transition-colors hover:border-line-strong hover:text-text"
+              >
+                Download
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="min-h-[44px] rounded-[12px] border border-line px-4 text-[14px] text-text-secondary transition-colors hover:border-line-strong hover:text-text"
+            >
+              Print
+            </button>
+          </div>
         </div>
 
         <header className="flex flex-col gap-2 border-b border-line pb-5">

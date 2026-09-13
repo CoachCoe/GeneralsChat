@@ -11,6 +11,7 @@ import {
   PolicyCoverage,
   LOCAL_JURISDICTIONS,
   RETRIEVABLE_DOCUMENT_KINDS,
+  RETRIEVABLE_POLICY_WHERE,
 } from '@/types';
 import { chromaService } from './chroma';
 import { embeddingsService } from './embeddings';
@@ -511,15 +512,10 @@ class RAGSystem {
     }
 
     const policies = await prisma.policy.findMany({
-      // Coverage means retrievable. A row with no chunks is invisible to
-      // search, so counting it would suppress the very gap warning that says
-      // the library is empty.
-      where: {
-        isActive: true,
-        documentKind: { in: [...RETRIEVABLE_DOCUMENT_KINDS] },
-        category: { in: categories },
-        chunks: { some: {} },
-      },
+      // Coverage means retrievable, and what that means lives in one place --
+      // a row with no chunks is invisible to search, so counting it would
+      // suppress the very gap warning that says the library is empty.
+      where: { ...RETRIEVABLE_POLICY_WHERE, category: { in: categories } },
       select: { category: true, jurisdiction: true },
       distinct: ['category', 'jurisdiction'],
     });

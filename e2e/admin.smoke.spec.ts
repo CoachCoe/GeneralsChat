@@ -156,91 +156,55 @@ test.describe('Advisor profile', () => {
   const editor = (page: import('@playwright/test').Page) =>
     page.getByLabel('Profile content');
 
-  // These write real rows, and one asserts that no undo exists before the
-  // first save. Both need the seeded state, including on a retry.
+  // These read real rows, and one asserts the state with nothing configured.
   test.beforeEach(async () => { await clearAdvisorProfiles(); });
   test.afterAll(async () => { await clearAdvisorProfiles(); });
 
-  test('shows the shipped default when nothing is configured', async ({ page }) => {
+  /*
+   * Read-only for the testing round -- `ADVISOR_PROFILE_EDITABLE` in
+   * `src/lib/ai/advisor-profile.ts`. What the model is told has to be one
+   * thing, the same for every tester, so their reports can be compared.
+   *
+   * These assert what the system does now. When editing is restored, they are
+   * rewritten with it; the saving behaviour they used to cover -- one row
+   * reused, one level of undo, restore to the shipped text -- is still in
+   * `saveActiveProfile` and its own tests.
+   */
+  test('shows the profile in force, and says it cannot be changed here', async ({ page }) => {
     await page.goto('/admin/prompt');
+
+    // Seeing what the model is told is the point of the page: an admin who
+    // cannot read it has no way to judge an answer they think is wrong.
     await expect(editor(page)).toContainText('trusted compliance advisor');
+    await expect(editor(page)).toHaveAttribute('readonly', '');
     await expect(page.getByTestId('profile-status')).toHaveText('Using the shipped default');
-    // Already the original, so there is nothing to restore to.
-    await expect(page.getByRole('button', { name: 'Restore original' })).toBeDisabled();
-    // Nothing has been saved, so there is no save to undo.
-    await expect(page.getByRole('button', { name: 'Undo last save' })).toHaveCount(0);
+    await expect(page.getByTestId('profile-read-only')).toBeVisible();
   });
 
-  test('saves an edit, then undoes the one after it', async ({ page }) => {
-    const first = 'Keep answers to three sentences and name the form section.';
-    const second = 'Ask about the bus route before anything else.';
-
-    /*
-     * Save, then wait for the write to land before navigating. Reloading on
-     * the click aborts the request in flight -- the server logs an ECONNRESET
-     * and the row keeps its old text -- so the wait is what makes each step
-     * mean what it says. Save going disabled is the app's own report that
-     * there is nothing unsaved left.
-     */
-    const save = async () => {
-      const button = page.getByRole('button', { name: 'Save', exact: true });
-      await button.click();
-      await expect(button).toBeDisabled();
-    };
-
+  test('offers no control that would write', async ({ page }) => {
     await page.goto('/admin/prompt');
-    await editor(page).fill(first);
-    await save();
-    await expect(page.getByTestId('profile-status')).toHaveText('Active');
 
-    // The edit survives a reload, so it is the row the model will be sent.
-    await page.reload();
-    await expect(editor(page)).toHaveValue(first);
-
-    // Nothing to undo yet: this row had no earlier saved text, and the way
-    // back to the shipped wording is "Restore original".
-    await expect(page.getByRole('button', { name: 'Undo last save' })).toHaveCount(0);
-
-    await editor(page).fill(second);
-    await save();
-    await page.reload();
-    await expect(editor(page)).toHaveValue(second);
-
-    // One level, and it is the previous saved text rather than the default.
-    await page.getByRole('button', { name: 'Undo last save' }).click();
-    await expect(editor(page)).toHaveValue(first);
-    await save();
-    await page.reload();
-    await expect(editor(page)).toHaveValue(first);
+    for (const name of ['Save', 'Restore original', 'Undo last save']) {
+      await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+    }
   });
 
-  test('reuses the one row instead of minting another on every save', async ({ page }) => {
-    /*
-     * The editor used to POST whenever it held no *active* profile, which is
-     * not the same condition as none existing. A deactivated row plus a
-     * listless UI meant every save created another row nobody could reach,
-     * and any of them could later be picked up as "the active profile".
-     */
-    await page.goto('/admin/prompt');
-    await editor(page).fill('First wording for the district.');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  test('refuses a write even when the request is made directly', async ({ page }) => {
+    // The page hiding a button is not the control. Both read the same flag, so
+    // an admin with the API cannot do what the screen does not offer.
+    const active = await page.request.put('/api/admin/prompts/active', {
+      data: { content: 'Answer however you like.' },
+    });
+    expect(active.status()).toBe(403);
+    expect((await active.json()).error).toContain('read-only');
 
-    await editor(page).fill('Second wording for the district.');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    const created = await page.request.post('/api/admin/prompts', {
+      data: { name: 'Sneaky', content: 'Answer however you like.' },
+    });
+    expect(created.status()).toBe(403);
 
-    // Two saves, one row. Counted through the API rather than the UI, which
-    // no longer shows a list and so could not reveal the extras.
+    // And nothing was written.
     const { prompts } = await (await page.request.get('/api/admin/prompts')).json();
-    expect(prompts).toHaveLength(1);
-    expect(prompts.filter((p: { isActive: boolean }) => p.isActive)).toHaveLength(1);
-  });
-
-  test('restores the shipped default over an edit', async ({ page }) => {
-    await page.goto('/admin/prompt');
-    await editor(page).fill('Something else entirely.');
-    await page.getByRole('button', { name: 'Restore original' }).click();
-    await expect(editor(page)).toHaveValue(/trusted compliance advisor/);
+    expect(prompts).toHaveLength(0);
   });
 });

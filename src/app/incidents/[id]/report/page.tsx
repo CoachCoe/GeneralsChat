@@ -7,6 +7,7 @@ import { AuthorityChip } from '@/components/design/AuthorityChip';
 import type { FieldValue, ReportBlock } from '@/lib/report-template';
 import { INCIDENT_TYPE_LABELS } from '@/types';
 import { useMounted } from '@/lib/useMounted';
+import { documentFilename, reportToMarkdown } from '@/lib/document-export';
 
 /** Blank writing space under a question the record cannot answer. */
 const WRITING_LINES = 4;
@@ -101,6 +102,17 @@ export default function ReportPage() {
       incidentTitle={report.incidentTitle}
       eyebrow="Mandatory report · draft"
       title={report.form.title}
+      documentDownload={{
+        filename: documentFilename('report', report.incidentTitle, new Date()),
+        // Formatted through the reader's locale, like the page itself: a
+        // downloaded form is filed in the reader's timezone, not the server's.
+        markdown: () =>
+          reportToMarkdown(report.form!.title, report.blocks, (iso, as) =>
+            as === 'date'
+              ? new Date(iso).toLocaleDateString()
+              : new Date(iso).toLocaleTimeString()
+          ),
+      }}
       meta={
         <div className="flex flex-wrap items-center gap-3">
           <AuthorityChip jurisdiction={report.form.jurisdiction} />

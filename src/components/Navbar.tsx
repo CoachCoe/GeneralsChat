@@ -4,6 +4,7 @@ import { signOut, useSession } from 'next-auth/react';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { NotificationBell } from '@/components/design/NotificationBell';
 import Image from 'next/image';
 import { Settings, Menu, X } from 'lucide-react';
 
@@ -60,10 +61,22 @@ export default function Navbar() {
             </Link>
           )}
 
+          {isAdmin && (
+            <Link href="/admin/users" className="navbar-link">
+              People
+            </Link>
+          )}
+
           {/* Incidents Link */}
           <Link href="/incidents" className="navbar-link">
             Incidents
           </Link>
+
+          <Link href="/messages" className="navbar-link">
+            Messages
+          </Link>
+
+          {session?.user && <NotificationBell />}
 
           {/* Settings Menu */}
           <div className="relative">

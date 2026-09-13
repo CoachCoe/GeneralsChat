@@ -10,13 +10,37 @@ import { logAudit, logError } from '@/lib/logger';
  * file", which is the core disclosure-accounting obligation, and could not
  * scope a breach after the fact.
  */
-export type AuditAction = 'created' | 'updated' | 'deleted' | 'viewed' | 'exported';
+/**
+ * `revoked` and `restored` are their own actions rather than an `updated` with
+ * a flag in `details`: ending someone's access to incident records about minors
+ * is the event a reviewer searches this log for, and it should not have to be
+ * found by reading the payload of every update.
+ */
+export type AuditAction =
+  | 'created'
+  | 'updated'
+  | 'deleted'
+  | 'viewed'
+  | 'exported'
+  | 'revoked'
+  | 'restored'
+  | 'shared'
+  | 'unshared';
 
 export interface AuditEntry {
   userId: string;
   action: AuditAction;
   entity: string;
   entityId?: string;
+  /**
+   * The incident this happened to, where there is one.
+   *
+   * `AuditLog.incidentId` has existed and been indexed since the table did, and
+   * nothing ever set it -- so "who has seen this child's incident" could not be
+   * asked of the log that exists to answer it, only reconstructed by reading
+   * every row's payload.
+   */
+  incidentId?: string;
   details?: Record<string, unknown>;
 }
 
@@ -27,7 +51,7 @@ export interface AuditEntry {
  * request that succeeded. Failures are logged so they are still visible.
  */
 export async function recordAudit(entry: AuditEntry): Promise<void> {
-  const { userId, action, entity, entityId, details } = entry;
+  const { userId, action, entity, entityId, incidentId, details } = entry;
 
   logAudit(userId, action, entity, entityId ?? '', details);
 
@@ -38,6 +62,7 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
         action,
         entity,
         entityId,
+        incidentId,
         details: details ? JSON.stringify(details) : null,
       },
     });

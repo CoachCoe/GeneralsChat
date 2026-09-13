@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { GuidanceBlock } from '@/components/design/GuidanceBlock';
 import { DocumentPage } from '@/components/design/DocumentPage';
+import { documentFilename, summaryToMarkdown } from '@/lib/document-export';
 import { useMounted } from '@/lib/useMounted';
 
 interface Conversation {
@@ -90,6 +91,14 @@ export default function SummaryPage() {
       incidentTitle={incident.title}
       eyebrow="Confidential incident consultation summary"
       title={incident.title}
+      documentDownload={
+        summary
+          ? {
+              filename: documentFilename('summary', incident.title, new Date()),
+              markdown: () => summaryToMarkdown(incident.title, summary.message),
+            }
+          : undefined
+      }
       meta={
         summary && mounted ? (
           <p className="font-mono text-[12px] tabular-nums text-text-muted">

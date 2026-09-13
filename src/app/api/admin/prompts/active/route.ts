@@ -6,8 +6,9 @@ import {
   saveActiveProfileSchema,
   validateRequest,
 } from '@/lib/validation';
-import { validationError } from '@/lib/errors';
+import { validationError, forbiddenError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
+import { ADVISOR_PROFILE_EDITABLE } from '@/lib/ai/advisor-profile';
 
 /**
  * The one advisor profile, read and written through the same resolution the
@@ -37,6 +38,14 @@ export async function PUT(request: NextRequest) {
   try {
     const guard = await requireRole('admin');
     if (!guard.ok) return guard.response;
+
+    // Read-only for the testing round. One switch, in the module that holds the
+    // text itself, so the page and the endpoint behind it cannot disagree.
+    if (!ADVISOR_PROFILE_EDITABLE) {
+      return forbiddenError(
+        'The advisor profile is read-only for this testing round.'
+      );
+    }
 
     const parsed = validateRequest(saveActiveProfileSchema, await request.json());
     if (!parsed.success) {

@@ -1,20 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { chatBody } from './support/chat';
-import { readFileSync } from 'fs';
-
-/**
- * Ids of rows owned by the *other* user, written by global-setup. A test that
- * must prove it cannot reach something needs the real id of that something.
- */
-function seededIds(): {
-  adminIncidentId: string;
-  adminObligationId: string;
-  reporterIncidentId: string;
-  otherTypeIncidentId: string;
-  closedIncidentId: string;
-} {
-  return JSON.parse(readFileSync('e2e/.auth/seed.json', 'utf8'));
-}
+import { seededIds } from './support/seed';
 
 /**
  * Seeded fixtures make every assertion unconditional.
