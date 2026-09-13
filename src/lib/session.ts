@@ -51,10 +51,16 @@ export async function requireUser(): Promise<Guard> {
    */
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, email: true, name: true, role: true },
+    select: { id: true, email: true, name: true, role: true, deactivatedAt: true },
   });
 
-  if (!user) {
+  /*
+   * Revoked reads as deleted. Both are 401 rather than 403 for the same reason:
+   * the session names a user who may no longer act, and it cannot be reissued
+   * because sign-in refuses them too. A 403 would say "you exist but may not",
+   * which is a fact about the account that a revoked holder has no claim on.
+   */
+  if (!user || user.deactivatedAt) {
     return { ok: false, response: unauthorizedError() };
   }
 
@@ -87,19 +93,14 @@ export async function requireRole(...roles: string[]): Promise<Guard> {
   return result;
 }
 
-/**
- * Investigators and admins work across the district's incidents; reporters see
- * only what they filed. Single tenant, so there is no school/district scoping
- * beyond this.
+/*
+ * The access decision itself lives in `./incident-scope`, which imports nothing
+ * and is unit tested. Re-exported here because every handler already imports
+ * its guard from this module, and splitting the import line would only make the
+ * two easier to get out of step.
  */
-export function canReadAllIncidents(user: SessionUser): boolean {
-  return user.role === 'admin' || user.role === 'investigator';
-}
-
-/**
- * Prisma `where` fragment scoping incident access to the caller. Returns an
- * empty object for staff who may read everything.
- */
-export function incidentScope(user: SessionUser): { reporterId?: string } {
-  return canReadAllIncidents(user) ? {} : { reporterId: user.id };
-}
+export {
+  canReadAllIncidents,
+  incidentScope,
+  incidentReadScope,
+} from './incident-scope';

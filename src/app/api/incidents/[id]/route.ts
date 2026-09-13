@@ -7,7 +7,7 @@ import {
   updateIncidentSchema,
   validateRequest,
 } from '@/lib/validation';
-import { incidentScope, requireUser } from '@/lib/session';
+import { incidentReadScope, incidentScope, requireUser } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
 
 /** Statuses that close an incident, and so stamp closedAt. */
@@ -29,7 +29,9 @@ export async function GET(request: NextRequest, { params }: Params) {
     const { id } = await params;
 
     const incident = await prisma.incident.findFirst({
-      where: { id, ...incidentScope(guard.user) },
+      // Read scope: anyone the incident is shared with may open it. The PATCH
+      // below keeps `incidentScope`, so a recipient reads and changes nothing.
+      where: { id, ...incidentReadScope(guard.user) },
       include: {
         reporter: {
           select: {
@@ -76,6 +78,20 @@ export async function GET(request: NextRequest, { params }: Params) {
       action: 'viewed',
       entity: 'incident',
       entityId: id,
+      incidentId: id,
+    });
+
+    /*
+     * Opening it is having seen it. This is the unread half of "someone shared
+     * an incident with you", and it is the caller's own notification state, so
+     * a read marking it is not a write anyone else can observe.
+     *
+     * `updateMany` with `seenAt: null` so a second visit costs nothing and the
+     * first time it was opened is not overwritten.
+     */
+    await prisma.incidentShare.updateMany({
+      where: { incidentId: id, userId: guard.user.id, seenAt: null },
+      data: { seenAt: new Date() },
     });
 
     const duration = Date.now() - startTime;

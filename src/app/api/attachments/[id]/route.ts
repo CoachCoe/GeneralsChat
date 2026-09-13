@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join, resolve, sep } from 'path';
 import { prisma } from '@/lib/db';
-import { canReadAllIncidents, requireUser } from '@/lib/session';
+import { incidentReadScope, requireUser } from '@/lib/session';
 import { createErrorResponse, notFoundError } from '@/lib/errors';
 import { recordAudit } from '@/lib/audit';
 import { attachmentUploadsDir } from '@/lib/uploads';
@@ -24,22 +24,24 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     const { id } = await params;
 
-    const attachment = await prisma.attachment.findUnique({
-      where: { id },
-      include: { incident: { select: { reporterId: true } } },
+    /*
+     * Resolved through the incident's read scope rather than a reporterId
+     * comparison, so this route cannot drift from the pages that list these
+     * attachments. It did: a share grants the incident page, and this check
+     * knew nothing about shares, so every download from a shared incident 404d
+     * while its filename sat on screen.
+     *
+     * Having uploaded the file is still not a grant. Access follows current
+     * scope, or a user keeps a student record after losing the incident it
+     * belongs to.
+     */
+    const attachment = await prisma.attachment.findFirst({
+      where: { id, incident: incidentReadScope(guard.user) },
     });
 
+    // 404 rather than 403, and the same 404 whether the row is absent or out of
+    // scope: do not confirm the id exists to someone who may not read it.
     if (!attachment) return notFoundError('Attachment');
-
-    // Reporters may read only attachments on incidents they filed. Having
-    // uploaded the file is not a grant: access follows current scope, or a
-    // user keeps a student record after losing the incident it belongs to.
-    const permitted =
-      canReadAllIncidents(guard.user) || attachment.incident?.reporterId === guard.user.id;
-
-    // 404 rather than 403: do not confirm the id exists to someone who may
-    // not read it.
-    if (!permitted) return notFoundError('Attachment');
 
     const uploadsDir = attachmentUploadsDir();
     const filePath = join(uploadsDir, attachment.filePath);

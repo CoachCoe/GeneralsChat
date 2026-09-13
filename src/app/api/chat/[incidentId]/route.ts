@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { incidentScope, requireUser } from '@/lib/session';
+import { incidentReadScope, requireUser } from '@/lib/session';
 import { readStoredTurn } from '@/lib/ai/conversation-metadata';
 import { ragSystem } from '@/lib/ai/rag';
 
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     const { incidentId } = await params;
 
     const incident = await prisma.incident.findFirst({
-      where: { id: incidentId, ...incidentScope(guard.user) },
+      where: { id: incidentId, ...incidentReadScope(guard.user) },
       include: {
         conversations: {
           orderBy: { timestamp: 'asc' },

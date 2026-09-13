@@ -25,6 +25,15 @@ export interface Obligation {
   citation?: string | null;
   /** 'policy' when a retrieved excerpt states this deadline, else 'model'. */
   deadlineSource?: string | null;
+  /**
+   * Whether this reader may discharge it.
+   *
+   * An incident can be shared, and a share grants reading only -- so an
+   * obligation can be legitimately visible to someone whose `PATCH` would 404.
+   * Undefined means the caller did not say, which is every context that
+   * predates sharing and every one where the reader owns the row.
+   */
+  canComplete?: boolean;
 }
 
 /**
@@ -115,7 +124,7 @@ export function ObligationRow({
           )}
         </div>
 
-        {onDone && !done && (
+        {onDone && !done && obligation.canComplete !== false && (
           <button
             type="button"
             onClick={handleDone}

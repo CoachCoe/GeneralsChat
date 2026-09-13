@@ -17,10 +17,22 @@ import type { NextAuthConfig } from 'next-auth';
  * `/api/health` is here because a container platform's probe has no session.
  * It returns a fixed `{status:'ok'}` and reads nothing.
  */
-const PUBLIC_PATHS = ['/login', '/about', '/api/health'];
+const PUBLIC_PATHS = ['/login', '/about', '/api/health', '/api/invitations/accept'];
 
+/**
+ * Accepting an invitation happens before the account exists, so the page and
+ * the two endpoints behind it cannot require a session.
+ *
+ * Kept as narrow as that. `/invite/<token>` is a prefix because the token is in
+ * the path; the routes it calls are named exactly. Neither discloses anything
+ * about an incident before a session is held -- `GET /api/invitations/[token]`
+ * returns the invited address and nothing else, and answers 404 identically for
+ * expired, revoked, claimed and never-issued.
+ */
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
+  if (pathname.startsWith('/invite/')) return true;
+  if (pathname.startsWith('/api/invitations/')) return true;
   // NextAuth's own endpoints must stay reachable to sign in at all.
   if (pathname.startsWith('/api/auth')) return true;
   return false;

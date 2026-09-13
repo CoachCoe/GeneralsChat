@@ -144,6 +144,28 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
  */
 export const RETRIEVABLE_DOCUMENT_KINDS: readonly DocumentKind[] = ['policy', 'form'];
 
+/**
+ * What "loaded" means, as a `where` fragment, in one place.
+ *
+ * Three callers ask this question -- coverage assessment during retrieval, the
+ * `policies:coverage` report, and the library scope shown before a first
+ * question -- and each had spelled it out. Active, a kind that may be cited,
+ * and at least one searchable chunk: a row missing any of those is invisible to
+ * retrieval, so counting it would claim coverage the system cannot deliver.
+ *
+ * Callers add their own narrowing -- a category list, or the local
+ * jurisdictions -- on top of this.
+ */
+export const RETRIEVABLE_POLICY_WHERE: {
+  isActive: boolean;
+  documentKind: { in: string[] };
+  chunks: { some: Record<string, never> };
+} = {
+  isActive: true,
+  documentKind: { in: [...RETRIEVABLE_DOCUMENT_KINDS] },
+  chunks: { some: {} },
+};
+
 export const POLICY_JURISDICTIONS = ['federal', 'state', 'district', 'school'] as const;
 export type PolicyJurisdiction = (typeof POLICY_JURISDICTIONS)[number];
 

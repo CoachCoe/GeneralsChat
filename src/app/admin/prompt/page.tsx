@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { DEFAULT_ADVISOR_PROFILE } from '@/lib/ai/advisor-profile';
+import { ADVISOR_PROFILE_EDITABLE, DEFAULT_ADVISOR_PROFILE } from '@/lib/ai/advisor-profile';
 
 /**
  * One advisor profile, editable in place.
@@ -138,6 +138,7 @@ export default function PromptEditorPage() {
             id="profile-content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            readOnly={!ADVISOR_PROFILE_EDITABLE}
             spellCheck={false}
             className="w-full rounded-[12px] border border-input bg-bg p-4 font-mono text-[13px] leading-[1.6] text-text"
             style={{ minHeight: '420px', resize: 'vertical' }}
@@ -149,7 +150,24 @@ export default function PromptEditorPage() {
             {dirty && ' · unsaved changes'}
           </p>
 
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+          {/* Shown, not editable, for the testing round. Seeing what the model
+              is told is worth more than being able to change it -- an admin who
+              cannot read it has no way to judge an answer they think is wrong. */}
+          {!ADVISOR_PROFILE_EDITABLE && (
+            <p
+              data-testid="profile-read-only"
+              className="mt-4 text-[14px] leading-[1.6] text-text-secondary"
+            >
+              Fixed for this testing round, so every tester&apos;s session is answered with the
+              same profile and their reports can be compared. Change it in{' '}
+              <span className="font-mono text-[13px]">src/lib/ai/advisor-profile.ts</span>.
+            </p>
+          )}
+
+          <div
+            className="mt-5 flex flex-wrap items-center gap-2"
+            hidden={!ADVISOR_PROFILE_EDITABLE}
+          >
             <Button onClick={handleSave} disabled={saving || !dirty}>
               <Save size={18} style={{ marginRight: '8px' }} />
               {saving ? 'Saving...' : 'Save'}

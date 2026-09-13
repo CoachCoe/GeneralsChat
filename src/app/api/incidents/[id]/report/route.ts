@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logRequest, logResponse } from '@/lib/logger';
 import { createErrorResponse, notFoundError, successResponse } from '@/lib/errors';
-import { incidentScope, requireUser } from '@/lib/session';
+import { incidentReadScope, requireUser } from '@/lib/session';
 import { POLICY_BACKED_SOURCE } from '@/lib/deadline';
 import { categoriesForIncidentType, LOCAL_JURISDICTIONS } from '@/types';
 import { countPrefilled, parseReportTemplate, prefillReport } from '@/lib/report-template';
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     const { id } = await params;
     const incident = await prisma.incident.findFirst({
-      where: { id, ...incidentScope(guard.user) },
+      where: { id, ...incidentReadScope(guard.user) },
       include: {
         reporter: { select: { name: true } },
         complianceActions: {

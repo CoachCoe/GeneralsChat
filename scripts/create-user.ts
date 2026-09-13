@@ -1,7 +1,6 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { randomBytes } from 'crypto';
-import bcrypt from 'bcryptjs';
+import { generatePassword, hashPassword, MIN_PASSWORD_LENGTH } from '../src/lib/password';
 import { prisma } from '../src/lib/db';
 
 config({ path: resolve(__dirname, '../.env') });
@@ -42,16 +41,16 @@ async function main() {
 
   let generated = false;
   if (!password) {
-    password = randomBytes(12).toString('base64url');
+    password = generatePassword();
     generated = true;
   }
 
-  if (password.length < 12) {
+  if (password.length < MIN_PASSWORD_LENGTH) {
     console.error('Password must be at least 12 characters.');
     process.exit(1);
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
 
   const user = await prisma.user.upsert({
     where: { email },

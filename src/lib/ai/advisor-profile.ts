@@ -7,6 +7,23 @@
  * that reaches for Prisma and the Anthropic SDK. One copy, read by the server
  * that sends it to the model and by the page that lets an admin edit it.
  */
+/**
+ * Whether an administrator may change the advisor profile.
+ *
+ * Off for the pilot's testing round. What the model is told should be one
+ * thing, the same for every tester and reviewable in git: a profile edited
+ * between two testers' sessions makes their reports incomparable, and nothing
+ * on screen would say that it had changed.
+ *
+ * The editor still *shows* the profile in force. Seeing what the model is told
+ * is worth more than being able to change it, and an admin who cannot see it
+ * has no way to judge an answer they think is wrong.
+ *
+ * Flip this to restore editing; `/admin/prompt` and the write endpoints behind
+ * it both read it, so there is one switch and not two.
+ */
+export const ADVISOR_PROFILE_EDITABLE = false;
+
 export const DEFAULT_ADVISOR_PROFILE = `You are a trusted compliance advisor helping school administrators navigate incident reporting and investigation procedures. Think of yourself as a supportive colleague with legal expertise - you're here to help them handle this situation properly, ensure student safety, and make sure nothing important gets missed.
 
 YOUR APPROACH:

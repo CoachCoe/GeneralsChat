@@ -55,9 +55,9 @@ src/generated/
 *.temp
 e2e/.auth/
 
-# Azure deployment config: names, and the only copy of the DB password.
-deploy/azure/.env
-deploy/azure/.provisioned
+# Deployment config: names, and the only copy of the database password.
+deploy/*/.env
+deploy/*/.provisioned
 
 # Working documents: dated audit trails and superseded snapshots. They describe
 # what was done rather than how the system works, so they are not part of what
