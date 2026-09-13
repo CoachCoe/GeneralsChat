@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { test, expect } from '@playwright/test';
+import { chatBody } from './support/chat';
 import { STUB_REPLY, STUB_QUESTION_REPLY } from './support/claude-stub';
 
 /**
@@ -77,7 +78,7 @@ test.describe('Chat', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    const { incidentId } = await response.json();
+    const { incidentId } = await chatBody(response);
     expect(incidentId).toBeTruthy();
 
     // Persisted, not just rendered.
@@ -424,7 +425,7 @@ test.describe('Classification and library scope', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    const { incidentId } = await answered.json();
+    const { incidentId } = await chatBody(answered);
 
     // Leave the conversation entirely and come back to it the way a user does.
     await page.reload();
@@ -461,7 +462,7 @@ test.describe('Classification and library scope', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    const { incidentId } = await answered.json();
+    const { incidentId } = await chatBody(answered);
 
     await page.goto(`/chat?incident=${incidentId}`);
     await expect(page.getByText(STUB_REPLY)).toBeVisible();
@@ -480,7 +481,7 @@ test.describe('Classification and library scope', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    const { incidentId } = await answered.json();
+    const { incidentId } = await chatBody(answered);
 
     await expect(page).toHaveURL(new RegExp(`incident=${incidentId}`));
 

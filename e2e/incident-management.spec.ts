@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { chatBody } from './support/chat';
 import { readFileSync } from 'fs';
 
 /**
@@ -538,7 +539,7 @@ test.describe('Incident summary', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    const { incidentId } = await chat.json();
+    const { incidentId } = await chatBody(chat);
 
     const before = await page.request.get(`/api/incidents/${incidentId}`);
     const conversationsBefore = (await before.json()).conversations.length;
@@ -625,7 +626,7 @@ test.describe('Incident documents', () => {
       page.waitForResponse((r) => r.url().includes('/api/chat') && r.request().method() === 'POST'),
       page.getByRole('button', { name: 'Send message' }).click(),
     ]);
-    const { incidentId } = await chat.json();
+    const { incidentId } = await chatBody(chat);
     const generated = await page.request.post(`/api/incidents/${incidentId}/summary`);
     expect(generated.status()).toBe(200);
 
