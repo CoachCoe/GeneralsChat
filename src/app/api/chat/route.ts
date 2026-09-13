@@ -18,7 +18,7 @@ import { incidentScope, requireUser } from '@/lib/session';
 import { actionTypeFor, ClassificationUnavailableError } from '@/lib/ai/classifier';
 import { resolveProvenance } from '@/lib/obligation-provenance';
 import { orderOpenSteps, renderStepPlan, stepLabel } from '@/lib/ai/step-plan';
-import { asksForALetter, renderLetterTemplates } from '@/lib/ai/letters';
+import { asksForALetter, renderLetterTemplates, selectLetterTemplates } from '@/lib/ai/letters';
 import { categoriesForIncidentType } from '@/types';
 import { dueDateFromHours } from '@/lib/deadline';
 import { claudeService } from '@/lib/ai/claude-service';
@@ -218,10 +218,10 @@ export async function POST(request: NextRequest) {
      * They are long, and they are uploader-supplied text; fetching them every
      * turn would spend tokens and widen the injection surface for nothing.
      *
-     * Scoped to what the incident implicates, ordered so the same request gets
-     * the same templates, and capped -- an administrator asking for one letter
-     * does not need six examples, and which six would then depend on the query
-     * planner.
+     * Scoped to what the incident implicates, then ranked against the request
+     * and capped -- an administrator asking for one letter does not need six
+     * examples, and the three they get have to be able to include the one they
+     * asked for.
      *
      * An empty category list means "no filter", as it does everywhere else this
      * is called: an unclassified incident, or `other`, which maps to nothing
@@ -233,16 +233,18 @@ export async function POST(request: NextRequest) {
     );
     const letterTemplates = asksForALetter(message)
       ? renderLetterTemplates(
-          await prisma.policy.findMany({
-            where: {
-              isActive: true,
-              documentKind: 'letter',
-              ...(letterCategories.length > 0 ? { category: { in: letterCategories } } : {}),
-            },
-            select: { title: true, content: true },
-            orderBy: [{ category: 'asc' }, { title: 'asc' }],
-            take: 3,
-          })
+          selectLetterTemplates(
+            await prisma.policy.findMany({
+              where: {
+                isActive: true,
+                documentKind: 'letter',
+                ...(letterCategories.length > 0 ? { category: { in: letterCategories } } : {}),
+              },
+              select: { title: true, content: true },
+            }),
+            message,
+            3
+          )
         )
       : '';
 

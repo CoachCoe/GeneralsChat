@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asksForALetter, renderLetterTemplates } from './letters';
+import { asksForALetter, renderLetterTemplates, selectLetterTemplates } from './letters';
 
 describe('asksForALetter', () => {
   it('matches an explicit request to produce one', () => {
@@ -7,7 +7,7 @@ describe('asksForALetter', () => {
       'Can you draft a letter to the parents?',
       'Write the findings letter for me',
       'I need to prepare a decision letter',
-      'Help me with a response to their appeal',
+      'Help me write the response to their appeal',
       'Please compose the determination',
       'Can you put together a notice for the family?',
     ]) {
@@ -25,6 +25,37 @@ describe('asksForALetter', () => {
     ]) {
       expect(asksForALetter(message), message).toBe(false);
     }
+  });
+
+  it('does not match a question about whether a duty exists', () => {
+    // Most of this domain's vocabulary is "write", "decision", "findings",
+    // "response". Without this, asking whether something is required reads as
+    // asking for it to be written.
+    for (const message of [
+      'Should I write this in the decision log?',
+      'Do I need to write the incident up before the response deadline?',
+      'When do I have to write the findings?',
+    ]) {
+      expect(asksForALetter(message), message).toBe(false);
+    }
+  });
+
+  it('does not match someone saying they will write it themselves', () => {
+    for (const message of [
+      'I will write up my findings tomorrow.',
+      "I'll draft the letter myself this afternoon.",
+      'I am going to prepare the decision over the weekend.',
+    ]) {
+      expect(asksForALetter(message), message).toBe(false);
+    }
+  });
+
+  it('misses "help me with a response", and that is the cheaper mistake', () => {
+    // No produce verb, so it reads as asking for help with a decision rather
+    // than for a document. Offering a template unasked puts drafting rules in
+    // front of a turn that did not want them; missing one costs an example
+    // while the model still answers.
+    expect(asksForALetter('Help me with a response to their appeal')).toBe(false);
   });
 
   it('does not reach across sentences for its two halves', () => {
@@ -56,5 +87,50 @@ describe('renderLetterTemplates', () => {
   it('is empty when there is nothing to offer', () => {
     expect(renderLetterTemplates([])).toBe('');
     expect(renderLetterTemplates([{ title: 'Empty', content: null }])).toBe('');
+  });
+});
+
+describe('selectLetterTemplates', () => {
+  const LIBRARY = [
+    { title: 'Letter template: Appeal response upholding an unsubstantiated finding', content: 'a' },
+    { title: 'Letter template: Investigation findings, bullying not substantiated', content: 'b' },
+    { title: 'Letter template: Investigation findings, bullying substantiated', content: 'c' },
+    { title: 'Letter template: School board decision on a bullying appeal', content: 'd' },
+    { title: "Letter template: Superintendent's decision on a bullying appeal", content: 'e' },
+  ];
+  const titles = (ts: { title: string }[]) => ts.map(t => t.title);
+
+  it('returns the template the request actually names', () => {
+    // Alphabetically this one is fourth of five and was never reachable.
+    const picked = selectLetterTemplates(
+      LIBRARY,
+      'Draft the school board decision on this appeal',
+      3
+    );
+    expect(titles(picked)[0]).toContain('School board decision');
+  });
+
+  it('ranks both matching templates above the ones the request did not name', () => {
+    const picked = titles(selectLetterTemplates(LIBRARY, 'Write the investigation findings letter', 2));
+    expect(picked.every(t => t.includes('Investigation findings'))).toBe(true);
+  });
+
+  it('returns the same templates for the same request', () => {
+    const request = 'Draft a decision letter';
+    expect(titles(selectLetterTemplates(LIBRARY, request, 3))).toEqual(
+      titles(selectLetterTemplates([...LIBRARY].reverse(), request, 3))
+    );
+  });
+
+  it('ignores words that appear in every title, which separate nothing', () => {
+    // "letter", "template" and "bullying" would otherwise score every row
+    // equally and leave the order alphabetical again.
+    const picked = titles(selectLetterTemplates(LIBRARY, 'bullying letter template', 5));
+    expect(picked).toEqual(titles([...LIBRARY].sort((a, b) => a.title.localeCompare(b.title))));
+  });
+
+  it('still returns something when the request names nothing', () => {
+    expect(selectLetterTemplates(LIBRARY, 'help', 2)).toHaveLength(2);
+    expect(selectLetterTemplates([], 'anything', 3)).toEqual([]);
   });
 });

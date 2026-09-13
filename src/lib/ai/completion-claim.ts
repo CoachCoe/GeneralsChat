@@ -13,6 +13,15 @@
  * Carried as a marker line for the same reason `parseTurnLabel` is: a parse
  * failure must cost the administrator a suggestion, never the answer text.
  * Unreadable markers are dropped and the prose is left alone.
+ *
+ * **The number is a position in a list that moves.** Discharging one step
+ * renumbers the rest, and the conversation history still holds earlier turns
+ * numbered the old way, so the model can name a position meaning something it
+ * read three turns ago. Out of range is dropped; wrong but in range cannot be
+ * detected here. What catches it is the confirmation showing the step's own
+ * description before anything is written -- so confirm-first is load-bearing,
+ * not a courtesy, and an id in the marker would not fix it either: a model
+ * that can misread which step is done can misread which id goes with it.
  */
 
 export interface ClaimedCompletions {
