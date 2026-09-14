@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import { NextResponse, type NextRequest } from 'next/server';
 import { authConfig } from '@/auth.config';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
+import { clientAddress, trustedHops } from '@/lib/client-address';
 
 /**
  * Deny-by-default gate in front of every page and API route.
@@ -11,26 +12,36 @@ import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
  */
 const authMiddleware = NextAuth(authConfig).auth;
 
+/** The decision itself lives in `@/lib/client-address`, where it is tested. */
+function callerAddress(request: NextRequest): string {
+  return clientAddress(
+    {
+      forwardedFor: request.headers.get('x-forwarded-for'),
+      realIp: request.headers.get('x-real-ip'),
+    },
+    trustedHops(process.env.TRUSTED_PROXY_HOPS)
+  );
+}
+
 /**
- * The two unauthenticated write paths are rate limited here rather than in a
- * handler: sign-in is NextAuth's own route with no handler of ours to put it
- * in, and accepting an invitation is limited for the same reason and by the
- * same key, so a caller cannot spend one budget through the other.
+ * A second bucket, keyed by the address being signed in to.
  *
- * Both hash a password. `src/auth.ts` runs `bcrypt.compare` at cost 12
- * deliberately even for an address with no account, and acceptance runs
- * `bcrypt.hash` at the same cost, so every attempt costs roughly a
- * quarter-second of *blocking* CPU on a single event loop: a few hundred a
- * minute make the app unavailable to every administrator, while also giving
- * unbounded password guessing and unbounded invitation-token guessing.
+ * The address key alone is rotatable by anyone who can reach the app from more
+ * than one source. This one is not: an attacker working through a botnet still
+ * cannot exceed the limit against a single administrator's account.
  *
- * Keyed by client address. Behind Azure Container Apps' ingress the real
- * address is in x-forwarded-for, and its first entry is the one the edge saw.
+ * Read from the form body, which is the only place it exists on this request --
+ * so it bounds attempts against an account, and the address bucket bounds the
+ * cost of attempts in general. Neither replaces the other.
  */
-function clientAddress(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0]!.trim();
-  return request.headers.get('x-real-ip') ?? 'unknown';
+async function signInSubject(request: NextRequest): Promise<string | null> {
+  try {
+    const form = await request.clone().formData();
+    const email = form.get('email');
+    return typeof email === 'string' && email ? email.toLowerCase() : null;
+  } catch {
+    return null;
+  }
 }
 
 function isUnauthenticatedWrite(request: NextRequest): boolean {
@@ -42,10 +53,17 @@ function isUnauthenticatedWrite(request: NextRequest): boolean {
   );
 }
 
-export default function middleware(request: NextRequest, event: never) {
+export default async function middleware(request: NextRequest, event: never) {
   if (isUnauthenticatedWrite(request)) {
     const { limit, windowMs } = RATE_LIMITS.SIGN_IN;
-    const result = checkRateLimit(`signin:${clientAddress(request)}`, limit, windowMs);
+    const subject = await signInSubject(request);
+    const keys = [`signin:${callerAddress(request)}`];
+    if (subject) keys.push(`signin-subject:${subject}`);
+
+    // Every bucket is counted, not just the first to refuse: short-circuiting
+    // would let a caller spend one budget without touching the other.
+    const results = keys.map(key => checkRateLimit(key, limit, windowMs));
+    const result = results.find(r => !r.allowed) ?? results[0]!;
     if (!result.allowed) {
       // A plain 429, with no hint about whether the address exists.
       return NextResponse.json(

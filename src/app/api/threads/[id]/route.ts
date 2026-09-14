@@ -23,7 +23,11 @@ export async function GET(_request: NextRequest, { params }: Params) {
         id: true,
         title: true,
         incidentId: true,
-        participants: { select: { user: { select: { id: true, name: true, email: true } } } },
+        // Names, not addresses -- `GET /api/users` refuses to return emails and
+        // says why, and any signed-in user can open a thread with twenty ids
+        // taken from it. Projecting email here handed back the staff directory
+        // the other route withholds.
+        participants: { select: { user: { select: { id: true, name: true } } } },
         messages: {
           orderBy: { createdAt: 'asc' },
           take: 500,

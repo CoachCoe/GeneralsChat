@@ -1,6 +1,9 @@
 import { prisma } from '../src/lib/db.js';
+import { requireTestDatabase } from './support/require-test-database';
 
 async function checkAndSeed() {
+  requireTestDatabase('scripts/seed-prompt.ts');
+
   try {
     // Check if SystemPrompt table has any records
     const count = await prisma.systemPrompt.count();
