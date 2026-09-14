@@ -7,7 +7,7 @@ import {
   updateIncidentSchema,
   validateRequest,
 } from '@/lib/validation';
-import { incidentReadScope, incidentScope, requireUser } from '@/lib/session';
+import { canReadAllIncidents, incidentReadScope, incidentScope, requireUser } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
 
 /** Statuses that close an incident, and so stamp closedAt. */
@@ -94,10 +94,31 @@ export async function GET(request: NextRequest, { params }: Params) {
       data: { seenAt: new Date() },
     });
 
+    /*
+     * What this caller may do, decided here rather than inferred in the browser.
+     *
+     * A share grants reading, so a recipient sees the incident, its obligations
+     * and its documents — and every control that writes answers 404 for them.
+     * The page renders those controls on this, because the share panel on that
+     * same page states the rule, and a screen that states a rule and then offers
+     * the thing it forbids is worse than one that says nothing.
+     */
+    const canEdit =
+      incident.reporterId === guard.user.id || canReadAllIncidents(guard.user);
+
     const duration = Date.now() - startTime;
     logResponse('GET', '/api/incidents/[id]', 200, duration);
 
-    return successResponse(incident);
+    return successResponse({
+      ...incident,
+      canEdit,
+      // Per obligation, matching `GET /api/obligations`, so `ObligationRow`
+      // renders `Mark done` on the same field wherever it appears.
+      complianceActions: incident.complianceActions.map(action => ({
+        ...action,
+        canComplete: canEdit,
+      })),
+    });
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorResponse = createErrorResponse(

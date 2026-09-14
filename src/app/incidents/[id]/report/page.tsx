@@ -7,7 +7,7 @@ import { AuthorityChip } from '@/components/design/AuthorityChip';
 import type { FieldValue, ReportBlock } from '@/lib/report-template';
 import { INCIDENT_TYPE_LABELS } from '@/types';
 import { useMounted } from '@/lib/useMounted';
-import { documentFilename, reportToMarkdown } from '@/lib/document-export';
+import { documentFilename, formatFormInstant, reportToMarkdown } from '@/lib/document-export';
 
 /** Blank writing space under a question the record cannot answer. */
 const WRITING_LINES = 4;
@@ -104,14 +104,9 @@ export default function ReportPage() {
       title={report.form.title}
       documentDownload={{
         filename: documentFilename('report', report.incidentTitle, new Date()),
-        // Formatted through the reader's locale, like the page itself: a
-        // downloaded form is filed in the reader's timezone, not the server's.
-        markdown: () =>
-          reportToMarkdown(report.form!.title, report.blocks, (iso, as) =>
-            as === 'date'
-              ? new Date(iso).toLocaleDateString()
-              : new Date(iso).toLocaleTimeString()
-          ),
+        // The same formatter the page renders with, so the downloaded copy and
+        // the screen agree. Still the reader's zone, not the server's.
+        markdown: () => reportToMarkdown(report.form!.title, report.blocks, formatFormInstant),
       }}
       meta={
         <div className="flex flex-wrap items-center gap-3">
@@ -217,19 +212,15 @@ function Rendered({ value }: { value: FieldValue }) {
   if ('text' in value) return <>{value.text}</>;
   if (!mounted) return null;
 
-  const at = new Date(value.iso);
-  return (
-    <>
-      {value.as === 'date'
-        ? at.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-        : at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-    </>
-  );
+  return <>{formatFormInstant(value.iso, value.as)}</>;
 }
 
 function Source({ source }: { source?: string }) {
   if (!source) return null;
-  return <span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">{source}</span>;
+  // `.eyebrow` is the canonical uppercase treatment; this inlined a third
+  // spacing (0.08em against the class's 0.12em), which is a second treatment
+  // rather than the duplication CLAUDE.md tolerates.
+  return <span className="eyebrow text-text-muted">{source}</span>;
 }
 
 /** Space to write, on screen and on paper. */

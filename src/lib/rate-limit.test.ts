@@ -105,3 +105,34 @@ describe('limits configured from the environment', () => {
     delete process.env.RATE_LIMIT_SIGN_IN_PER_MINUTE;
   });
 });
+
+describe('the two sign-in buckets', () => {
+  it('does not let the per-account bound become a lockout', () => {
+    // The per-account bucket exists so an attacker rotating source addresses
+    // cannot grind one account. If it were as tight as the per-address one,
+    // ten failed attempts from anywhere would refuse that administrator's own
+    // sign-in for the window -- an availability bug traded for an availability
+    // bug, on an application whose purpose is reaching a deadline in time.
+    expect(RATE_LIMITS.SIGN_IN_SUBJECT.limit).toBeGreaterThan(
+      RATE_LIMITS.SIGN_IN.limit * 5
+    );
+  });
+
+  it('bounds an address-rotating attacker within one window', () => {
+    // It is a bound, not a formality: a botnet with unlimited addresses still
+    // cannot exceed this against one account.
+    expect(RATE_LIMITS.SIGN_IN_SUBJECT.limit).toBeLessThanOrEqual(200);
+    expect(RATE_LIMITS.SIGN_IN_SUBJECT.windowMs).toBe(RATE_LIMITS.SIGN_IN.windowMs);
+  });
+
+  it('is not reachable from the environment', () => {
+    // Like SIGN_IN. There is no deployment for which a looser bound on
+    // unauthenticated bcrypt is the right answer.
+    process.env.RATE_LIMIT_SIGN_IN_SUBJECT_PER_MINUTE = '100000';
+    vi.resetModules();
+    return import('./rate-limit').then(({ RATE_LIMITS: fresh }) => {
+      expect(fresh.SIGN_IN_SUBJECT.limit).toBe(100);
+      delete process.env.RATE_LIMIT_SIGN_IN_SUBJECT_PER_MINUTE;
+    });
+  });
+});

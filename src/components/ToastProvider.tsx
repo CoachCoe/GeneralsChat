@@ -15,40 +15,18 @@ export function ToastProvider() {
       toastOptions={{
         duration: 4000,
         style: {
-          background: '#1f2937', // gray-800
-          color: '#f9fafb', // gray-50
-          border: '1px solid #374151', // gray-700
+          background: 'var(--color-surface)',
+          color: 'var(--color-text)',
+          border: '1px solid var(--color-line)',
           borderRadius: '0.75rem',
           padding: '1rem',
         },
-        success: {
-          iconTheme: {
-            primary: '#10b981', // green-500
-            secondary: '#f9fafb',
-          },
-          style: {
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-          },
-        },
-        error: {
-          duration: 5000,
-          iconTheme: {
-            primary: '#ef4444', // red-500
-            secondary: '#f9fafb',
-          },
-          style: {
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-          },
-        },
-        loading: {
-          iconTheme: {
-            primary: '#3b82f6', // blue-500
-            secondary: '#f9fafb',
-          },
-          style: {
-            border: '1px solid rgba(59, 130, 246, 0.3)',
-          },
-        },
+        // No per-state colour. Colour in this interface means a deadline state
+        // -- overdue, attention, met -- or a coverage gap, and nothing else. A
+        // red toast beside a red overdue countdown is exactly the competition
+        // that rule exists to prevent, and green is what "obligation discharged"
+        // looks like on the queue. The words on the toast carry the meaning.
+        error: { duration: 5000 },
       }}
     />
   );

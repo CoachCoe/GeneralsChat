@@ -57,6 +57,23 @@ export async function POST(request: NextRequest) {
       });
       if (!invitation) return null;
 
+      /*
+       * An administrator may have created this address in the meantime. Then
+       * there is nothing to register: the share still lands, and they sign in
+       * with the password they were already given rather than one set here.
+       *
+       * Checked BEFORE the claim below. Returning from an interactive
+       * transaction does not roll it back -- only a throw does -- so claiming
+       * first burned the invitation permanently on a path that then created
+       * nothing, and handed the holder a 404 an administrator could not tell
+       * from an expired link.
+       */
+      const existing = await tx.user.findUnique({
+        where: { email: invitation.email },
+        select: { id: true, deactivatedAt: true },
+      });
+      if (existing?.deactivatedAt) return null;
+
       // The claim. `count` is 0 if another request took it between the read
       // and here, which is the only way two accounts could come from one link.
       const claimed = await tx.invitation.updateMany({
@@ -64,17 +81,6 @@ export async function POST(request: NextRequest) {
         data: { acceptedAt: now },
       });
       if (claimed.count !== 1) return null;
-
-      /*
-       * An administrator may have created this address in the meantime. Then
-       * there is nothing to register: the share still lands, and they sign in
-       * with the password they were already given rather than one set here.
-       */
-      const existing = await tx.user.findUnique({
-        where: { email: invitation.email },
-        select: { id: true, deactivatedAt: true },
-      });
-      if (existing?.deactivatedAt) return null;
 
       const user =
         existing ??

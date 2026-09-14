@@ -5,7 +5,7 @@ accumulated four status files that all drifted out of date, so keep this one
 current or delete it. The dated audit and history records are untracked working
 documents; nothing here should link to them.
 
-Last reviewed: 2026-09-10. Context: entering a single-user pilot.
+Last reviewed: 2026-09-13. Context: entering a single-user pilot.
 
 ---
 
@@ -35,6 +35,20 @@ a session transcript.
 ```bash
 npm run user:create -- --email demo@example.com --name "..." --role admin --password "..."
 ```
+
+### 2b. Shipped since the last review — 2026-09-13
+
+User management at `/admin/users` (create reporters, revoke without deleting);
+incident sharing, read-only, with invitation links for addresses that have no
+account; person-to-person messaging at `/messages`; Markdown download and
+printing for the report, the summary and a new transcript document; a derived
+notification bell with no table and no scheduler behind it; a first-run
+orientation note in the chat's empty state; and the advisor profile fixed
+read-only for the testing round.
+
+The invariants each of those introduced are in CLAUDE.md. What is **not** done:
+the profile is read-only by a constant rather than by a setting, and turning
+editing back on is a code change.
 
 ### 3. Load the real district policies — *in progress*
 
@@ -111,7 +125,7 @@ incident — including a fully-covered bullying one — currently gets no
 mandatory-reporting policy. That is the single highest-value document to load
 next.
 
-Current state: 2 retrievable policies, 16 chunks, 0 embedded. 1 of 20 categories
+Current state: 2 retrievable policies, 16 chunks, 0 embedded. 1 of 21 categories
 has a district or school policy. Run `npm run policies:coverage` for the live
 figures rather than trusting these.
 
@@ -617,7 +631,7 @@ step 6.
 | "Change classification" | No endpoint |
 | Intake record panel (design 1e) | Needs per-field extraction the classifier does not do |
 | Week view (design 1b) | Deferred by the design's own recommendation |
-| Admin prompt authority | Deferred for the single-user pilot; revisit before a second admin account exists |
+| ~~Admin prompt authority~~ | **Decided 2026-09-13, the other way.** The pilot is no longer single-user, and rather than granting per-admin authority the profile was made read-only for everybody: what the model is told has to be one thing while testers' reports are being compared. `ADVISOR_PROFILE_EDITABLE` in `src/lib/ai/advisor-profile.ts` |
 | `/incidents/pending` semantics beyond outstanding actions | Resolved as "outstanding compliance actions"; revisit only if that proves wrong in use |
 | Vector search | Needs `OPENAI_API_KEY` **and** a running Chroma server. The keyword fallback works and is category-filtered; embeddings can be backfilled later with `policies:reindex` |
 

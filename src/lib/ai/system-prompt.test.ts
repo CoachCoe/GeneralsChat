@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSystemPrompt } from './claude-service';
+import { buildCoverageNote, buildSystemPrompt } from './claude-service';
 
 /**
  * The advisor profile is editable at /admin/prompt. If it replaced the whole
@@ -337,5 +337,53 @@ describe('buildSystemPrompt confidentiality', () => {
     expect(prompt).toContain('answer their\n  question in full');
     expect(prompt).toContain('never refuse or withhold guidance');
     expect(prompt).toContain('once per conversation');
+  });
+});
+
+describe('buildCoverageNote', () => {
+  const gap = (byCategory: Record<string, string[]>) => ({
+    categories: Object.keys(byCategory),
+    byCategory,
+    categoriesWithoutLocalPolicy: Object.keys(byCategory),
+  });
+
+  it('says nothing when nothing is missing', () => {
+    expect(buildCoverageNote(undefined)).toBe('');
+    expect(
+      buildCoverageNote({ categories: ['bullying'], byCategory: { bullying: ['district'] }, categoriesWithoutLocalPolicy: [] })
+    ).toBe('');
+  });
+
+  it('forbids laundering state law as district procedure when only local is missing', () => {
+    // The branch that matters most, and the one no test reached: the model is
+    // holding federal or state text, and the failure this application exists to
+    // prevent is that text coming back as the district's own rule.
+    const note = buildCoverageNote(gap({ emergency_operations: ['state'] }));
+
+    expect(note).toContain('emergency_operations');
+    expect(note).toContain('NO district or school policy');
+    expect(note).toContain('Do not present a federal or state requirement as if it were district procedure');
+    expect(note).toContain('do not invent a local policy code');
+    // And it must not tell the model to withhold what it legitimately has.
+    expect(note).not.toContain('NO policy at ANY level');
+  });
+
+  it('forbids stating any requirement at all when nothing is loaded anywhere', () => {
+    const note = buildCoverageNote(gap({ suicide_prevention: [] }));
+
+    expect(note).toContain('NO policy at ANY level');
+    expect(note).toContain('do not state a deadline, a requirement or a citation as established fact');
+    expect(note).not.toContain('Do not present a federal or state requirement');
+  });
+
+  it('separates the two when one incident has both kinds of gap', () => {
+    const note = buildCoverageNote(gap({ emergency_operations: ['state'], suicide_prevention: [] }));
+
+    expect(note).toContain('Do not present a federal or state requirement');
+    expect(note).toContain('NO policy at ANY level');
+    // Each category is named under the instruction that applies to it.
+    const localOnlyAt = note.indexOf('emergency_operations');
+    const nothingAt = note.indexOf('suicide_prevention');
+    expect(localOnlyAt).toBeLessThan(nothingAt);
   });
 });

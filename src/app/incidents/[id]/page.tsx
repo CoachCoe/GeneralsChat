@@ -17,6 +17,7 @@ import {
 } from '@/lib/deadline';
 import { INCIDENT_TYPE_LABELS } from '@/types';
 import { useMounted } from '@/lib/useMounted';
+import { stepLabel } from '@/lib/ai/step-plan';
 
 interface Conversation {
   id: string;
@@ -53,6 +54,12 @@ interface Action {
 }
 
 interface Incident {
+  /**
+   * Whether this reader may change anything. A share grants reading, so a
+   * recipient gets the page and none of the controls that write — each of which
+   * would answer 404, on the same page whose share panel says so.
+   */
+  canEdit?: boolean;
   id: string;
   title: string;
   description?: string;
@@ -274,6 +281,13 @@ export default function IncidentDetailPage() {
       new Date(a.dueDate).getTime() < Date.now()
   );
   const closed = incident.status === 'closed';
+  /*
+   * Absent means yes. Every context that predates sharing, and every reader who
+   * owns the incident, gets the controls; only a route that says `false` takes
+   * them away. The server decides — the page must not infer it from the
+   * reporter's name.
+   */
+  const canEdit = incident.canEdit !== false;
   const hasSummary = incident.conversations.some(c => c.sender === 'summary');
 
   const events: TimelineEvent[] = [
@@ -311,7 +325,7 @@ export default function IncidentDetailPage() {
           : info.state === 'overdue'
             ? 'missed'
             : 'upcoming') as TimelineEvent['kind'],
-        title: a.description || a.actionType,
+        title: stepLabel(a),
         meta: `${info.label}${info.absolute ? ` · ${info.absolute}` : ''}`,
         state: info.state,
         deadlineSource: a.deadlineSource,
@@ -362,6 +376,7 @@ export default function IncidentDetailPage() {
           >
             Continue in chat
           </Link>
+          {canEdit && (
           <button
             type="button"
             onClick={handleGenerateSummary}
@@ -370,6 +385,8 @@ export default function IncidentDetailPage() {
           >
             {generatingSummary ? 'Generating…' : 'Generate Summary'}
           </button>
+          )}
+          {canEdit && (
           <button
             type="button"
             onClick={handleToggleStatus}
@@ -378,6 +395,7 @@ export default function IncidentDetailPage() {
           >
             {closed ? 'Reopen Incident' : 'Close Incident'}
           </button>
+          )}
         </div>
       </header>
 
@@ -419,7 +437,7 @@ export default function IncidentDetailPage() {
             ))}
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2" hidden={!canEdit}>
             <input
               ref={fileInputRef}
               type="file"
@@ -466,7 +484,7 @@ export default function IncidentDetailPage() {
                     incidentId: incident.id,
                     jurisdiction: a.policy?.jurisdiction ?? null,
                   }}
-                  onDone={markObligationDone}
+                  onDone={canEdit ? markObligationDone : undefined}
                 />
               ))}
             </div>
