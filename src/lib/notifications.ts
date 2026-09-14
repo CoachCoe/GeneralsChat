@@ -1,4 +1,5 @@
 import { ATTENTION_WINDOW_HOURS, isPolicyBacked } from '@/lib/deadline';
+import { stepLabel } from '@/lib/ai/step-plan';
 
 /**
  * What has changed, and what is about to be late.
@@ -76,10 +77,6 @@ function isWorthRaising(dueDate: Date, now: Date): boolean {
   return dueDate.getTime() - now.getTime() <= ATTENTION_WINDOW_HOURS * 60 * 60 * 1000;
 }
 
-function label(action: { description: string | null; actionType: string }): string {
-  return action.description?.trim() || action.actionType.replace(/_/g, ' ');
-}
-
 export function buildNotifications(
   sources: { deadlines: DeadlineSource[]; shares: ShareSource[]; threads: ThreadSource[] },
   now: Date
@@ -92,7 +89,7 @@ export function buildNotifications(
     items.push({
       key: `deadline:${deadline.id}`,
       kind: 'deadline',
-      title: label(deadline),
+      title: stepLabel(deadline),
       detail: deadline.incidentTitle,
       href: `/incidents/${deadline.incidentId}`,
       at: deadline.dueDate.toISOString(),

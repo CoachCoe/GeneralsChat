@@ -45,13 +45,18 @@ export function orderOpenSteps(obligations: PlannableObligation[]): PlannableObl
 }
 
 /**
- * What an obligation is called.
+ * What an obligation is called, everywhere it is named.
  *
- * Exported because the confirmation offered in chat has to name the step the
- * same way the plan did. Two spellings of this drifted apart once already: one
- * fell back on a blank description, the other did not.
+ * There were four spellings of this — the plan, the notification feed, the
+ * obligation row and the incident page — and the two in components had already
+ * drifted: neither trimmed, and neither replaced the underscores, so the bell
+ * said `general action` where the queue said `general_action` and a
+ * whitespace-only description rendered as nothing at all.
+ *
+ * The parameter is structural rather than `PlannableObligation` so a row from
+ * any of those callers fits without being reshaped first.
  */
-export function stepLabel(step: PlannableObligation): string {
+export function stepLabel(step: { description: string | null; actionType: string }): string {
   const description = step.description?.trim();
   if (description) return description;
   return step.actionType.replace(/_/g, ' ');

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { DocumentPage } from '@/components/design/DocumentPage';
+import { GuidanceBlock } from '@/components/design/GuidanceBlock';
 import { documentFilename, transcriptToMarkdown } from '@/lib/document-export';
 import { useMounted } from '@/lib/useMounted';
 
@@ -108,9 +109,18 @@ export default function TranscriptPage() {
                 {mounted ? new Date(turn.timestamp).toLocaleString() : ''}
               </span>
             </span>
-            <p className="whitespace-pre-wrap text-[15px] leading-[1.65] text-text-secondary">
-              {turn.content}
-            </p>
+            {/* The assistant is prompted for headers and bold, so rendering its
+                turn as plain text prints literal `##` and `**` on a document
+                that gets filed. The timeline fixed this and this page, written
+                later, reintroduced it. The administrator's own turns stay plain:
+                they are what someone typed. */}
+            {turn.type === 'general' ? (
+              <GuidanceBlock>{turn.content}</GuidanceBlock>
+            ) : (
+              <p className="whitespace-pre-wrap text-[15px] leading-[1.65] text-text-secondary">
+                {turn.content}
+              </p>
+            )}
           </article>
         ))}
       </div>

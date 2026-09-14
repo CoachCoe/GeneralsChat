@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 import { resolve } from 'path';
 import { generatePassword, hashPassword, MIN_PASSWORD_LENGTH } from '../src/lib/password';
 import { prisma } from '../src/lib/db';
+import { requireTestDatabase } from './support/require-test-database';
 
 config({ path: resolve(__dirname, '../.env') });
 
@@ -24,6 +25,8 @@ function arg(flag: string): string | undefined {
 }
 
 async function main() {
+  requireTestDatabase('scripts/create-user.ts');
+
   const email = arg('--email')?.toLowerCase();
   const name = arg('--name');
   const role = (arg('--role') ?? 'reporter') as Role;

@@ -17,7 +17,7 @@ For each policy document:
 - SAU 24 Crisis Response Team
 
 ### 2. **Title IX / Sexual Discrimination** (`title_ix`)
-- ACAC - Prohibition of Sex Discrimination and Sex-Based Harassment ✅ Already uploaded
+- ACAC - Prohibition of Sex Discrimination and Sex-Based Harassment Mapped
 - Title IX Policy and Grievance Procedure
 
 ### 3. **Title VII / Discrimination** (`discrimination`)
@@ -35,7 +35,7 @@ For each policy document:
 - Documentation procedures
 
 ### 6. **Bullying** (`bullying`)
-- JICK - Pupil Safety and Violence Prevention - Bullying (2013) ✅ Already uploaded
+- JICK - Pupil Safety and Violence Prevention - Bullying (2013) Mapped
 - JICDD - Cyberbullying (2018)
 - Investigation procedures
 
@@ -48,7 +48,7 @@ For each policy document:
 ### 8. **Student Conduct/Discipline** (`discipline`)
 - JIC - Student Conduct (2021)
 - JICD - Student Discipline and Due Process (2021)
-- JICC - Student Conduct on School Buses ✅ Already uploaded
+- JICC - Student Conduct on School Buses Mapped
 - JLDBA - Behavior Management and Intervention (2018)
 
 ### 9. **Student Health** (`student_health`)
@@ -142,23 +142,12 @@ The system references these forms in guidance:
 3. **Run upload script** for each policy type
 4. **Test in chat** - Ask about specific incidents to verify proper policy retrieval
 
-## System Status
 
-**This section is not the source of truth.** What is actually loaded, and what
-to load next in the order that gates guidance, is in
-[`roadmap.md`](./roadmap.md); `npm run policies:coverage` reports it from the
-database. This file is the *mapping* — which policy belongs in which
-jurisdiction and category — and it drifted out of date as a status board.
+## What is actually loaded
 
-Two corrections worth stating rather than deleting, because the old text was
-actively misleading:
+Not recorded here. A status board in a tracked file is a claim about one
+district's database, false by construction for anyone who clones this into an
+empty one — and it drifted the last time it was tried.
 
-- **"Bullying Prevention (DISC-001)" was never a real policy.** Its own text
-  called it `Policy Number: DISC-001`, a code that does not exist — it was
-  synthetic sample data, and it was deactivated on 2026-09-01 because it
-  competed with the real Policy JICK for every bullying query. The real JICK
-  and the SAU 24 investigation form are loaded in its place.
-- **`mandatory_reporting` has nothing loaded at all**, and it is retrieved for
-  *every* incident regardless of type. So no incident currently receives a
-  mandatory-reporting policy. It is the single highest-value document to load
-  next.
+Run `npm run policies:coverage`. It answers from the same predicate retrieval
+uses, so it cannot disagree with what the assistant can actually cite.

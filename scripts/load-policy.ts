@@ -7,6 +7,7 @@ import { ragSystem } from '../src/lib/ai/rag';
 import { processDocument } from '../src/lib/utils/documentProcessor';
 import { DOCUMENT_KINDS, POLICY_CATEGORIES, POLICY_JURISDICTIONS } from '../src/types';
 import { policyUploadsDir } from '../src/lib/uploads';
+import { requireTestDatabase } from './support/require-test-database';
 
 config({ path: resolve(__dirname, '../.env') });
 
@@ -47,6 +48,8 @@ function arg(flag: string): string | undefined {
 }
 
 async function main() {
+  requireTestDatabase('scripts/load-policy.ts');
+
   const file = arg('--file');
   const title = arg('--title');
   const jurisdiction = arg('--jurisdiction');

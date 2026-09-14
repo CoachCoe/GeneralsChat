@@ -8,7 +8,18 @@ import { test, expect } from '@playwright/test';
  * minors after the district decided it should not.
  */
 test.describe('People', () => {
+  // Declared, not incidental: the revocation test needs the password the create
+  // test captured, so these must run in order and a retry of one alone would
+  // otherwise sign in with `undefined`.
+  test.describe.configure({ mode: 'serial' });
+
   const created = `e2e-created-${Date.now()}@example.test`;
+  /**
+   * Captured from the one screen that shows it. The revocation test below needs
+   * the *correct* password: signing in with a wrong one is refused for every
+   * account, so a 401 proves nothing about revocation.
+   */
+  let password: string;
 
   test('creates a reporter and shows the password once', async ({ page }) => {
     await page.goto('/admin/users');
@@ -22,6 +33,9 @@ test.describe('People', () => {
     // Shown, because there is no mail transport and the administrator has to
     // pass it on.
     await expect(credentials).toContainText(created);
+
+    password = (await credentials.locator('code').innerText()).trim();
+    expect(password.length).toBeGreaterThanOrEqual(12);
 
     await expect(page.getByTestId('user-row').filter({ hasText: created })).toBeVisible();
   });
@@ -60,21 +74,61 @@ test.describe('People', () => {
     const users = await (await page.request.get('/api/admin/users')).json();
     const target = users.users.find((u: { email: string }) => u.email === created);
 
-    expect((await page.request.patch(`/api/admin/users/${target.id}`, { data: { active: false } })).status()).toBe(200);
+    /*
+     * Sign in with the real password and report whether the session works.
+     *
+     * Each context carries its own `x-forwarded-for`. `navigation.spec.ts`
+     * deliberately floods the credentials endpoint until the limiter refuses
+     * it, and this project runs inside that five-minute window — so without a
+     * bucket of its own this test would be refused for the one reason that
+     * proves nothing about revocation. There is no proxy in front of the e2e
+     * server, so the header is simply this test naming its own bucket.
+     */
+    let bucket = 0;
+    const canSignIn = async () => {
+      const context = await browser.newContext({
+        storageState: { cookies: [], origins: [] },
+        extraHTTPHeaders: { 'x-forwarded-for': `198.51.100.${++bucket}` },
+      });
+      const csrf = (await (await context.request.get('/api/auth/csrf')).json()).csrfToken;
+      await context.request.post('/api/auth/callback/credentials', {
+        form: { email: created, password, csrfToken: csrf },
+        maxRedirects: 0,
+      });
+      const status = (await context.request.get('/api/incidents')).status();
+      await context.close();
+      return status;
+    };
 
-    // Sign-in is refused for a revoked account.
-    const anonymous = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-    const csrf = (await (await anonymous.request.get('/api/auth/csrf')).json()).csrfToken;
-    await anonymous.request.post('/api/auth/callback/credentials', {
-      form: { email: created, password: 'irrelevant-because-revoked', csrfToken: csrf },
+    // Before: the account works. Without this the 401 below would hold for any
+    // reason at all -- a wrong password, a broken endpoint, a typo in the email.
+    expect(await canSignIn()).toBe(200);
+
+    // A session held *before* revocation, to prove the next request is refused
+    // rather than merely the next sign-in.
+    const held = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+      extraHTTPHeaders: { 'x-forwarded-for': '198.51.100.200' },
+    });
+    const heldCsrf = (await (await held.request.get('/api/auth/csrf')).json()).csrfToken;
+    await held.request.post('/api/auth/callback/credentials', {
+      form: { email: created, password, csrfToken: heldCsrf },
       maxRedirects: 0,
     });
-    expect((await anonymous.request.get('/api/incidents')).status()).toBe(401);
-    await anonymous.close();
+    expect((await held.request.get('/api/incidents')).status()).toBe(200);
+
+    expect((await page.request.patch(`/api/admin/users/${target.id}`, { data: { active: false } })).status()).toBe(200);
+
+    // Sign-in is refused, and the cookie already in a browser stops working on
+    // its next request -- the session names a user who may no longer act.
+    expect(await canSignIn()).toBe(401);
+    expect((await held.request.get('/api/incidents')).status()).toBe(401);
+    await held.close();
 
     expect((await page.request.patch(`/api/admin/users/${target.id}`, { data: { active: true } })).status()).toBe(200);
-    const after = await (await page.request.get('/api/admin/users')).json();
-    expect(after.users.find((u: { email: string }) => u.email === created).deactivatedAt).toBeNull();
+    // Restoring gives access back, asserted by using it rather than by reading
+    // the flag we just wrote.
+    expect(await canSignIn()).toBe(200);
   });
 
   test('a reporter cannot reach any of this', async ({ browser }) => {

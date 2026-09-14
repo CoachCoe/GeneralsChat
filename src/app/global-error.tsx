@@ -23,10 +23,34 @@ export default function GlobalError({
 
   return (
     <html>
-      <body style={{ margin: 0, padding: 0, fontFamily: 'system-ui, sans-serif' }}>
+      <body
+        style={{
+          margin: 0,
+          padding: 0,
+          fontFamily: 'system-ui, sans-serif',
+          /*
+           * This file replaces the root layout, so it cannot import
+           * `theme.css`. The values are the dark palette's tokens copied here
+           * rather than a second palette invented here -- keep them in step
+           * with the `@theme` block in `src/app/theme.css`.
+           *
+           * There is no red and no green. Colour in this interface means a
+           * deadline state or a coverage gap; an error is neither, and the
+           * "Try Again" button was painted the same green that means an
+           * obligation was discharged.
+           */
+          ['--gc-bg' as string]: '#0f0f0f',
+          ['--gc-surface' as string]: '#1c1917',
+          ['--gc-line' as string]: '#44403c',
+          ['--gc-text' as string]: '#fafaf9',
+          ['--gc-text-secondary' as string]: '#d6d3d1',
+          ['--gc-text-muted' as string]: '#78716c',
+          ['--gc-text-tertiary' as string]: '#a8a29e',
+        }}
+      >
         <div style={{
           minHeight: '100vh',
-          backgroundColor: '#111827',
+          backgroundColor: 'var(--gc-bg)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -35,7 +59,7 @@ export default function GlobalError({
           <div style={{
             maxWidth: '32rem',
             width: '100%',
-            backgroundColor: '#1f2937',
+            backgroundColor: 'var(--gc-surface)',
             border: '1px solid rgba(239, 68, 68, 0.2)',
             borderRadius: '0.75rem',
             padding: '2rem',
@@ -56,7 +80,7 @@ export default function GlobalError({
                   width="64"
                   height="64"
                   fill="none"
-                  stroke="#ef4444"
+                  stroke="var(--gc-text-tertiary)"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -81,7 +105,7 @@ export default function GlobalError({
 
             {/* Description */}
             <p style={{
-              color: '#9ca3af',
+              color: 'var(--gc-text-muted)',
               textAlign: 'center',
               marginBottom: '1.5rem',
             }}>
@@ -108,7 +132,7 @@ export default function GlobalError({
                 </h3>
                 <pre style={{
                   fontSize: '0.75rem',
-                  color: '#d1d5db',
+                  color: 'var(--gc-text-secondary)',
                   overflowX: 'auto',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
@@ -118,7 +142,7 @@ export default function GlobalError({
                 {error.digest && (
                   <p style={{
                     fontSize: '0.75rem',
-                    color: '#9ca3af',
+                    color: 'var(--gc-text-muted)',
                     marginTop: '0.5rem',
                   }}>
                     Error ID: {error.digest}
@@ -138,7 +162,7 @@ export default function GlobalError({
                 onClick={reset}
                 style={{
                   padding: '0.75rem 1.5rem',
-                  backgroundColor: '#10b981',
+                  backgroundColor: 'var(--gc-text)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '0.5rem',
@@ -150,8 +174,8 @@ export default function GlobalError({
                   justifyContent: 'center',
                   gap: '0.5rem',
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--gc-text)'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--gc-text)'}
               >
                 <svg
                   width="16"
@@ -172,7 +196,7 @@ export default function GlobalError({
                 style={{
                   padding: '0.75rem 1.5rem',
                   backgroundColor: 'transparent',
-                  color: '#d1d5db',
+                  color: 'var(--gc-text-secondary)',
                   border: '1px solid #4b5563',
                   borderRadius: '0.5rem',
                   fontSize: '1rem',
@@ -183,7 +207,7 @@ export default function GlobalError({
                   justifyContent: 'center',
                   gap: '0.5rem',
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#374151'}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--gc-line)'}
                 onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <svg

@@ -32,10 +32,18 @@ npm run policies:load -- \
 **Replace:**
 - `--title` → Your policy title
 - `--jurisdiction` → `federal`, `state`, `district` or `school` (see below)
-- `--category` → one of the 20 categories (see below); it is validated, and a
+- `--category` → one of the 21 categories (see below); it is validated, and a
   typo is rejected rather than stored as `other`
 - `--effective` → YYYY-MM-DD format
 - `--file` → Path to your policy file
+- `--kind` → `policy` (the default) or **`form`**. A mandatory-report form must
+  be loaded with `--kind form`. Which document is a form is a property of the
+  row and is never guessed from its title — `Form` is a substring of `Uniform`,
+  and a Uniform Complaint Procedure printed under "Mandatory report" is the
+  mistake `/incidents/[id]/report` exists to prevent. Load a form without the
+  flag and it becomes a `policy`, and that page will report no form for a form
+  sitting in the library.
+- `--inactive` → load a superseded revision: stored and listed, never retrieved.
 
 It refuses a document from which fewer than 50 words could be extracted, which
 is what a scanned PDF looks like.
@@ -220,7 +228,7 @@ Look for:
 - Ensure file extension is correct (.pdf, .docx, .txt)
 
 ### "Invalid file type" error
-- Only PDF, DOCX, and TXT files are supported
+- Only PDF, DOCX, TXT and Markdown files are supported
 - Convert other formats to one of these
 
 ### "Credit balance too low" error
@@ -269,5 +277,5 @@ The system is fully operational and ready to accept more policies. Just:
 2. Run the batch upload script (or use UI/command line)
 3. Test in chat to verify policies are being used
 
-**Questions?** See the [README](README.md) for the current setup, architecture and
+**Questions?** See the [README](../README.md) for the current setup, architecture and
 security status.

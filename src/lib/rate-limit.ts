@@ -122,6 +122,23 @@ function limitFromEnv(name: string, fallback: number): number {
  */
 export const RATE_LIMITS = {
   SIGN_IN: { limit: 10, windowMs: 5 * 60_000 },
+  /**
+   * The same window, keyed by the address being signed in to rather than by the
+   * caller, so an attacker rotating source addresses still cannot grind one
+   * account.
+   *
+   * Deliberately far looser than `SIGN_IN`. A tight bound here is an account
+   * lockout anyone can trigger against a known address from anywhere, on an
+   * application whose whole purpose is that an administrator can reach a
+   * statutory deadline in time — so this has to be high enough that it is never
+   * what refuses a real person, and low enough to bound credential stuffing
+   * spread across a botnet.
+   *
+   * It still costs something: an administrator behind a sustained attack on
+   * their address can be refused. There is no per-account bound that avoids
+   * that, only ones that make it expensive.
+   */
+  SIGN_IN_SUBJECT: { limit: 100, windowMs: 5 * 60_000 },
   CHAT: { limit: limitFromEnv('RATE_LIMIT_CHAT_PER_MINUTE', 30), windowMs: 60_000 },
   UPLOAD: { limit: limitFromEnv('RATE_LIMIT_UPLOAD_PER_MINUTE', 20), windowMs: 60_000 },
 } as const;

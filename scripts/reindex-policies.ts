@@ -8,6 +8,7 @@ import { processDocument } from '../src/lib/utils/documentProcessor';
 
 import { ragSystem } from '../src/lib/ai/rag';
 import { policyUploadsDir } from '../src/lib/uploads';
+import { requireTestDatabase } from './support/require-test-database';
 
 config({ path: resolve(__dirname, '../.env') });
 
@@ -54,6 +55,8 @@ async function assertSchemaCurrent() {
 }
 
 async function main() {
+  requireTestDatabase('scripts/reindex-policies.ts');
+
   if (!(await assertSchemaCurrent())) return;
 
   const policies = await prisma.policy.findMany({

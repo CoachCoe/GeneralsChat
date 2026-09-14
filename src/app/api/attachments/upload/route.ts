@@ -89,6 +89,18 @@ export async function POST(request: NextRequest) {
         fileSize: file.size,
         uploadedBy: guard.user.id,
       },
+      // The same six fields `GET /api/incidents/[id]` projects, and for the
+      // reason stated there: a whole row carries `filePath`, the on-disk name.
+      // Nothing is reachable with it today -- it is the projection rule not
+      // being applied on one path.
+      select: {
+        id: true,
+        filename: true,
+        fileType: true,
+        fileSize: true,
+        incidentId: true,
+        createdAt: true,
+      },
     });
 
     return NextResponse.json(attachment);

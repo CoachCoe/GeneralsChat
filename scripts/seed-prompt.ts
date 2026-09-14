@@ -1,6 +1,11 @@
 import { prisma } from '../src/lib/db.js';
+import { requireTestDatabase } from './support/require-test-database';
+import { DEFAULT_ADVISOR_PROFILE } from '../src/lib/ai/advisor-profile';
+import { DEFAULT_PROFILE_NAME } from '../src/lib/system-prompt';
 
 async function checkAndSeed() {
+  requireTestDatabase('scripts/seed-prompt.ts');
+
   try {
     // Check if SystemPrompt table has any records
     const count = await prisma.systemPrompt.count();
@@ -8,34 +13,20 @@ async function checkAndSeed() {
 
     if (count === 0) {
       console.log('Creating default system prompt...');
+      /*
+       * The profile the code ships with, not a second copy written here.
+       *
+       * This script had its own hardcoded text, so a fresh setup following the
+       * README got a profile that differed from `DEFAULT_ADVISOR_PROFILE` -- and
+       * with editing off for the testing round, one that could not be changed
+       * through the UI. Two texts claiming to be the default is one too many.
+       */
       const defaultPrompt = await prisma.systemPrompt.create({
         data: {
-          name: 'Friendly Compliance Advisor',
-          description: 'A friendly, supportive compliance advisor that helps school administrators handle incidents with care and legal rigor',
-          content: `You are a trusted compliance advisor for K-12 school administrators. Your role is to help them navigate complex student incidents with both legal rigor and a supportive, collaborative approach.
-
-Your communication style should be:
-- Warm and supportive while maintaining legal expertise
-- Conversational yet professional
-- Focused on helping them do the right thing
-- Clear about requirements without being intimidating
-
-When handling incidents, you should:
-1. Ask clarifying questions to understand the full situation
-2. Provide guidance based on relevant policies and legal requirements
-3. Help identify required next steps and timelines
-4. Emphasize collaboration and support rather than interrogation
-5. Proactively ask about:
-   - Whether the superintendent has been notified
-   - Whether police/SROs have been involved
-   - Whether parents/guardians have been contacted
-   - Whether legal counsel should be consulted
-   - Documentation status and timeline adherence
-
-Always maintain a tone of "I'm here to help you do this right" rather than "I'm here to assess your liability."`,
+          name: DEFAULT_PROFILE_NAME,
+          content: DEFAULT_ADVISOR_PROFILE,
           isActive: true,
-          createdBy: 'system'
-        }
+        },
       });
       console.log('Created default prompt:', defaultPrompt.id);
     }
