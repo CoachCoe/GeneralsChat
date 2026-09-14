@@ -310,6 +310,24 @@ export async function resetDatabase(): Promise<SeededIds> {
           citation: 'JICK §D — Procedures for Reporting Bullying (RSA 193-F:4, II(f) - (h))',
         },
         {
+          /*
+           * A second policy-backed late row, and the reason there are two: the
+           * queue test discharges the first `Mark done` in the DOM, which is
+           * the overdue group's first row. With one, every assertion that red
+           * is still painted for a backed deadline became unreachable from
+           * that point on, and the tests that made it were wrapped in
+           * `if (count > 0)` -- which is how they passed.
+           */
+          incidentId: openIncident.id,
+          actionType: 'notification',
+          description: 'Notify the superintendent of the finding',
+          status: 'pending',
+          dueDate: new Date(Date.now() - 30 * 60 * 60 * 1000),
+          deadlineSource: 'policy',
+          policyId: backingPolicy.id,
+          citation: 'JICK §E — Actions Upon Receipt of a Report (RSA 193-F:4, II(j))',
+        },
+        {
           // Unverified and late. Must appear in the queue -- under its own
           // heading, without red -- and must not be counted as late.
           incidentId: openIncident.id,

@@ -398,14 +398,17 @@ test.describe('Obligation queue', () => {
     }
 
     // And a backed late one is red, so the rule is a distinction and not a
-    // blanket suppression.
-    if (lateAndBacked.length > 0) {
-      const backedRow = page
-        .getByTestId('obligation-row')
-        .filter({ hasText: lateAndBacked[0].description })
-        .first();
-      await expect(backedRow.locator('.text-overdue').first()).toBeVisible();
-    }
+    // blanket suppression. Unconditional: this was the only assertion proving
+    // red is still painted, and it was wrapped in the `if (count > 0)` this
+    // repo bans -- over a branch the seed could no longer reach.
+    expect(lateAndBacked.length).toBeGreaterThan(0);
+    const backedRow = page
+      .getByTestId('obligation-row')
+      .filter({ hasText: lateAndBacked[0].description })
+      .first();
+    // A positive count, not `toBeVisible`, so renaming the class fails here
+    // rather than silently satisfying every negative assertion above.
+    await expect(backedRow.locator('.text-overdue')).toHaveCount(1);
   });
 
   test('the incident page does not call an unverified deadline late', async ({ page }) => {
@@ -433,9 +436,8 @@ test.describe('Obligation queue', () => {
 
     await page.goto(`/incidents/${reporterIncidentId}`);
 
-    if (lateAndBacked.length > 0) {
-      await expect(page.getByText(`${lateAndBacked.length} overdue`)).toBeVisible();
-    }
+    expect(lateAndBacked.length).toBeGreaterThan(0);
+    await expect(page.getByText(`${lateAndBacked.length} overdue`)).toBeVisible();
     // The number that would appear if provenance were ignored must not.
     await expect(
       page.getByText(`${lateAndBacked.length + lateAndUnverified.length} overdue`)

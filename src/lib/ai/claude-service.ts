@@ -115,8 +115,14 @@ No district policy text was retrieved for this question. For this response you m
  *
  * "No local policy" and "nothing at any level" need different wording: the
  * second cannot claim the guidance rests on federal or state text.
+ *
+ * Exported to be tested. The `localOnly` branch is the one that matters most --
+ * the model is holding federal or state text and must not pass it off as the
+ * district's own procedure, which is the failure CLAUDE.md names as the reason
+ * this application exists -- and it was reachable from no test at any level:
+ * unexported, and no fixture produced a coverage shape that selects it.
  */
-function buildCoverageNote(coverage?: PolicyCoverage): string {
+export function buildCoverageNote(coverage?: PolicyCoverage): string {
   const gaps = coverage?.categoriesWithoutLocalPolicy ?? [];
   if (gaps.length === 0) return '';
 

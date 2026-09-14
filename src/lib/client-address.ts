@@ -14,6 +14,14 @@
  * deployment.
  */
 
+/**
+ * What this does NOT fix: a deployment with no proxy in front of it. There, the
+ * header is written by the client and nothing can tell a real hop from an
+ * invented one, so the address bucket is rotatable however it is counted. The
+ * bucket keyed by the email being signed in to is the mitigation that survives
+ * that case, which is why sign-in counts both.
+ */
+
 /** What the header looks like when nobody we trust wrote it. */
 export const UNTRUSTED = 'untrusted-forwarded';
 
