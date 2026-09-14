@@ -89,6 +89,11 @@ docker run -p 8000:8000 chromadb/chroma
 | `npm run policies:reindex` | Re-chunk and re-embed every policy |
 | `npm run policies:load` | Load one policy document |
 | `npm run policies:coverage` | What the library can and cannot answer |
+| `npm run incidents:clear` | Deletes **every** incident, conversation, attachment, compliance action and audit-log row. Dry run unless `--apply` |
+
+Every script that writes refuses a database whose name is not a `test` one, or a
+`dev` one on localhost. `.env` points at the hosted database, so pass an explicit
+`DATABASE_URL`.
 
 `scripts/test-*.ts` are **manual demo scripts, not automated tests** — they
 print a transcript and assert nothing. They fall into three groups, and the
@@ -142,10 +147,17 @@ passing a statute off as district procedure.
 | `/` | **The obligation queue.** What is overdue, due today, and later, across every incident. This is the page an administrator opens to answer "what am I late on?" |
 | `/chat` | Incident intake. Describe what happened; the reply is classified, cited and carries deadlines |
 | `/incidents?segment=` | One list, four segments: `open` (default), `pending` (outstanding actions), `closed`, `all` |
-| `/incidents/[id]` | Timeline of the incident — intake, attachments, and every obligation's deadline state |
+| `/incidents/[id]` | Timeline of the incident — intake, attachments, every obligation's deadline state, and who it is shared with |
+| `/incidents/[id]/report` | The district's mandatory-report form, filled from the record. Prints; downloads as Markdown |
+| `/incidents/[id]/summary` | The consultation summary, as a document |
+| `/incidents/[id]/transcript` | The whole consultation, as a document |
+| `/messages` | Person-to-person threads, 1:1 or group. Not the assistant |
 | `/policies` | Read-only policy library, any signed-in user |
 | `/admin/policies` | Policy management, admin only |
-| `/admin/prompt` | System prompt editor, admin only |
+| `/admin/prompt` | The advisor profile, admin only — read-only for this testing round |
+| `/admin/users` | Create and revoke accounts, admin only |
+| `/invite/[token]` | Claim an invitation. Reachable without a session |
+| `/about` | How this works, and what it does not do. Reachable without a session |
 | `/login` | Sign in |
 
 `/incidents/new` redirects to `/chat`, and `/incidents/active|closed|pending`
@@ -342,25 +354,47 @@ Colour in this UI means a deadline state and nothing else — overdue, due soon,
 met. There is no brand accent, deliberately: it would compete with the one
 signal the interface is allowed to raise its voice with.
 
-The system prompt is **database-driven**: `ClaudeService.getActiveSystemPrompt()`
-reads the `SystemPrompt` row with `isActive: true` on every request, and that
-row completely replaces the in-code default. It is editable at `/admin/prompt`.
+The prompt is two parts, and the row is only one of them. `CORE_DIRECTIVES`
+lives in code and is prepended to every guidance call; the active `SystemPrompt`
+row supplies the *advisor profile* — tone, emphasis, district context — and the
+retrieval and coverage guards are appended after it, so nothing in the row can
+displace them. `ClaudeService.getAdvisorProfile()` reads the row on every
+request and falls back to `DEFAULT_ADVISOR_PROFILE`.
+
+Editing is **off** for the pilot's testing round — `ADVISOR_PROFILE_EDITABLE` in
+`src/lib/ai/advisor-profile.ts`. `/admin/prompt` shows the profile in force,
+read-only, and all four write endpoints refuse. What the model is told has to be
+one thing while testers' reports are being compared.
 
 ## Authentication
 
-Single tenant, credentials-based, with JWT sessions. There is **no
-self-registration** — accounts are created with `npm run user:create`.
+Single tenant, credentials-based, with JWT sessions. There is **no open
+self-registration**. Accounts come from three places:
+
+- `npm run user:create` — the only one that can make an `admin` or
+  `investigator`.
+- `/admin/users` — creates `reporter` accounts and shows a generated password
+  once. Also where an account is revoked, which deactivates rather than deletes:
+  the record of who read which student's incident has to outlive the account.
+- an **invitation link**, which lets one named address claim one `reporter`
+  account. There is no mail transport, so the sharer copies the link and sends
+  it — **the link is the credential**. One address, single use, seven days,
+  revocable, SHA-256 at rest.
 
 Roles:
 
 | Role | Can |
 |---|---|
-| `admin` | Everything, including `/admin/*` (policies and the system prompt) |
+| `admin` | Everything, including `/admin/*` (policies, user management, and the advisor profile — read-only at present) |
 | `investigator` | Read and update every incident |
-| `reporter` | Read and update only incidents they filed |
+| `reporter` | Read and update only incidents they filed, plus **read** any incident shared with them |
 
-`middleware.ts` denies by default: only `/login`, `/about`, `/api/health` and
-`/api/auth/*` are reachable without a session. API routes answer 401/403; page
+`middleware.ts` denies by default: only `/login`, `/about`, `/api/health`,
+`/api/auth/*` and the invitation paths `/invite/*` and `/api/invitations/*` are
+reachable without a session. `POST /api/invitations/accept` is the second
+unauthenticated write path — it creates an account from a single-use token — and
+is rate limited beside sign-in, on both the caller's address and the address
+being signed in to. API routes answer 401/403; page
 routes redirect. Every route handler re-checks the session independently, so a
 middleware matcher mistake cannot silently expose a route.
 
@@ -405,6 +439,20 @@ unverified, and that is the honest reading rather than a defect: the system is
 saying it could not find the rule, instead of asserting one.
 
 Still open, and worth knowing before you deploy:
+
+- **An invitation link is a bearer credential.** There is no mail transport, so
+  whoever shares an incident with an address that has no account copies the link
+  and sends it by whatever channel they choose; anyone holding it can claim that
+  one `reporter` account. Bounded by one address, single use, a seven-day expiry,
+  revocation and an audit row on issue and on acceptance — not by transport
+  security. `/invite/*` and `/api/invitations/*` are the only paths added to the
+  deny-by-default gate, and the accept endpoint discloses nothing about an
+  incident before a session exists.
+- **A share widens read access.** `incidentReadScope` admits anyone an incident
+  is shared with; `incidentScope` — every write — does not. Which of the two a
+  handler imports is its whole access decision.
+- **`GET /api/users` returns every active colleague's name** to any signed-in
+  user, so that sharing and messaging can offer a picker. Not their addresses.
 
 - **Rate limiting is in-process, not shared.** Sign-in is limited by client
   address in `middleware.ts`; chat, summaries and uploads are limited by user

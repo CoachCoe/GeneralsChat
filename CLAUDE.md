@@ -58,12 +58,16 @@ pointing at real data about real minors. There is no local database *committed
 here*; make one. `npm test` is safe by construction — its setup refuses a
 database whose name lacks `test`.
 
-The `policies:*` and `prisma` commands are **not** safe, and take whatever
-`.env` gives them. These now carry a guard: they accept a database whose name
+The `prisma` commands are **not** safe and take whatever `.env` gives them; they
+carry no guard. Every script that *writes* does: it accepts a database whose name
 contains `test`, as the e2e setup does, or one whose name contains `dev` on
-localhost, and refuse anything else. The `dev` allowance needs both halves — a
+localhost, and refuses anything else. The `dev` allowance needs both halves — a
 hosted `...-dev` database is still refused — so clearing a local checkout is
-routine without the guard losing what it is for:
+routine without the guard losing what it is for.
+
+An audit found four writing scripts without it, including the re-index one whose
+unguarded run is the outage described below. If you add a script that writes,
+add the guard; `policy-coverage.ts` and `verify-db.ts` read only and need none:
 
 | Script | What it does |
 |---|---|
@@ -71,8 +75,12 @@ routine without the guard losing what it is for:
 | `scripts/test-rag.ts` | Creates an *active* district bullying policy, which competes with the real JICK for every bullying query |
 | `scripts/test-phase3.ts` | Creates and deletes `User`, `Incident` and `Conversation` rows |
 | `scripts/migrate-chat-titles.ts` | Rewrites `Incident` titles in place |
+| `npm run policies:reindex` | Re-chunks and re-embeds every policy. Dry run unless `--apply` |
+| `npm run policies:load` | Creates a `Policy` and its chunks |
+| `npm run user:create` | Creates or updates a user and sets a password |
+| `npm run db:seed-prompt` | Writes the advisor profile row |
 
-The `test-` prefix on the first three does not mean they are tests; they are not
+The `test-` prefix on two of these does not mean they are tests; they are not
 part of any gate. The guard lives in `scripts/support/require-test-database.ts`
 and is the one thing under `scripts/` that vitest covers.
 Re-indexing against production with an unmigrated schema is what once
@@ -226,9 +234,9 @@ and its patterns should not come back.
   consistently. Not by colour.
 - Uppercase is the eyebrow treatment and nothing else — small, letterspaced,
   used to label a region rather than to shout. `.eyebrow` in `theme.css` is the
-  canonical form; a handful of sites (the incident-page status pills, the
-  timeline group labels) inline the same three properties instead of using the
-  class. That is a duplication to collapse, not a second treatment: if you want
+  canonical form; a handful of sites (the incidents-list and incident-page
+  status pills, `SourceLadder` and `AuthorityChip`) inline the same three
+  properties at 10px instead of using the class. That is a duplication to collapse, not a second treatment: if you want
   uppercase anywhere else, you do not.
 
 ## Test contracts
@@ -239,16 +247,21 @@ the same commit:
 `data-testid="chat-input" | chat-send | chat-loading | chat-sources |
 chat-history-item | obligation-queue | obligation-row | incident-summary |
 incident-report | report-gap | incident-transcript | completion-suggestion |
-share-panel | share-row | share-email | thread-list-item | message-row |
-message-input | message-send | person-option | notification-bell |
-notification-item | user-row | user-name | user-email | new-credentials |
-invite-name | invite-password | invite-accept`, `aria-label="Send message"`,
+share-panel | share-row | share-email | message-row | message-input |
+message-send | person-option | notification-bell | user-row | user-name |
+user-email | new-credentials | first-run-note | profile-status |
+profile-read-only | chat-error`, `aria-label="Send message"`,
 `nav[aria-label="Main"]`, `nav[aria-label="Documents"]`,
-`nav[aria-label="Conversations"]`, `aside[aria-label="Sources"]`,
-`region[aria-label="Notifications"]`, the `Incidents` `<h1>`,
-and the button names `Close Incident` / `Reopen Incident` / `Generate Summary` / `Sign in` /
-`Sign out` / `Mark done` / `Share` / `Stop sharing` / `Add reporter` / `Revoke` /
-`Restore` / `Print` / `Download` / `New` / `Send` / `Start conversation`.
+`aside[aria-label="Sources"]`, `region[aria-label="Notifications"]`,
+the `Incidents` `<h1>`, and the button names `Close Incident` / `Reopen Incident` /
+`Generate Summary` / `Sign in` / `Sign out` / `Mark done` / `Share` /
+`Stop sharing` / `Add reporter` / `Revoke` / `Restore` / `Print` / `Download` /
+`New` / `Start conversation`.
+
+This list is what the suite actually asserts. An audit found a third of a
+previous version of it naming things no test touched — including the whole
+`/invite/[token]` page, which is covered at the API level and not through its
+form. A contract nothing asserts is a comment, and it reads like a promise.
 
 `obligation-row` exists so a test can assert the queue is **exhaustive** — that
 the number of rows rendered equals the number of open obligations the API

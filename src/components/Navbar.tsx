@@ -188,6 +188,26 @@ export default function Navbar() {
               Incidents
             </Link>
 
+            {/* Messages and People were on the desktop menu and not here, so on
+                a phone they were reachable only by typing the URL. */}
+            <Link
+              href="/messages"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="navbar-dropdown-item"
+            >
+              Messages
+            </Link>
+
+            {isAdmin && (
+              <Link
+                href="/admin/users"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="navbar-dropdown-item"
+              >
+                People
+              </Link>
+            )}
+
             <Link
               href="/about"
               onClick={() => setIsMobileMenuOpen(false)}
