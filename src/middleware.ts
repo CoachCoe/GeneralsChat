@@ -55,14 +55,19 @@ function isUnauthenticatedWrite(request: NextRequest): boolean {
 
 export default async function middleware(request: NextRequest, event: never) {
   if (isUnauthenticatedWrite(request)) {
-    const { limit, windowMs } = RATE_LIMITS.SIGN_IN;
     const subject = await signInSubject(request);
-    const keys = [`signin:${callerAddress(request)}`];
-    if (subject) keys.push(`signin-subject:${subject}`);
+    const buckets = [
+      { key: `signin:${callerAddress(request)}`, ...RATE_LIMITS.SIGN_IN },
+      ...(subject
+        ? [{ key: `signin-subject:${subject}`, ...RATE_LIMITS.SIGN_IN_SUBJECT }]
+        : []),
+    ];
 
     // Every bucket is counted, not just the first to refuse: short-circuiting
     // would let a caller spend one budget without touching the other.
-    const results = keys.map(key => checkRateLimit(key, limit, windowMs));
+    const results = buckets.map(({ key, limit, windowMs }) =>
+      checkRateLimit(key, limit, windowMs)
+    );
     const result = results.find(r => !r.allowed) ?? results[0]!;
     if (!result.allowed) {
       // A plain 429, with no hint about whether the address exists.

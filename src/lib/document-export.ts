@@ -14,6 +14,25 @@ import type { ReportBlock } from '@/lib/report-template';
  * check to be wrong.
  */
 
+/**
+ * How an instant is written on a district form, on screen and in the copy that
+ * is taken away.
+ *
+ * One function, because the page and its download are the same document and
+ * were rendering it two ways -- `Sep 13, 2026` against `9/13/2026`. The reader's
+ * zone either way, so the invariant held; two renderings of one legal document
+ * did not agree.
+ *
+ * Here rather than exported from the page, so the export path can reach it
+ * without importing a route component.
+ */
+export function formatFormInstant(iso: string, as: 'date' | 'time'): string {
+  const at = new Date(iso);
+  return as === 'date'
+    ? at.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    : at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
 /** A blank the record could not fill, kept as a blank rather than invented. */
 const BLANK_RULE = '________________';
 
