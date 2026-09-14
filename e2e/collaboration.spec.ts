@@ -390,6 +390,12 @@ test.describe('What a share does not grant', () => {
     // PATCH answers 404.
     for (const obligation of shared) expect(obligation.canComplete).toBe(false);
 
+    // The incident page must not offer the controls either -- it renders them on
+    // `canEdit`, which the same route now decides.
+    const shared404 = await (await recipient.get(`/api/incidents/${reporterIncidentId}`)).json();
+    expect(shared404.canEdit).toBe(false);
+    expect(shared404.complianceActions.every((o: { canComplete: boolean }) => !o.canComplete)).toBe(true);
+
     // And the reporter's own still are.
     const { obligations: mine } = await (await page.request.get('/api/obligations')).json();
     expect(
@@ -408,5 +414,31 @@ test.describe('What a share does not grant', () => {
       data: { participantIds: [someone], body: 'Context I should not have.', incidentId: adminIncidentId },
     });
     expect(response.status()).toBe(400);
+  });
+});
+
+test.describe('A shared incident offers no control that would refuse', () => {
+  test('the page hides every write control from a recipient', async ({ page, browser }) => {
+    const { closedIncidentId } = seededIds();
+    await page.request.post(`/api/incidents/${closedIncidentId}/shares`, {
+      data: { email: TEST_USERS.revocable.email },
+    });
+
+    const context = await browser.newContext({ storageState: STORAGE_STATE.revocable });
+    const recipientPage = await context.newPage();
+    await recipientPage.goto(`/incidents/${closedIncidentId}`);
+
+    // The share panel on this same page says "Only you can change it, mark
+    // obligations done, or share it further". The page used to offer all three.
+    await expect(recipientPage.getByTestId('share-panel')).toBeVisible();
+    for (const name of ['Generate Summary', 'Reopen Incident', 'Close Incident', 'Mark done']) {
+      await expect(recipientPage.getByRole('button', { name })).toHaveCount(0);
+    }
+
+    await context.close();
+
+    // The reporter still has them.
+    await page.goto(`/incidents/${closedIncidentId}`);
+    await expect(page.getByRole('button', { name: 'Generate Summary' })).toBeVisible();
   });
 });

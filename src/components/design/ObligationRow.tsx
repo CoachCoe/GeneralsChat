@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { DeadlineClock } from './DeadlineClock';
 import { AuthorityChip } from './AuthorityChip';
 import { isPolicyBacked } from '@/lib/deadline';
+import { stepLabel } from '@/lib/ai/step-plan';
 
 export interface Obligation {
   id: string;
@@ -94,7 +95,7 @@ export function ObligationRow({
               done ? 'text-text-muted line-through' : 'text-text'
             }`}
           >
-            {obligation.description || obligation.actionType}
+            {stepLabel(obligation)}
           </span>
 
           {/* The title, not the row. `Mark done` is a button inside this row, and

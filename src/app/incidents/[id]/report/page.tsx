@@ -229,7 +229,10 @@ function Rendered({ value }: { value: FieldValue }) {
 
 function Source({ source }: { source?: string }) {
   if (!source) return null;
-  return <span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">{source}</span>;
+  // `.eyebrow` is the canonical uppercase treatment; this inlined a third
+  // spacing (0.08em against the class's 0.12em), which is a second treatment
+  // rather than the duplication CLAUDE.md tolerates.
+  return <span className="eyebrow text-text-muted">{source}</span>;
 }
 
 /** Space to write, on screen and on paper. */
